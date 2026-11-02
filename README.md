@@ -8,7 +8,7 @@ Build one honest, working end-to-end RFQ → verified intake → deterministic c
 
 ## What this ZIP contains
 
-T01 milestone 4 checkpoint: React/Express, PostgreSQL history and real demo authentication. Costing and quotation persistence are not implemented yet. See `docs/current-status.md` for verification.
+T01 milestone 6 checkpoint: React/Express authentication, PostgreSQL rate history, pure decimal.js costing and immutable transactional quotation persistence through an internal service. Quotation HTTP/frontend integration awaits review. See `docs/current-status.md` and [Milestone 6 handoff](docs/quotation-persistence.md) for verification.
 
 ## Start (Windows PowerShell)
 
@@ -62,7 +62,7 @@ Database tests create a generated schema inside the dedicated test database, the
 
 Local permissions: original development tables remain postgres-owned. Existing users/sessions were created under forgequote_app by commit 40f26fe; ownership is preserved per owner instruction. Ordinary runtime grants are SELECT-only on users/business/history/ledger and SELECT on rate_periods; sessions alone have SELECT/INSERT/UPDATE/DELETE. No TRUNCATE granted. The explicit maintenance file apps/api/db/runtime-grants.sql applies these table-specific grants without changing ownership. After reviewing the current schema, run it with your maintenance connection, then npm.cmd run db:check-permissions. Existing auth-table/database ownership still gives forgequote_app DDL powers and self-grant capability; removing these requires a separate, explicitly approved ownership/provisioning decision before public deployment. Test-generated schemas are isolated and owned by the test role.
 
-GET /api/health/ready requires PostgreSQL and migration 002. Auth endpoints: GET /api/auth/session, POST /api/auth/login, POST /api/auth/logout. No draft-creation endpoint exists; it returns 404. Authentication/role/CSRF middleware is tested independently on a test-only probe, not a real quotation write. No RFQ read API, quotation tables or costing engine exists yet.
+GET /api/health/ready requires PostgreSQL and migration 002; it is an authentication readiness check, not verification of the later quote schema. Auth endpoints: GET /api/auth/session, POST /api/auth/login, POST /api/auth/logout. No draft-creation endpoint exists; it returns 404. Authentication/role/CSRF middleware is tested on a test-only probe. Milestone 6 separately tests real internal quotation writes with database actor authorization and restricted runtime privileges. No RFQ read or quotation HTTP API exists.
 
 ## Test login locally
 
@@ -82,7 +82,9 @@ Browser smoke requires local PostgreSQL, migration/seeded users and the built fr
 
 ## Deterministic costing checkpoint
 
-Milestone 5 adds a pure decimal.js engine, independent of HTTP, database and UI. Run `npm.cmd run test:costing` for the nine approved golden cases and financial boundaries. See [costing-engine.md](docs/costing-engine.md) for the public input/output contract and examples. The engine is not yet connected to quotation APIs or persistence; no quotation tables have been added. Approved v0.2 values remain unchanged.
+Milestone 5 adds a pure decimal.js engine, independent of HTTP, database and UI. Run `npm.cmd run test:costing` for the nine approved golden cases and financial boundaries. See [costing-engine.md](docs/costing-engine.md) for the public input/output contract and examples. Milestone 6 adds six quotation tables in migration 003 and an internal creation/retrieval service using that engine. Approved v0.2 values remain unchanged. See [quotation-persistence.md](docs/quotation-persistence.md) and [ADR-0005](docs/decisions/0005-quotation-snapshots.md) for schema, API, concurrency, historical evidence and limitations. Stop before Milestone 7; quotation HTTP/frontend integration is not implemented.
+
+After migration 003, apply `apps/api/db/runtime-grants.sql` explicitly with maintenance credentials and run `npm.cmd run db:check-permissions`. Do not run migrations as runtime or change ownership of existing tables. Quote integration tests additionally require maintenance credentials with CREATE ROLE/SCHEMA capability on the configured dedicated test database; generated test roles/schemas are cleaned up. Keep MIGRATION_DATABASE_URL out of deployed runtime settings.
 
 ## Definition of complete
 

@@ -47,7 +47,7 @@ Result shape:
 }
 ```
 
-Every result leaf is a string, every money amount fixed to two decimals. annualValueExGst is baseline rounded unit price times requestedAnnualQty. No approval decision is made. Results contain no timestamps, database IDs or live rate lookups; orchestration and provenance remain milestone 6 concerns. Inputs are never mutated. CostingInputError exposes code INVALID_COSTING_INPUT, field and message.
+Every result leaf is a string, every money amount fixed to two decimals. annualValueExGst is baseline rounded unit price times requestedAnnualQty. No approval decision is made. Pure results contain no timestamps, database IDs or live rate lookups; the separate Milestone 6 service adds provenance and persistence (quotation-persistence.md). Inputs are never mutated. CostingInputError exposes code INVALID_COSTING_INPUT, field and message.
 
 ## Arithmetic
 
@@ -85,4 +85,4 @@ This returns formulaVersion, currency, gstPercent, taxableSubtotal, gstAmount an
 
 `npm.cmd run test:costing` runs independent literal fixture expectations from golden-cases.md and boundary tests. `npm.cmd test` includes them alongside existing unit/auth-configuration checks; `npm.cmd run test:db` runs the PostgreSQL/auth regressions separately.
 
-T01 supports one machining operation per part. No API wiring, persistence, quote schema, rate selection, approval, AI, PDF or UI change. There is no database access in either function. Large supported calculations can exceed a later database money column's capacity: milestone 6 must select/validate snapshot storage bounds rather than truncate or coerce outputs. No financial output is converted to a JS number.
+T01 supports one machining operation per part. There is no database access in either pure function. Milestone 6 adds a separate internal transaction/rate-resolution/persistence service without changing this engine or any golden expectation. Output storage uses unconstrained NUMERIC with finite/nonnegative/exact-paise checks; large accepted results round-trip without truncation or JS-number conversion. No HTTP/frontend costing integration, approval, AI or PDF is implemented. See quotation-persistence.md and ADR-0005 for service contracts, test evidence and operational limits.
