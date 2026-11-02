@@ -3,9 +3,20 @@
 BEGIN;
 REVOKE ALL PRIVILEGES ON TABLE public.rate_keys, public.rate_versions, public.rfqs,
   public.rfq_parts, public.routing_revisions, public.schema_migrations,
-  public.rate_periods, public.users, public.sessions FROM forgequote_app;
+  public.rate_periods, public.users, public.sessions, public.quotations,
+  public.quotation_versions, public.quotation_parts, public.quotation_rates,
+  public.quotation_part_tiers, public.quotation_totals FROM forgequote_app;
 GRANT SELECT ON TABLE public.rate_keys, public.rate_versions, public.rfqs,
   public.rfq_parts, public.routing_revisions, public.schema_migrations,
   public.rate_periods, public.users TO forgequote_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.sessions TO forgequote_app;
+GRANT SELECT, INSERT ON TABLE public.quotation_parts,
+  public.quotation_rates, public.quotation_part_tiers, public.quotation_totals TO forgequote_app;
+GRANT SELECT ON TABLE public.quotation_versions TO forgequote_app;
+GRANT SELECT ON TABLE public.quotations TO forgequote_app;
+GRANT INSERT (id,rfq_id) ON public.quotations TO forgequote_app;
+-- Do not allow callers to forge creation_xid or the decision timestamp.
+GRANT INSERT (id,quotation_id,version_number,pricing_date,formula_version,currency,
+  gst_percent,created_by,rfq_snapshot,annual_value_ex_gst) ON public.quotation_versions TO forgequote_app;
+GRANT UPDATE (next_version) ON public.quotations TO forgequote_app;
 COMMIT;

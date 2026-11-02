@@ -19,7 +19,7 @@ test('real PostgreSQL migration, seed and history contract', async t => {
     await admin.query(`CREATE SCHEMA ${schema}`);
     pool = new pg.Pool({ connectionString: url, options: `-c search_path=${schema}`, max: 3 });
     await t.test('fresh migration and repeat migration', async () => {
-      assert.deepEqual(await migrate(pool), ['001_initial.sql', '002_authentication.sql']);
+      assert.deepEqual(await migrate(pool), ['001_initial.sql', '002_authentication.sql', '003_quotation_snapshots.sql']);
       assert.deepEqual(await migrate(pool), []);
     });
     await t.test('synthetic seed repeats without duplicates or money numbers', async () => {
@@ -50,7 +50,7 @@ test('real PostgreSQL migration, seed and history contract', async t => {
     });
     await t.test('history UPDATE DELETE and TRUNCATE fail', async () => {
       for (const table of ['rate_versions', 'routing_revisions']) {
-        for (const sql of [`UPDATE ${table} SET id=id`, `DELETE FROM ${table}`, `TRUNCATE ${table}`]) {
+        for (const sql of [`UPDATE ${table} SET id=id`, `DELETE FROM ${table}`, `TRUNCATE ${table} CASCADE`]) {
           await assert.rejects(pool.query(sql), { code: '55000' });
         }
       }

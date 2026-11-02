@@ -7,7 +7,7 @@
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
     "test": "node --test test/config.test.js test/app.test.js test/passwords.test.js test/costing.test.js",
-    "test:db": "node --test test/database.test.js test/auth.test.js",
+    "test:db": "node --test test/database.test.js test/auth.test.js test/quotations.test.js",
     "db:migrate": "node scripts/migrate.js",
     "db:seed": "node scripts/seed.js",
     "db:seed-users": "node scripts/seed-users.js",
