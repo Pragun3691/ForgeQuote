@@ -82,6 +82,11 @@ test('real PostgreSQL quotation snapshot contract with restricted runtime role',
       try { await assert.rejects(service.createDraftVersion(estimator, request()), { code: 'AUTH_REQUIRED' }); }
       finally { await owner.query('UPDATE users SET active=true WHERE id=$1', [estimator]); }
       await assert.rejects(service.createDraftVersion(estimator, { ...request(), gstPercent: '0' }), { code: 'INVALID_QUOTATION_INPUT' });
+      await assert.rejects(service.createDraftVersion(estimator, { ...request(), pricingDate: null }), { code: 'INVALID_QUOTATION_INPUT' });
+      const invalidQty = request(); invalidQty.parts[0].requestedAnnualQty = null;
+      await assert.rejects(service.createDraftVersion(estimator, invalidQty), { code: 'INVALID_COSTING_INPUT' });
+      const invalidRoute = request(); invalidRoute.parts[0].routingRevisionId = randomUUID();
+      await assert.rejects(service.createDraftVersion(estimator, invalidRoute), { code: 'ROUTING_NOT_FOUND' });
       await assert.rejects(service.getDraftVersion(null, saved.versionId), { code: 'AUTH_REQUIRED' });
       assert.equal((await service.getDraftVersion(sales, saved.versionId)).versionId, saved.versionId);
       assert.deepEqual(await counts(), before);

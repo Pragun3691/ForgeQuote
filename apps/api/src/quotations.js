@@ -54,7 +54,7 @@ export function createQuotationService(pool, { gstPercent }) {
     async createDraftVersion(actorId, request) {
       fields(request, ['rfqId', 'parts'], ['pricingDate']);
       id(request.rfqId);
-      const pricingDate = request.pricingDate ?? businessDate(); date(pricingDate);
+      const pricingDate = Object.hasOwn(request, 'pricingDate') ? request.pricingDate : businessDate(); date(pricingDate);
       if (!Array.isArray(request.parts) || request.parts.length === 0) fail('INVALID_QUOTATION_INPUT', 'At least one part required');
       const requestedParts = new Map();
       for (const part of request.parts) {
@@ -97,7 +97,7 @@ export function createQuotationService(pool, { gstPercent }) {
           const input = {
             grossWeightKg: master.gross_weight_kg, cycleTimeMin: route.cycle_time_min,
             setupHoursPerBatch: route.setup_hours_per_batch,
-            requestedAnnualQty: supplied.requestedAnnualQty ?? master.requested_annual_qty,
+            requestedAnnualQty: Object.hasOwn(supplied, 'requestedAnnualQty') ? supplied.requestedAnnualQty : master.requested_annual_qty,
             marginPercent: supplied.marginPercent, gstPercent: normalizedGst,
             rates: Object.fromEntries(Object.entries(resolved).map(([field, rate]) => [field, rate.value])),
             ...(supplied.tierQuantities === undefined ? {} : { tierQuantities: supplied.tierQuantities })
