@@ -1,5 +1,15 @@
 # Learning log — fill during the build
 
+## 2026-11-03 / T01 post-audit correction and verification
+
+- Error middleware must test headersSent before setting Cache-Control or writing a response. Once headers are sent, delegate the identical original error to Express. The focused regression failed on the old code and passed after the two-line reorder; it asserts no header/status/body write and exactly one delegation.
+- Browser authentication previously used development sessions. Both suites now call browserTestDatabase, which forces a newly created local database regardless of caller options, generated users and a restricted runtime role. Existing databases are only used as administrative connections for generated fixture creation/removal; no browser data, migration or seed writes go there. Setup checks the actual generated database name before schema writes. Cleanup tracks created resources. Three negative target probes and both real Chrome suites passed; no browser databases/workflow roles remained.
+- Full results: unit/config/costing/TLS 46/46; PostgreSQL 50/50 including 5 parent tests; production-server smoke 1/1; both browser scripts exited 0; 30 API and 3 browser/helper syntax checks passed; fresh frontend build passed. Build and npm audit each needed an approved retry after sandbox access/network restrictions. No application fallback or unrelated dependency fix was introduced.
+- Historical snapshots and concurrency remain tested against real PostgreSQL: first versions 1/2, existing-header versions 2/3, and six identical HTTP submissions yielding one version. Ownership/ACL and public-table data digests for existing dev/test databases matched before/after the complete run.
+- Bounded tracked/reachable-history secret scan found no matches; npm audit reported zero known vulnerabilities. Neither establishes the absence of all possible security defects. Local runtime ownership remains an operational deployment blocker if those credentials are used; fresh cloud isolation and public HTTPS/browser behavior still require execution.
+- Original-brief provenance is separate from implementation verification. Requirements documentation now flags direct source comparison UNVERIFIED without changing accepted financial policies. No migration, formula, golden, ADR-policy, endpoint or deployment change.
+- Owner questions: (1) Why must an already-started response delegate its original error before setting any header? (2) How do generated browser databases and before/after digests demonstrate development-data isolation? (3) Why do passing local tests and a zero-result dependency scan still leave cloud credential/TLS/proxy verification necessary?
+
 For each completed slice:
 
 ## YYYY-MM-DD / Txx

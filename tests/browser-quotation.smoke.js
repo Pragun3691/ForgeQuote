@@ -4,10 +4,10 @@ import { fork } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { testDatabase } from './helpers/database.js';
+import { browserTestDatabase } from './helpers/database.js';
 import { seed, fixtureId } from '../apps/api/src/seed.js';
 
-const db=await testDatabase({seedBusiness:false});
+const db=await browserTestDatabase({seedBusiness:false});
 const secret=randomBytes(32).toString('hex');
 let child,browser,port;
 async function start() {

@@ -3,6 +3,21 @@ import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { createApp } from '../src/app.js';
 import { randomBytes } from 'node:crypto';
+import { apiErrorHandler } from '../src/errors.js';
+
+test('already-sent responses delegate the original error exactly once without writing', () => {
+  const original = new Error('response already started');
+  const forwarded = [];
+  const response = {
+    headersSent: true,
+    set() { assert.fail('must not set headers after response started'); },
+    status() { assert.fail('must not change response status'); },
+    json() { assert.fail('must not write a response body'); }
+  };
+  apiErrorHandler(original, {}, response, error => forwarded.push(error));
+  assert.deepEqual(forwarded, [original]);
+  assert.equal(forwarded[0], original);
+});
 
 test('readiness reports schema/database availability; quotation routes require authentication', async () => {
   let unavailable = false;

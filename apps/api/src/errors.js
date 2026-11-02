@@ -4,8 +4,8 @@ const statuses = {
   SUBMISSION_CONFLICT: 409, RATE_NOT_FOUND: 422, UNSUPPORTED_RFQ: 422
 };
 export function apiErrorHandler(error, req, res, next) {
-  res.set('Cache-Control', 'no-store');
   if (res.headersSent) return next(error);
+  res.set('Cache-Control', 'no-store');
   if (statuses[error.code]) {res.locals.errorCode=error.code;return res.status(statuses[error.code]).json({ error: {
     code: error.code, message: error.message, ...(error.field ? { field: error.field } : {})
   } });}

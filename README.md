@@ -72,7 +72,7 @@ Run the API and Vite commands above. Select Estimator, use its password from ign
 
 An incorrect password gives a generic error. Ten login requests per IP in 15 minutes trigger 429, including successful requests. Restarting the single API instance clears its process-local throttle; sessions remain in PostgreSQL.
 
-Automated local browser verification uses installed Chrome by default, starts an ephemeral same-origin API serving the built frontend, and reads the local seed credentials without printing them:
+Automated local browser verification uses installed Chrome by default and starts an ephemeral same-origin API serving the built frontend. Each suite creates a new disposable local database with generated users and a restricted runtime role; neither uses development users or writes sessions to an existing database:
 
 ```powershell
 npm.cmd run build
@@ -83,7 +83,7 @@ $env:BROWSER_CHANNEL = 'msedge'
 npm.cmd run test:browser
 ```
 
-The legacy auth smoke requires local development PostgreSQL/migrations/seeded users and built frontend. The quotation smoke creates an isolated test schema/non-owner role and random users, starts a real child API process, restarts it, and tests committed-response loss plus refresh/same-key recovery. It writes ignored desktop/mobile screenshots under .tmp. Both use installed Chrome (or BROWSER_CHANNEL=msedge). Unit/API tests use generated secrets; integration tests use the dedicated _test database. Production cookie checks simulate HTTPS through a trusted proxy; they do not claim a deployed TLS service.
+Both browser suites require the built frontend, a configured local TEST_DATABASE_URL ending in _test and same-host maintenance credentials able to create disposable databases/roles. They migrate/seed only their generated database and remove their fixtures afterward. The quotation smoke starts a real child API process, restarts it, and tests committed-response loss plus refresh/same-key recovery; it writes ignored desktop/mobile screenshots under .tmp. Both use installed Chrome (or BROWSER_CHANNEL=msedge). Unit/API tests use generated secrets; other integration tests use isolated fixtures in the dedicated _test database. Production cookie checks simulate HTTPS through a trusted proxy; they do not claim a deployed TLS service.
 
 ## Deterministic costing checkpoint
 

@@ -1,6 +1,6 @@
 # Brief-to-build traceability
 
-**Source:** User-supplied IsoCode Labs client brief screenshots. Do not describe implementation assumptions as confirmed client rules.
+**Source provenance:** This document records the earlier interpretation of user-supplied IsoCode Labs client brief screenshots. The original screenshots/brief are not present in the tracked repository, so direct verification of the requirement wording, core/optional classifications and submission instructions below is **UNVERIFIED** pending comparison with the original. Implementation/test evidence is separate from verification of the assignment source. Accepted owner-approved costing and ADR policies remain unchanged; do not describe implementation assumptions as confirmed client rules.
 
 | ID | CORE requirement | How to prove it | Status |
 |---|---|---|---|
