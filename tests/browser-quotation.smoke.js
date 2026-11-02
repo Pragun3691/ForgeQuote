@@ -149,8 +149,14 @@ try {
   await page.getByRole('button',{name:'Sign out',exact:true}).click();
   await page.getByRole('heading',{name:'Sign in',exact:true}).waitFor();
   assert.equal((await page.request.get(`${origin}/api/quote-versions/${savedResponse.versionId}`)).status(),401);
+  await login('estimator',db.passwords.DEMO_ESTIMATOR_PASSWORD);await saved();
+  await page.evaluate(()=>{const key=Object.keys(sessionStorage).find(key=>key.startsWith('forgequote:submission:'));sessionStorage.setItem(key,JSON.stringify({submissionKey:'invalid',body:{}}));});
+  await page.reload();
+  await page.getByRole('alert').filter({hasText:'Saved submission is unreadable'}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'Calculate & save draft',exact:true}).isDisabled(),true);
+  assert.deepEqual(await counts(),{versions:'2',submissions:'2'});
   assert.deepEqual(errors,[]);
-  console.log('PASS: expired-session recovery retained pending key; sales head saw saved results but POST returned 403; anonymous GET returned 401; 390px layout had no page overflow; no browser page errors.');
+  console.log('PASS: expired-session recovery retained pending key; sales head saw saved results but POST returned 403; anonymous GET returned 401; 390px layout had no page overflow; malformed pending storage blocked saving; no browser page errors.');
 } finally {
   if(browser) await browser.close();
   await stop();await db.close();

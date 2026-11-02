@@ -13,7 +13,11 @@ function loadPending(key) {
   const raw = sessionStorage.getItem(key);
   if (!raw) return null;
   const stored = JSON.parse(raw);
-  if (!stored || typeof stored.submissionKey !== 'string' || !stored.body) throw Error('Saved submission is unreadable. Do not submit again until the previous outcome is checked.');
+  const uuid = value => typeof value === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
+  if (!stored || !uuid(stored.submissionKey) || !['saving','saved','rejected','uncertain'].includes(stored.phase) ||
+      !stored.body || ['pricingDate','partId','routingRevisionId','marginPercent'].some(field => typeof stored.body[field] !== 'string') ||
+      !stored.body.tierQuantities || ['50','100','150'].some(scenario => typeof stored.body.tierQuantities[scenario] !== 'string') ||
+      (stored.phase === 'saved' && !uuid(stored.versionId))) throw Error('Saved submission is unreadable. Do not submit again until the previous outcome is checked.');
   return stored;
 }
 
