@@ -23,6 +23,7 @@
     "test:browser": "node tests/browser-auth.smoke.js",
     "test:browser:quotation": "node tests/browser-quotation.smoke.js",
     "db:check-permissions": "npm run db:check-permissions --workspace apps/api",
+    "db:grant-runtime": "npm run db:grant-runtime --workspace apps/api",
     "test:costing": "npm run test:costing --workspace apps/api"
   },
   "devDependencies": {

@@ -12,6 +12,7 @@
     "db:seed": "node scripts/seed.js",
     "db:seed-users": "node scripts/seed-users.js",
     "db:check-permissions": "node scripts/check-permissions.js",
+    "db:grant-runtime": "node scripts/grant-runtime.js",
     "test:costing": "node --test test/costing.test.js"
   },
   "dependencies": {
