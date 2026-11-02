@@ -51,3 +51,12 @@ The owner changed database ownership and configured forgequote_app credentials i
 - Removed the draft-route placeholder. Only a test-only middleware probe exercises estimator permissions; no quote-write authorization claim.
 - Existing users/sessions from 40f26fe remain forgequote_app-owned. ACL revocation removes ordinary DML permissions but cannot remove an owner's DDL/self-grant powers. Full isolation requires an additional owner-authorized provisioning decision, so do not present this development account as deployment-ready.
 - Owner questions: Why does database ownership differ from table ownership? Why must session storage have DELETE permission? Why can revoked ordinary grants fail to fully restrict a table owner?
+
+## 2026-11-02 / T01 milestone 5
+
+- Inputs/resolved rate values -> pure decimal.js calculator -> three annual quantity scenarios, seven rounded lines, margin price, separate GST totals and stable formula version. No database, HTTP, clock or environment dependency; no input mutation.
+- Financial ordering matters: scrap/overhead use rounded material/machining, setup expense is not rounded before allocation, total cost sums rounded lines, and gross margin divides by (1-margin). Form the exact machining numerator before division to avoid an unnecessary recurring intermediate at a rounding tie.
+- Defaults round 50/100/150% quantities HALF_UP, minimum one. Batches=min(12, annual quantity); below twelve each batch has one unit. The first remainder batches get an extra unit. Baseline must equal requested quantity in the new input, not mutate RFQ facts.
+- Independent expectations: literal transcription of all nine approved golden cases, full three-part baseline breakdowns and annual values. Additional hand-auditable checks include 0.06 subtotal at 18% GST -> 0.01 tax (not summed part taxes), 1.01 / (1-60%) -> 2.53, and setup 0.005*12/24 -> 0.00 without intermediate rounding.
+- Executed: 33 costing tests passed; npm test 39 passed; real PostgreSQL/auth tests 21 reported passed (19 subtests + 2 parents); permission checker passed and still reports known owner DDL powers. No frontend change/build rerun; no integration of calculator with quote persistence.
+- Owner questions: Why do rounded component sums differ from rounding raw totals? Why is 20% margin a division by 0.8? Why must multi-part GST round only after aggregating the quotation subtotal?

@@ -80,6 +80,10 @@ npm.cmd run test:browser
 
 Browser smoke requires local PostgreSQL, migration/seeded users and the built frontend. Unit/API tests use generated secrets; integration tests use generated isolated schemas in the _test database. Production cookie checks simulate HTTPS through a trusted proxy; they do not claim a deployed TLS service.
 
+## Deterministic costing checkpoint
+
+Milestone 5 adds a pure decimal.js engine, independent of HTTP, database and UI. Run `npm.cmd run test:costing` for the nine approved golden cases and financial boundaries. See [costing-engine.md](docs/costing-engine.md) for the public input/output contract and examples. The engine is not yet connected to quotation APIs or persistence; no quotation tables have been added. Approved v0.2 values remain unchanged.
+
 ## Definition of complete
 
 See `docs/requirements.md` and `tasks/T01-thin-slice.md`. This repo should progress through small reviewable commits, tests, and real deployed slices. Keep a working build throughout.

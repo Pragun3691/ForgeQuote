@@ -21,7 +21,8 @@
     "db:seed": "npm run db:seed --workspace apps/api",
     "db:seed-users": "npm run db:seed-users --workspace apps/api",
     "test:browser": "node tests/browser-auth.smoke.js",
-    "db:check-permissions": "npm run db:check-permissions --workspace apps/api"
+    "db:check-permissions": "npm run db:check-permissions --workspace apps/api",
+    "test:costing": "npm run test:costing --workspace apps/api"
   },
   "devDependencies": {
     "playwright": "^1.64.1"

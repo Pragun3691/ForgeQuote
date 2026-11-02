@@ -35,3 +35,7 @@ Future quote transactions: READ COMMITTED; lock RFQ; resolve dependencies in one
 Implemented: React login/logout -> same-origin Express -> session/user lookup in PostgreSQL. Session bootstrapping supplies CSRF; successful password verification regenerates the session ID/token. Backend roles are authoritative; user activation is checked on every authenticated request. See ADR-0004 for hashing, expiry, cookies, throttling and proxy details.
 
 Quotation-version/part/snapshot tables do not exist and remain a milestone 6 dependency. No draft URL is implemented; role/CSRF middleware is exercised on a test-only probe. No real quote-write authorization is claimed. Migrations/seeds require a separate maintenance connection; runtime grants are table-specific. Historical ownership is unchanged, including the existing local auth-table ownership limitation documented in ADR-0004.
+
+## Milestone 5 pure costing
+
+`src/costing/calculate.js` takes validated decimal-string manufacturing inputs/resolved rates, returns versioned three-tier financial results, and imports only decimal.js. No Express, SQL, environment or clock dependency. A separate quotation-total helper aggregates rounded unit prices/quantities before GST. See costing-engine.md for exact API/bounds. No route, database, rate resolver or React integration was added; provenance and snapshot persistence remain milestone 6.

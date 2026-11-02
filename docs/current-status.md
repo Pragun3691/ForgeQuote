@@ -1,6 +1,6 @@
 # Current status - 2026-11-02
 
-- Branch: feature/T01-thin-slice. Milestones 1-4 complete; STOP for review before milestone 5.
+- Branch: feature/T01-thin-slice. Milestones 1-5 complete; STOP for review before milestone 6. Started milestone 5 on clean HEAD dd11b9f, preserving the maintenance follow-up to 40f26fe.
 - Verified starting history: a301172 (docs), 6fba33b (workspace), 68dc373 (schema), 32c82e1 (permission verification). Starting working tree was clean.
 - Stack accepted (ADR-0001); v0.2 formulas and golden values unchanged (ADR-0002); effective-start rates (ADR-0003); session auth (ADR-0004).
 - Both local database URLs connect as forgequote_app. Development has synthetic RFQ/part/route, six rates, migration ledger, users and sessions. No quotation-version, quote-part or financial snapshot tables yet; those remain milestone 6 dependencies.
@@ -10,6 +10,7 @@
 - Authentication: real login/logout, PostgreSQL sessions, absolute 8-hour expiry, per-request active-user/role checks, CSRF, HTTP-only cookies, production Secure cookie, session-ID regeneration and process-local login throttle.
 - UI: real login/logout with loading/errors, authenticated identity and explicit costing-unavailable state. No fake draft actions.
 - Removed draft placeholder: no quotation creation endpoint (404). Auth/role/CSRF are tested independently using a test-only probe, not real quote writes.
-- Latest verification: 6 unit/config/API tests passed; 19 PostgreSQL subtests + 2 parents passed (21 reported), including original history regressions and independent role middleware. Runtime permission check and real Chrome login/reload/logout passed after grant narrowing. Separate-maintenance migrate was a no-op; RFQ/user seeds verified existing data. Production build previously passed with unchanged frontend. No golden costing engine tests run yet.
+- Milestone 5: pure calculateCosting and calculateQuotationTotals functions use isolated decimal.js precision/HALF_UP, strict string validation, fixed money strings and formula version forgequote-costing-v0.2. No HTTP/SQL/React/environment dependencies, no rate changes or schema changes. All nine approved golden cases and all three baseline breakdowns pass unchanged.
+- Latest executed verification: 33 costing tests; 39 total unit/config/API tests (including costing); 19 PostgreSQL/auth subtests plus 2 parents (21 reported), all passed. Runtime permission check passed with the previously documented ownership limitation. Frontend/build/browser unchanged and not rerun for milestone 5. No real quote-write authorization/persistence tests yet.
 - Deployment not started; no hosting purchased. TLS cookies tested with a simulated trusted proxy, not a deployed HTTPS service.
-- Next only after review: milestone 5 decimal costing and all nine unchanged golden cases. No AI, approvals or PDF.
+- Next only after review: milestone 6 transaction/rate orchestration, quotation schema and immutable input/rate/result snapshots. Pure arithmetic currently supports one operation per part; no costing endpoint, persisted result or snapshot table exists. Before selecting money-column types validate output capacity; never truncate a large supported result. No AI, approvals or PDF.
