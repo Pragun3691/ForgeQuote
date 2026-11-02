@@ -1,5 +1,16 @@
 # Learning log — fill during the build
 
+## 2026-11-03 / T02.2 Gemini extraction and review
+
+- Gemini proposes raw facts/evidence; it cannot calculate costs or choose internal keys. Structured JSON is still untrusted: one strict Zod schema feeds provider JSON Schema and application validation, with unknown fields rejected.
+- Verbatim quotation is necessary but insufficient. Independently check field label/value, complete numeric token, section/part identity, unit, contradictions and exact conversion. decimal.js converts 610 g to 0.61 kg and 192 seconds to 3.2 minutes exactly; 1 second in minutes exceeds six-place exactness and must not silently round. Setup must explicitly say per batch.
+- A conservative verifier should say unsupported/ambiguous when it cannot prove a mapping. Raw prose, date/unit ambiguity and wrong-part quotes stay visible for manual resolution. Known revision language blocks automatic copying; broader semantics/injection still require estimator judgement.
+- Disable SDK retries (attempts includes original request) and automatic continuation before adding one application-controlled transient retry within a total deadline. Abort limits client waiting, not guaranteed provider-side work. Extracting again can consume quota; only existing confirmed RFQ saves have durable idempotency receipts.
+- Missing key/provider errors must not break manual intake. Source/consent/review are temporary browser state; only explicitly accepted/corrected business fields enter T02.1 persistence. No evidence/source table or second save service is needed for this slice.
+- Actual checks: 61 unit/config/costing, 75 reported PostgreSQL results, all four Chrome suites, 37 syntax checks, build and production startup passed. AI provider and SDK transport are mocked in these tests; human corrections and real DB save/replay were verified. Genuine-test command: LIVE PROVIDER TEST NOT RUN because no AI_API_KEY exists. Do not claim actual provider connectivity.
+- Provider terms/data policy and limitations: ADR-0009. Exact files/results/setup: docs/t02-2-handoff.md. No billing, deployment, migrations or later features. STOP before T02.3.
+- Owner questions: Why is exact evidence alone insufficient? Why do verified proposals still need manual keys/confirmation? Why do mock tests not prove access, and how do extraction retries differ from save idempotency?
+
 ## 2026-11-03 / T02.1 manual RFQ intake
 
 - Manual RFQ intake separates business facts and real key selection from quotation-time rate resolution. No pricing logic belongs in intake; selecting a key does not prove historical rate availability.

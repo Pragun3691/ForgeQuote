@@ -1,5 +1,15 @@
 # Current status - 2026-11-03
 
+## T02.2 - SDK/review implemented; live provider verification pending; STOP
+
+- Owner authorized T02.2 only from verified clean feature/T02-ai-rfq-intake at expected 63ada4513758d9798782f0ecac15696166148e8d. Commits: 04ad325 backend/schema/evidence/API/policy/tests; 5d98784 review UI/browser workflow; documentation handoff follows. No push/rebase/deployment or other features.
+- Server-only official @google/genai 2.32.0 + strict Zod 4.6.7 outputs; initial configurable gemini-3.5-flash-lite. AI_API_KEY/AI_MODEL/AI_TIMEOUT_MS stay server-side. Missing/invalid configuration disables extraction only. Provider unpaid terms checked; synthetic/nonconfidential/no-personal-data attestation and explicit consent required before each source is processed. No billing activation or paid fallback.
+- New estimator-only GET/POST /api/rfq-extraction. Exact quote/value/part/token/unit checks return raw/normalized suggestions, computed locations and verified/ambiguous/unsupported/missing labels. Known contradictions/revision markers are flagged; generic setup lacks a per-batch basis and stays ambiguous. No invented rates, manufacturing facts or prices. Strict bounds, total deadline, at most one transient retry, redacted failures, actor/concurrency limits and client aborts.
+- New RFQ retains manual path. Estimator reviews evidence, deliberately copies verified fields, corrects/fills gaps, chooses real keys and confirms save through unchanged T02.1 transaction/idempotency. Source/evidence are transient, not persisted; reviewed facts use normal RFQ storage. No extraction writes.
+- Passed: 61/61 unit/config/costing (including all nine unchanged goldens); 75/75 reported disposable PostgreSQL results; 37 module syntax checks; production build; 1/1 production startup; all four real Chrome suites. AI tests mock the provider, including the official SDK serializer transport; Chrome shows all four labels, human correction, confirmed DB save and manual quota fallback. Missing-key manual path and desktop/mobile review verified; screenshots inspected.
+- **LIVE PROVIDER TEST NOT RUN: AI_API_KEY is not configured.** AI_API_KEY/GEMINI_API_KEY/GOOGLE_API_KEY were all absent. Genuine-test command ran and reported NOT RUN. No actual Gemini response/connectivity/quality claim; this remains an explicit verification gap.
+- No migrations/grants, finance/spec/golden, quotation history, auth-policy or T02.1 save-service changes; migrations 001-005 preserved. Only disposable fixtures written. Existing multipart HTTP costing, local ownership and read-scope limits remain. No Excel/PDF/approval/rate editor, deployment, purchase or billing changes. Handoff/manifest/setup/questions: docs/t02-2-handoff.md; policy/rules: ADR-0009. STOP before T02.3.
+
 ## T02.1 - Manual RFQ creation complete; STOP before Gemini
 
 - Owner approved T02 with strict T02.1 stop. Clean tree and existing feature/T02-ai-rfq-intake verified at 099131f, identical to latest local main. No branch overwrite/rebase or T01/main development.

@@ -13,6 +13,12 @@ Branch: feature/T02-ai-rfq-intake from latest local main at 099131f. Replaces ea
 
 Implemented/tested; see docs/t02-1-handoff.md. Existing one-part quotation HTTP/UI limit preserved. No deployment/purchase.
 
-## T02.2 and later - direction, not permission to start
+## T02.2 - owner authorized 2026-11-03; implemented, live verification pending
 
-Real Gemini official SDK; initial configurable gemini-3.5-flash-lite; structured extraction, literal source-evidence checks, human correction/review, deterministic Excel import, optional practical text-PDF intake. Explicit failures/manual fallback. Free integration restricted to synthetic/nonconfidential demo documents. Provider terms ADR and real integration verification required; never commit/expose API keys. No approval, quotation PDF or rate-master editor in T02. Wait for owner approval before Gemini extraction.
+Official @google/genai 2.32.0, initial configurable gemini-3.5-flash-lite, pasted-text source with explicit synthetic attestation/consent, strict structured output and literal value/part/token/unit verification. Review/correction/manual keys and final confirmation use unchanged T02.1 save contract. Explicit provider/configuration/validation failures and manual fallback. Bounded input/output/deadline and one transient retry; no source/key logging.
+
+Mock-provider unit/HTTP/SDK-transport and real PostgreSQL/Chrome workflows passed; genuine-test command reported LIVE PROVIDER TEST NOT RUN (no AI_API_KEY). No AI connectivity/completion claim. Provider terms/rules: ADR-0009. Full evidence/manifest/setup: docs/t02-2-handoff.md.
+
+## T02.3 and later - STOP pending review
+
+Do not start deterministic Excel import, optional text-PDF support or other features until owner review. No approval, quotation PDF, rate-master editor, deployment, billing activation or service purchase. Never commit/expose credentials.

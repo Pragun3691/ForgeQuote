@@ -8,7 +8,9 @@ Build one honest, working end-to-end RFQ → verified intake → deterministic c
 
 ## What this ZIP contains
 
-Current checkpoint: T02.1 manual RFQ intake. Estimators create 1-20 reviewed parts using real internal rate keys; atomic saves and retained submission keys recover uncertain outcomes without retry duplicates. Open New RFQ from the register. Multiple-part intake/read works; existing quotation HTTP/UI still costs one part only. No Gemini/Excel/PDF intake or AI verification yet. See [T02.1 handoff and exact file manifest](docs/t02-1-handoff.md) and [ADR-0008](docs/decisions/0008-manual-rfq-intake.md). STOP for owner approval before T02.2. No deployment or purchase.
+Current checkpoint: T02.2 pasted-text Gemini extraction/review is implemented using the real server SDK, strict structured output and source-evidence checks. **LIVE PROVIDER TEST NOT RUN: no API key is configured.** Mocked provider/SDK-transport tests and real PostgreSQL/Chrome workflows passed; they do not prove live connectivity. See [T02.2 handoff, setup and exact file manifest](docs/t02-2-handoff.md) and [ADR-0009 provider policy/verification rules](docs/decisions/0009-gemini-extraction.md). STOP before T02.3. No Excel/PDF intake, deployment, billing activation or purchase.
+
+Manual T02.1 intake remains available with or without AI: estimators create 1-20 reviewed parts using real internal rate keys; atomic saves and retained keys recover uncertain outcomes without retry duplicates. Multiple-part intake/read works; existing quotation HTTP/UI still costs one part only. See [T02.1 handoff](docs/t02-1-handoff.md) and [ADR-0008](docs/decisions/0008-manual-rfq-intake.md).
 
 Previous T01 milestone 8 preparation: strict TLS, fresh-database role isolation, liveness, redacted logs and write throttling. No cloud accounts/resources/purchases/deployment yet. Local database ownership remains unchanged. See [Milestone 8 handoff](docs/milestone-8-handoff.md) and [deployment procedure](docs/deployment.md). Quotation/API/browser contracts remain documented in the [Milestone 7 handoff](docs/milestone-7-handoff.md).
 
@@ -68,6 +70,18 @@ Local permissions: original development tables remain postgres-owned. Existing u
 
 GET /api/health/live is DB/session-free. GET /api/health/ready requires PostgreSQL and migration 005. Auth: GET /api/auth/session, POST /api/auth/login, POST /api/auth/logout. Protected business endpoints: GET /api/rfqs, GET /api/rfqs/:id, GET /api/rfq-rate-keys, POST /api/rfqs, POST /api/rfqs/:id/quote-versions and GET /api/quote-versions/:id. Business POST requires estimator role, Origin, X-CSRF-Token and UUID Idempotency-Key. RFQ and quote creation each have separate process-local 30-attempt/estimator/15-minute limits. Sales head reads only. On 429 retain key/body and retry later. RFQ POST allows 64 KiB; other JSON retains 4 KiB. All financial values stay decimal strings.
 
+T02.2 additionally exposes estimator-only GET/POST /api/rfq-extraction. POST requires Origin/CSRF and explicit source consent/synthetic attestation, permits 64 KiB JSON with 12000 source characters, and performs no database write. Five attempts/estimator/15 minutes and two in-flight calls per process are separate from manual saves. Errors retain manual entry; availability status indicates configuration only.
+
+## Optional Gemini local setup and review
+
+Keep the provider key exclusively in ignored root .env as AI_API_KEY. Obtain/use an unpaid project key locally; never put a key in React, a VITE_ variable, Git or chat. No billing activation is required or authorized. Optional nonsecret settings: AI_MODEL=gemini-3.5-flash-lite and AI_TIMEOUT_MS=20000 (1000-30000 allowed). Restart the API after changes. Missing/invalid AI configuration leaves manual RFQ entry available. The API uses pinned @google/genai 2.32.0 and Zod 4.6.7; it does not implicitly read SDK key aliases or fall back to another model.
+
+In New RFQ expand Extract from text with AI (optional). Paste only synthetic nonconfidential text, read the linked provider disclosure, confirm both checkboxes and extract. Inspect raw/normalized suggestions, source quotes/locations and the four verification labels. Use verified suggestions explicitly replaces form fields/parts; rejected fields and all internal rate keys remain empty. Correct/fill facts, choose real keys and confirm review before the existing save. Continue manually collapses the panel; provider failure never creates a fake suggestion or RFQ.
+
+Automatic mapping conservatively requires labeled lines and explicit Part:/Part number:/Item: sections. It checks complete values/tokens, correct part, supported units, exact decimal conversion and known contradictions. Generic prose or ambiguous dates/units may require manual correction; setup requires explicit per-batch wording. The full pasted source/evidence are transient; reviewed facts use existing RFQ/recovery storage. [Detailed verifier rules and limits](docs/decisions/0009-gemini-extraction.md).
+
+After privately configuring an unpaid key, npm.cmd run test:ai:live makes a genuine call using the tracked synthetic fixture and prints only success/failure metadata. Without a key it prints LIVE PROVIDER TEST NOT RUN. Regular test suites always mock provider calls. No actual provider call occurred in this checkpoint.
+
 ## Test login locally
 
 Run the API and Vite commands above. Select Estimator, use its password from ignored .env, sign in and open RFQ-2611-014. Select pricing date 2026-11-02, margin 20 and quantities 90000/180000/270000; calculate/save. The saved baseline cost is 119.76 and price is 149.70. Refresh to retrieve the same saved version. Sales head can inspect it but cannot create. Start new calculation is an explicit new version/key; after uncertain failure, retry the same pending submission. The tab retains pending key/body across refresh/expiry in sessionStorage. No authoritative client pricing or fake business values.
@@ -81,12 +95,13 @@ npm.cmd run build
 npm.cmd run test:browser
 npm.cmd run test:browser:quotation
 npm.cmd run test:browser:rfq
+npm.cmd run test:browser:ai
 # If only Edge is installed:
 $env:BROWSER_CHANNEL = 'msedge'
 npm.cmd run test:browser
 ```
 
-All three browser suites require the built frontend, local TEST_DATABASE_URL ending in _test and same-host maintenance credentials able to create disposable databases/roles. They migrate/seed only generated databases and remove fixtures afterward. Quotation smoke tests real API process restart and committed-response loss; manual intake smoke tests multi-part correction/save, committed-response loss, exact key/body recovery and unchanged single-part costing. Screenshots go under ignored .tmp. Use Chrome or BROWSER_CHANNEL=msedge. Other integration tests use isolated dedicated _test fixtures. Production cookie checks simulate HTTPS through a trusted proxy; no deployed TLS claim.
+All four browser suites require the built frontend, local TEST_DATABASE_URL ending in _test and same-host maintenance credentials able to create disposable databases/roles. They migrate/seed only generated databases and remove fixtures afterward. Quotation smoke tests real API process restart/committed-response loss; manual intake tests correction/save and exact-key recovery. AI smoke tests consent, four verification labels, normalization, human correction, confirmed save and quota/manual fallback with an explicitly mocked provider. Screenshots go under ignored .tmp. Use Chrome or BROWSER_CHANNEL=msedge. Other integration tests use isolated dedicated _test fixtures. Production cookie checks simulate HTTPS through a trusted proxy; no deployed TLS claim.
 
 ## Deterministic costing checkpoint
 
