@@ -6,12 +6,13 @@ const statuses = {
 export function apiErrorHandler(error, req, res, next) {
   res.set('Cache-Control', 'no-store');
   if (res.headersSent) return next(error);
-  if (statuses[error.code]) return res.status(statuses[error.code]).json({ error: {
+  if (statuses[error.code]) {res.locals.errorCode=error.code;return res.status(statuses[error.code]).json({ error: {
     code: error.code, message: error.message, ...(error.field ? { field: error.field } : {})
-  } });
+  } });}
   const status = error.type === 'entity.too.large' ? 413 : error.type === 'entity.parse.failed' ? 400 : 503;
   const business = /^\/api\/(rfqs|quote-versions)(\/|$)/.test(req.path);
   const code = status === 413 ? 'REQUEST_TOO_LARGE' : status === 400 ? 'INVALID_JSON' : business ? 'QUOTATION_SERVICE_UNAVAILABLE' : 'AUTH_SERVICE_UNAVAILABLE';
+  res.locals.errorCode=code;
   res.status(status).json({ error: { code, message: status === 503
     ? business ? 'Quotation service unavailable. If saving, retry the same submission key and inputs to check the outcome.' : 'Authentication service unavailable. Please retry.'
     : 'Invalid request body.' } });

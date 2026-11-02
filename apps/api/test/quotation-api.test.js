@@ -155,6 +155,26 @@ test('quotation HTTP API with real sessions and restricted PostgreSQL runtime', 
         assert.deepEqual(await count(),before);
       } finally {await db.owner.query('DELETE FROM rfq_parts WHERE id=$1',[extraPart]);}
     });
+    await t.test('per-estimator write limiter blocks retries without creating records or replacing the key',async()=>{
+      const limitedApp=createApp(db.runtime,config,{sessionSchema:db.schema,quoteLimit:1,quoteWindowMs:60000});
+      const limitedServer=limitedApp.listen(0,'127.0.0.1');await once(limitedServer,'listening');
+      const limitedBase=`http://127.0.0.1:${limitedServer.address().port}`,retryKey=randomUUID();
+      const send=async csrf=>fetch(limitedBase+path,{method:'POST',headers:{Cookie:estimator.cookie,Origin:config.appOrigin,
+        'X-CSRF-Token':csrf,'Content-Type':'application/json','Idempotency-Key':retryKey},body:JSON.stringify(body())});
+      try {
+        assert.equal((await send('wrong')).status,403); // CSRF denial does not consume allowance.
+        assert.equal((await send(estimator.token)).status,201);
+        const before=await count(),blocked=await send(estimator.token);
+        assert.equal(blocked.status,429);assert.ok(blocked.headers.get('retry-after'));
+        assert.equal((await blocked.json()).error.code,'QUOTE_RATE_LIMIT');
+        assert.deepEqual(await count(),before);
+        // Another process-local limiter accepts the same key as replay, not a
+        // new version: no idempotency state is discarded when throttled.
+        const recovered=await estimator.request(path,{method:'POST',key:retryKey,body:body()});
+        assert.equal(recovered.status,200);assert.equal(recovered.data.replayed,true);
+        assert.deepEqual(await count(),before);
+      } finally {limitedApp.locals.sessionStore.close();await new Promise(resolve=>limitedServer.close(resolve));}
+    });
   } finally {
     app.locals.sessionStore.close(); await new Promise(resolve => server.close(resolve)); await db.close();
   }

@@ -1,6 +1,7 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 
 export function failure(res, status, code, message) {
+  res.locals.errorCode = code;
   return res.status(status).json({ error: { code, message } });
 }
 
