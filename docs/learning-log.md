@@ -35,3 +35,12 @@ Before T01, explain in your own words: RFQ vs quote; why gross margin differs fr
 ### Local role verification
 
 The owner changed database ownership and configured forgequote_app credentials in ignored .env. PostgreSQL database ownership did not change postgres-owned table permissions. Granted only SELECT/INSERT on existing checkpoint tables and SELECT on the derived-period view. Repeated migration/seed, all tests and real readiness passed with the new connection. No historical rows were updated. Future ALTER operations on postgres-owned objects still require their maintenance owner; production runtime credentials must remain separate from maintenance/database ownership.
+
+## 2026-11-02 / T01 milestone 4
+
+- Password -> salted asynchronous scrypt comparison -> regenerate opaque session ID -> save user ID, expiry and CSRF in PostgreSQL. Browser gets an HTTP-only cookie; no password or role is trusted from that cookie.
+- CSRF token proves the request came from a page able to read the session response; exact Origin is checked too. Authentication answers who; role authorization answers which actions are allowed.
+- Database/session errors fail visibly; role and activation are reloaded for every authenticated request. Absolute expiry is enforced even if a browser still sends an old cookie.
+- Tests executed: 5 unit/config/API tests; 19 real PostgreSQL subtests plus 2 parents (21 reported); production build; real Chrome wrong-password/both-role login/reload/logout/mobile smoke. Cookie/proxy tests simulate trusted HTTPS headers; public deployment remains unverified.
+- Found and fixed Vite reading server NODE_ENV=development during a production build; now only proxy-port settings are read without mutating Vite's environment.
+- Owner questions: Why regenerate the session ID after login? Why does an HTTP-only cookie still need CSRF protection? Why does disabling a user invalidate access without waiting eight hours?

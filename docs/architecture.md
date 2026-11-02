@@ -29,3 +29,9 @@ React/Vite JavaScript and Express share one production origin. pg for PostgreSQL
 Rates use unique effective starts and derived ends (ADR-0003); routing revisions append-only. Future snapshots retain inputs, rate IDs/values, routing, date, formula, results and illustrative 18% GST. Baseline edits change quote inputs, not RFQ facts.
 
 Future quote transactions: READ COMMITTED; lock RFQ; resolve dependencies in one statement; allocate next version while locked; insert atomically. Two retries maximum after confirmed serialization/deadlock rollback. Never replay uncertain commits. Service not implemented in milestones 1-3.
+
+## Milestone 4 authentication
+
+Implemented: React login/logout -> same-origin Express -> session/user lookup in PostgreSQL. Session bootstrapping supplies CSRF; successful password verification regenerates the session ID/token. Backend roles are authoritative; user activation is checked on every authenticated request. See ADR-0004 for hashing, expiry, cookies, throttling and proxy details.
+
+Quotation-version/part/snapshot tables do not exist yet and remain a milestone 6 dependency. The guarded draft URL performs no calculation or write; authorized estimators receive 501 until persistence exists. No costing engine or approval workflow was added.

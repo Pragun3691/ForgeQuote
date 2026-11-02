@@ -3,3 +3,13 @@ body { margin: 0; }
 main { max-width: 48rem; margin: 10vh auto; padding: 2rem; background: white; border-top: .3rem solid #146c67; }
 h1 { font-size: clamp(2rem, 5vw, 3rem); }
 p { line-height: 1.6; }
+form { max-width: 25rem; }
+label { display: block; margin-top: 1.25rem; margin-bottom: .4rem; font-weight: 600; }
+input, select, button { box-sizing: border-box; font: inherit; padding: .8rem; border-radius: .35rem; }
+input, select { width: 100%; border: 1px solid #71828d; background: white; }
+button { margin-top: 1.5rem; background: #146c67; color: white; border: 0; cursor: pointer; }
+button:disabled { opacity: .6; cursor: wait; }
+:focus-visible { outline: 3px solid #b47c1b; outline-offset: 3px; }
+.eyebrow { color: #526976; }
+.error { background: #fff1ef; border-left: .25rem solid #ad352a; padding: 1rem; color: #80261f; }
+@media (max-width: 40rem) { main { margin: 1rem; padding: 1.5rem; } }

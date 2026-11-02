@@ -1,15 +1,14 @@
 # Current status - 2026-11-02
 
-- Branch: feature/T01-thin-slice.
-- Milestones 1-3 authorized; stop before authentication/costing for review.
-- Stack accepted (ADR-0001); v0.2 policy accepted (ADR-0002); rate storage accepted (ADR-0003).
-- Milestones 1–2: docs reconciled; React/Express workspace and PostgreSQL pool configured. No authentication/costing or public writes.
-- Verified: 3 configuration/API checks pass; Vite production build passes. Initial sandboxed build failed on esbuild directory discovery; escalated build succeeded.
-- Milestone 3 complete: migration 001, synthetic RFQ/part/route, six effective-start rate keys/versions, history triggers, migration runner, idempotent seed and real PostgreSQL tests.
-- Local databases: forgequote_dev and isolated forgequote_test. Ignored root .env configured; no secrets committed.
-- Reverified owner-supplied forgequote_app connections to both databases. Existing development tables remain postgres-owned; granted SELECT/INSERT on the six checkpoint tables and SELECT on rate_periods. No UPDATE/DELETE granted; no database dropped or data overwritten. Database ownership alone does not transfer existing table ownership.
-- Reverification with forgequote_app: migration no-op, seed matched existing rows, 3 API/config tests and 9 DB subtests plus parent passed; real API readiness passed. Existing development counts: 1 RFQ, 1 part, 6 rates, 1 routing revision.
-- Final verification: npm test 3/3; npm run test:db 10/10 reported (9 subtests plus parent); fresh/repeated migrate and seed passed; same-origin built HTML/JS plus real API/database smoke passed. Golden costing tests not implemented/executed yet.
-- Deployment not started; no services purchased.
-- STOP: awaiting checkpoint review before milestone 4. No authentication, costing, quotation persistence or deployed application claimed.
-- Next authorized-on-review work: password hashes, two demo users, PostgreSQL session migration, login/logout/CSRF and role tests. Deployment runtime DB privileges remain pending.
+- Branch: feature/T01-thin-slice. Milestones 1-4 complete; STOP for review before milestone 5.
+- Verified starting history: a301172 (docs), 6fba33b (workspace), 68dc373 (schema), 32c82e1 (permission verification). Starting working tree was clean.
+- Stack accepted (ADR-0001); v0.2 formulas and golden values unchanged (ADR-0002); effective-start rates (ADR-0003); session auth (ADR-0004).
+- Both local database URLs connect as forgequote_app. Development has synthetic RFQ/part/route, six rates, migration ledger, users and sessions. No quotation-version, quote-part or financial snapshot tables yet; those remain milestone 6 dependencies.
+- Migration 002 applied without altering prior tables/data. Two demo identities seeded from ignored environment variables; repeated user seed does not reset credentials or activation. Missing local auth secrets were randomly generated into ignored .env and never printed or committed.
+- Existing postgres-owned development tables retain limited SELECT/INSERT grants; new auth tables are locally owned by forgequote_app. Deployment needs separate non-owner runtime credentials and appropriate session CRUD/user SELECT grants.
+- Authentication: real login/logout, PostgreSQL sessions, absolute 8-hour expiry, per-request active-user/role checks, CSRF, HTTP-only cookies, production Secure cookie, session-ID regeneration and process-local login throttle.
+- UI: real login/logout with loading/errors, authenticated identity and explicit costing-unavailable state. No fake draft actions.
+- Draft URL only checks authentication/estimator role/CSRF: 401 anonymous, 403 wrong role, 501 authorized estimator. No quote writes.
+- Executed: 5 unit/config/API tests passed; 19 PostgreSQL subtests + 2 parents passed (21 reported), including original history regressions. Production build and real Chrome smoke for both roles, incorrect password, reload, logout and mobile viewport passed. No golden costing engine tests run yet.
+- Deployment not started; no hosting purchased. TLS cookies tested with a simulated trusted proxy, not a deployed HTTPS service.
+- Next only after review: milestone 5 decimal costing and all nine unchanged golden cases. No AI, approvals or PDF.

@@ -3,8 +3,13 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "workspaces": ["apps/api", "apps/web"],
-  "engines": { "node": ">=24 <25" },
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
+  "engines": {
+    "node": ">=24 <25"
+  },
   "scripts": {
     "dev:api": "npm run dev --workspace apps/api",
     "dev:web": "npm run dev --workspace apps/web",
@@ -13,6 +18,11 @@
     "test": "npm test --workspace apps/api",
     "test:db": "npm run test:db --workspace apps/api",
     "db:migrate": "npm run db:migrate --workspace apps/api",
-    "db:seed": "npm run db:seed --workspace apps/api"
+    "db:seed": "npm run db:seed --workspace apps/api",
+    "db:seed-users": "npm run db:seed-users --workspace apps/api",
+    "test:browser": "node tests/browser-auth.smoke.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.64.1"
   }
 }

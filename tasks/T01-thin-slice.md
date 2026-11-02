@@ -32,3 +32,5 @@ Coding agent must present: endpoint contracts; proposed SQL tables/relationships
 ## Owner authorization - 2026-11-02
 
 Milestones 1-3 authorized: reconcile docs; workspace/configuration; migration and synthetic seed with database tests. Stop before authentication or costing. Milestone 4 adds real PostgreSQL-backed sessions, demo roles and backend authorization before public writes. Six rate categories use append-only effective starts (ADR-0003), not schedules. No paid hosting required. Preserve v0.2 formulas, nine goldens, illustrative GST 18%, and baseline quantity in new quote snapshots only. Later gates: auth tests, goldens, persistence, browser-to-database workflow, verified deployment.
+
+Milestone 4 subsequently authorized and completed: real session authentication, demo-user seed, CSRF, role checks, login throttle and connected login screen. Stop again for review before milestone 5. Authentication does not authorize implementing costing or quotation persistence.

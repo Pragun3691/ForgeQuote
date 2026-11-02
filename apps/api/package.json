@@ -1,10 +1,23 @@
 {
-  "name": "@forgequote/api", "private": true, "version": "0.1.0", "type": "module",
+  "name": "@forgequote/api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
   "scripts": {
-    "dev": "node --watch src/server.js", "start": "node src/server.js",
-    "test": "node --test test/config.test.js test/app.test.js",
-    "test:db": "node --test test/database.test.js",
-    "db:migrate": "node scripts/migrate.js", "db:seed": "node scripts/seed.js"
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "test": "node --test test/config.test.js test/app.test.js test/passwords.test.js",
+    "test:db": "node --test test/database.test.js test/auth.test.js",
+    "db:migrate": "node scripts/migrate.js",
+    "db:seed": "node scripts/seed.js",
+    "db:seed-users": "node scripts/seed-users.js"
   },
-  "dependencies": { "express": "^5.1.0", "pg": "^8.16.0", "decimal.js": "^10.6.0" }
+  "dependencies": {
+    "connect-pg-simple": "^10.0.0",
+    "decimal.js": "^10.6.0",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.7.2",
+    "express-session": "^1.19.0",
+    "pg": "^8.16.0"
+  }
 }

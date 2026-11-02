@@ -19,3 +19,14 @@ export function readConfig(env = process.env) {
   if (gst !== '18') throw new Error('T01 uses explicitly illustrative DEMO_GST_PERCENT=18');
   return { databaseUrl, port: Number(portText), nodeEnv, gstPercent: gst };
 }
+
+export function readAuthConfig(env = process.env) {
+  const base = readConfig(env);
+  if (typeof env.SESSION_SECRET !== 'string' || Buffer.byteLength(env.SESSION_SECRET) < 32) throw Error('SESSION_SECRET must contain at least 32 bytes');
+  let origin;
+  try { origin = new URL(env.APP_ORIGIN); } catch { throw Error('APP_ORIGIN must be an explicit HTTP(S) origin'); }
+  if (!['http:', 'https:'].includes(origin.protocol) || origin.origin !== env.APP_ORIGIN || origin.username || origin.password || (base.nodeEnv === 'production' && origin.protocol !== 'https:')) throw Error('APP_ORIGIN must be an origin without a path; production requires HTTPS');
+  const hops = env.TRUST_PROXY_HOPS ?? '0';
+  if (!['0', '1'].includes(hops)) throw Error('TRUST_PROXY_HOPS must be 0 or 1');
+  return { ...base, sessionSecret: env.SESSION_SECRET, appOrigin: origin.origin, trustProxyHops: Number(hops) };
+}
