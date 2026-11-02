@@ -21,3 +21,11 @@ Estimator/Sales Head React UI
 **First slice:** One part, seeded material and machine rates, a small RFQ form, POST calculate on backend, persist quote draft, retrieve and display. Defer AI, permissions polish and PDF to later slices. Have an online deployed URL and DB from the start, not an all-local app until Nov 6.
 
 **Schema design follows the approved costing spec.** Entity names here are conceptual, not final migration contracts.
+
+## Authorized T01 checkpoint
+
+React/Vite JavaScript and Express share one production origin. pg for PostgreSQL; decimal.js for finance. Milestones 1-3 cover workspace, schema and synthetic data only. No public writes. Milestone 4 adds persistent sessions and roles. AI, approvals and PDF deferred.
+
+Rates use unique effective starts and derived ends (ADR-0003); routing revisions append-only. Future snapshots retain inputs, rate IDs/values, routing, date, formula, results and illustrative 18% GST. Baseline edits change quote inputs, not RFQ facts.
+
+Future quote transactions: READ COMMITTED; lock RFQ; resolve dependencies in one statement; allocate next version while locked; insert atomically. Two retries maximum after confirmed serialization/deadlock rollback. Never replay uncertain commits. Service not implemented in milestones 1-3.

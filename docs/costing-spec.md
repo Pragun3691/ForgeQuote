@@ -1,8 +1,8 @@
-# ForgeQuote — Costing contract v0.2 (T00 REVIEW — NOT YET APPROVED)
+# ForgeQuote — Costing contract v0.2 (APPROVED - ADR-0002)
 
 **Source of truth:** IsoCode Labs client brief. The client requires material, gross weight, machining route/cycle time, machine-hour rate, scrap, overhead, freight, margin, costing at 2–3 volumes, effective-dated rate masters, historical quotes, GST separately, and sales-head approval when a **quotation's annual value exceeds ₹25 lakh**. AI must never perform pricing calculations.
 
-Everything below that fixes a missing business rule is **our engineering assumption for the take-home demo**, not a verified manufacturer policy. Confirm the contract with the candidate before marking ADR-0002 `ACCEPTED`.
+Everything below that fixes a missing business rule is **our engineering assumption for the take-home demo**, not a verified manufacturer policy. ADR-0002 records acceptance. Later owner-authorized ADR-0003 supersedes section 4 storage mechanics for T01: ends derive from next starts; explicit expiry gaps are unsupported. Financial formulas remain unchanged.
 
 ## 1. Units and rounding
 

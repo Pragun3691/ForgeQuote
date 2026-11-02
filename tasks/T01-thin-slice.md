@@ -19,12 +19,16 @@ Seed one synthetic RFQ and material/machine rate; display a React RFQ form → P
 
 ## Explicitly NOT in this slice
 
-AI intake, login/role enforcement, approval, multiple routing operations, quote PDF, full UI polish. Those follow in subsequent slices and are still required for full assignment.
+AI intake, approval, multiple routing operations, quote PDF, full UI polish. Those follow in subsequent slices and are still required for full assignment.
 
 ## Acceptance demonstration
 
-Create RFQ-2611-014 draft, calculate against effective date, see expected `₹149.85`/unit at 180,000/year using `docs/golden-cases.md` v0.1 **assumptions**, reload page and retrieve same saved draft. Missing rate shows error instead of zero. Verify DB contains the quote and selected rate IDs.
+Create RFQ-2611-014 draft, calculate against effective date, see expected `₹149.70`/unit at 180,000/year using `docs/golden-cases.md` v0.2 **assumptions**, reload page and retrieve same saved draft. Missing rate shows error instead of zero. Verify DB contains the quote and selected rate IDs.
 
 ## Before editing
 
 Coding agent must present: endpoint contracts; proposed SQL tables/relationships; money handling & rounding; proposed deployment host; tests; risks; exact file plan. **Wait for owner approval.**
+
+## Owner authorization - 2026-11-02
+
+Milestones 1-3 authorized: reconcile docs; workspace/configuration; migration and synthetic seed with database tests. Stop before authentication or costing. Milestone 4 adds real PostgreSQL-backed sessions, demo roles and backend authorization before public writes. Six rate categories use append-only effective starts (ADR-0003), not schedules. No paid hosting required. Preserve v0.2 formulas, nine goldens, illustrative GST 18%, and baseline quantity in new quote snapshots only. Later gates: auth tests, goldens, persistence, browser-to-database workflow, verified deployment.

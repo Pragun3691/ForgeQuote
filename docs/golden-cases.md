@@ -1,4 +1,4 @@
-# Golden costing cases v0.2 — independent expectations (T00 REVIEW)
+# Golden costing cases v0.2 — independent expectations (APPROVED - ADR-0002)
 
 **IMPORTANT:** The original client sample provides part, material, gross weight, stated annual quantity, cycle time and machine-hour rate. The numeric material rates, scrap/overhead percentages, packaging, freight, setup HOURS, margins, and tier/batch policy below are **illustrative TEST ASSUMPTIONS** we must document in the TDD. These replace v0.1 fixed setup-rupees-per-batch fixtures. Never change a golden value merely to match app output.
 
