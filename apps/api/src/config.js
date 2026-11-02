@@ -1,9 +1,10 @@
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { databasePoolConfig } from './database-config.js';
 
 // Resolve from this module, independent of npm workspace's working directory.
 const envPath = fileURLToPath(new URL('../../../.env', import.meta.url));
-if (existsSync(envPath)) process.loadEnvFile(envPath);
+if (process.env.NODE_ENV !== 'production' && existsSync(envPath)) process.loadEnvFile(envPath);
 
 export function readConfig(env = process.env) {
   const databaseUrl = env.DATABASE_URL;
@@ -17,11 +18,15 @@ export function readConfig(env = process.env) {
   if (!['development', 'test', 'production'].includes(nodeEnv)) throw new Error('Unsupported NODE_ENV');
   const gst = env.DEMO_GST_PERCENT ?? '18';
   if (gst !== '18') throw new Error('T01 uses explicitly illustrative DEMO_GST_PERCENT=18');
-  return { databaseUrl, port: Number(portText), nodeEnv, gstPercent: gst };
+  const databaseTlsMode = env.DATABASE_TLS_MODE;
+  const databaseCaCert = env.DATABASE_CA_CERT;
+  databasePoolConfig(databaseUrl, {nodeEnv, databaseTlsMode, databaseCaCert, globalTlsVerification:env.NODE_TLS_REJECT_UNAUTHORIZED});
+  return { databaseUrl, port: Number(portText), nodeEnv, gstPercent: gst, databaseTlsMode, databaseCaCert };
 }
 
 export function readAuthConfig(env = process.env) {
   const base = readConfig(env);
+  if(base.nodeEnv==='production' && [env.MIGRATION_DATABASE_URL,env.TEST_DATABASE_URL,env.DEMO_ESTIMATOR_PASSWORD,env.DEMO_SALES_HEAD_PASSWORD].some(Boolean)) throw Error('Maintenance, test and seed credentials must not be present in the production app environment');
   if (typeof env.SESSION_SECRET !== 'string' || Buffer.byteLength(env.SESSION_SECRET) < 32) throw Error('SESSION_SECRET must contain at least 32 bytes');
   let origin;
   try { origin = new URL(env.APP_ORIGIN); } catch { throw Error('APP_ORIGIN must be an explicit HTTP(S) origin'); }

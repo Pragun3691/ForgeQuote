@@ -1,8 +1,9 @@
 import pg from 'pg';
+import { databasePoolConfig } from './database-config.js';
 
 // pg returns NUMERIC and BIGINT as strings. Do not replace those parsers.
-export function createPool(connectionString) {
-  const pool = new pg.Pool({ connectionString, max: 5, connectionTimeoutMillis: 5000, idleTimeoutMillis: 10000 });
+export function createPool(connectionString, options) {
+  const pool = new pg.Pool(databasePoolConfig(connectionString, options));
   pool.on('error', () => console.error('Unexpected idle PostgreSQL connection error'));
   return pool;
 }
