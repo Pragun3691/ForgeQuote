@@ -69,6 +69,21 @@ details {margin:1.5rem 0;border:1px solid var(--border);border-radius:5px;}
 .review-confirm {display:flex;gap:.7rem;align-items:flex-start;line-height:1.5;}
 .review-confirm input {width:auto;margin:.2rem 0 0;}
 .sr-only {position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;}
+textarea {display:block;margin-top:.45rem;width:100%;min-width:0;resize:vertical;border:1px solid #adbfba;border-radius:5px;padding:.8rem;font:inherit;font-weight:400;line-height:1.5;}
+textarea:disabled {background:#f3f6f5;color:#5c7069;}
+.ai-content {padding:0 1rem 1rem;}
+.ai-content h3 {margin-top:1rem;}
+.ai-content .review-confirm {margin-top:1rem;}
+.extraction-fields {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:1rem;}
+.extraction-field {border:1px solid var(--border);border-radius:5px;padding:1rem;min-width:0;overflow-wrap:anywhere;}
+.extraction-field h4 {margin:0;font-size:.85rem;}
+.extraction-field p {font-size:.85rem;}
+.extraction-field blockquote {margin:.6rem 0;padding-left:.7rem;border-left:3px solid var(--border);}
+.extraction-field pre {white-space:pre-wrap;overflow-wrap:anywhere;font-size:.8rem;}
+.verification {font-size:.7rem;font-weight:600;border-radius:4px;padding:.3rem .5rem;background:#f4eeee;color:#824a40;flex-shrink:0;white-space:nowrap;}
+.verification.verified {background:#e6f5ee;color:#205e47;}
+.verification.ambiguous {background:#fff3d9;color:#715111;}
+.verification.missing {background:#eef1f2;color:#59656a;}
 summary {padding:.9rem;cursor:pointer;font-size:.85rem;font-weight:600;color:var(--teal);}
 @media(max-width:750px) {.topbar {padding:1rem;align-items:flex-start;}.identity {flex-direction:column;gap:.4rem;align-items:flex-end;}.workspace {padding:1.5rem 1rem;}.input-grid {grid-template-columns:1fr 1fr;}.input-grid label:last-child {grid-column:1/-1;}.quantities {grid-template-columns:repeat(3,1fr);}.quantities label:last-child {grid-column:auto;}.part-facts {grid-template-columns:1fr 1fr;}.part-facts>div:first-child {grid-column:1/-1;}.result-summary {grid-template-columns:1fr 1fr;}.result-summary>div:first-child {grid-column:1/-1;}.section-heading {align-items:flex-start;}.login-panel {margin:2rem 1rem;max-width:none;}}
 @media(max-width:450px) {.input-grid,.quantities {grid-template-columns:1fr;}.input-grid label:last-child {grid-column:auto;}.costing-form,.results {padding:1rem;}.section-heading {flex-wrap:wrap;}.headline-price {font-size:2rem;}}

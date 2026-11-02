@@ -13,7 +13,7 @@ let app,browser;
 const server=createServer((req,res)=>app(req,res));server.listen(0,'127.0.0.1');await once(server,'listening');
 const origin=`http://127.0.0.1:${server.address().port}`;
 try {
-  app=createApp(db.runtime,{nodeEnv:'test',gstPercent:'18',sessionSecret:randomBytes(32).toString('hex'),appOrigin:origin,trustProxyHops:0},{sessionSchema:db.schema});
+  app=createApp(db.runtime,{nodeEnv:'test',gstPercent:'18',sessionSecret:randomBytes(32).toString('hex'),appOrigin:origin,trustProxyHops:0},{sessionSchema:db.schema,aiConfig:{apiKey:'',model:'gemini-3.5-flash-lite',timeoutMs:1000,unavailableCode:'AI_NOT_CONFIGURED'}});
   browser=await chromium.launch({channel:process.env.BROWSER_CHANNEL || 'chrome',headless:true});
   const page=await browser.newPage({viewport:{width:1280,height:1000}}),errors=[];
   page.on('pageerror',error=>errors.push(error.message));
@@ -21,6 +21,11 @@ try {
   await page.getByLabel('Password',{exact:true}).fill(db.passwords.DEMO_ESTIMATOR_PASSWORD);
   await page.getByRole('button',{name:'Sign in',exact:true}).click();
   await page.getByRole('button',{name:'New RFQ',exact:true}).click();
+  await page.getByText('Extract from text with AI (optional)',{exact:true}).click();
+  await page.getByRole('status').filter({hasText:'AI extraction is not configured'}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'Extract with AI',exact:true}).isDisabled(),true);
+  assert.equal(await page.getByLabel('RFQ reference',{exact:true}).isEnabled(),true);
+  await page.getByText('Extract from text with AI (optional)',{exact:true}).click();
   async function fillPart(index,number) {
     const part=page.getByRole('group',{name:`Part ${index}`,exact:true});
     for(const [label,value] of [['Part number',number],['Description','Synthetic demo spindle'],['Annual quantity','180000'],['Gross weight (kg)','0.61'],['Cycle time (minutes)','3.2'],['Setup hours per batch','12']]) await part.getByLabel(label,{exact:true}).fill(value);
