@@ -22,7 +22,7 @@ export function validateCloudTarget(name) {
 }
 async function target(client,name) {
   validateCloudTarget(name);
-  const row=(await client.query('SELECT current_database() AS name,current_user AS actor,pg_get_userbyid(datdba) AS owner FROM pg_database WHERE datname=current_database()')).rows[0];
+  const row=(await client.query('SELECT current_database() AS name,current_user AS actor,session_user AS login,pg_get_userbyid(datdba) AS owner FROM pg_database WHERE datname=current_database()')).rows[0];
   assert.equal(row.name,name,'Connected database differs from CLOUD_DATABASE_NAME');
   return row;
 }
@@ -85,6 +85,7 @@ export async function checkCloudPermissions(pool,databaseName) {
   const client=await pool.connect();
   try {
     const db=await target(client,databaseName);
+    assert.equal(db.actor,db.login,'Runtime must authenticate directly; SET ROLE cannot hide a privileged login');
     assert.notEqual(db.actor,db.owner,'Runtime must not own database');
     await runtimeRole(client,db.actor);
     const privilege=(await client.query(`SELECT

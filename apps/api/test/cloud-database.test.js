@@ -24,6 +24,7 @@ test('fresh dedicated database provisions and operates with real restricted LOGI
   const ownerPassword=randomBytes(32).toString('hex'),runtimePassword=randomBytes(32).toString('hex');
   const passwords={DEMO_ESTIMATOR_PASSWORD:randomBytes(24).toString('hex'),DEMO_SALES_HEAD_PASSWORD:randomBytes(24).toString('hex')};
   let owner,runtime,app,server,base,cookie='',token='',versionId;
+  let ownerCreated=false,runtimeCreated=false,databaseCreated=false;
   async function ownership(url) {
     const pool=new pg.Pool({connectionString:url});
     try {return (await pool.query(`SELECT current_database() AS database,pg_get_userbyid(datdba) AS owner,datacl::text AS acl,
@@ -44,8 +45,11 @@ test('fresh dedicated database provisions and operates with real restricted LOGI
   try {
     // New roles/database only; never ALTER DATABASE/ROLE on existing identities.
     await admin.query(`CREATE ROLE ${pg.escapeIdentifier(ownerRole)} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD ${pg.escapeLiteral(ownerPassword)}`);
+    ownerCreated=true;
     await admin.query(`CREATE ROLE ${pg.escapeIdentifier(runtimeRole)} LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD ${pg.escapeLiteral(runtimePassword)}`);
+    runtimeCreated=true;
     await admin.query(`CREATE DATABASE ${pg.escapeIdentifier(databaseName)} OWNER ${pg.escapeIdentifier(ownerRole)}`);
+    databaseCreated=true;
     function url(role,password) {const result=new URL(adminUrl);result.pathname=`/${databaseName}`;result.username=role;result.password=password;return result.href;}
     owner=createPool(url(ownerRole,ownerPassword),{nodeEnv:'test',databaseTlsMode:'disable'});
     runtime=createPool(url(runtimeRole,runtimePassword),{nodeEnv:'test',databaseTlsMode:'disable'});
@@ -67,6 +71,10 @@ test('fresh dedicated database provisions and operates with real restricted LOGI
       await seed(owner);await seedUsers(owner,passwords);
       assert.deepEqual((await owner.query('SELECT id,password_hash FROM users ORDER BY username')).rows,hashes);
       assert.deepEqual(await checkCloudPermissions(runtime,databaseName),{status:'restricted',tables:15,functions:4});
+      const adminTarget=new URL(adminUrl);adminTarget.pathname=`/${databaseName}`;
+      const impersonated=new pg.Pool({connectionString:adminTarget.href,options:`-c role=${runtimeRole}`});
+      try {await assert.rejects(checkCloudPermissions(impersonated,databaseName),/authenticate directly/);}
+      finally {await impersonated.end();}
       assert.equal((await runtime.query('SELECT current_user')).rows[0].current_user,runtimeRole);
       assert.equal((await runtime.query('SELECT count(*) FROM rate_periods')).rows[0].count,'6');
       await assert.rejects(runtime.query("SELECT '0.001'::public.quote_amount"),{code:'23514'});
@@ -136,9 +144,9 @@ test('fresh dedicated database provisions and operates with real restricted LOGI
     if(app) app.locals.sessionStore.close();if(server) await new Promise(resolve=>server.close(resolve));
     if(runtime) await runtime.end();if(owner) await owner.end();
     assert.match(databaseName,/^forgequote_m8_[a-f0-9]{16}_test$/);
-    await admin.query(`DROP DATABASE IF EXISTS ${pg.escapeIdentifier(databaseName)} WITH (FORCE)`);
-    await admin.query(`DROP ROLE IF EXISTS ${pg.escapeIdentifier(runtimeRole)}`);
-    await admin.query(`DROP ROLE IF EXISTS ${pg.escapeIdentifier(ownerRole)}`);
+    if(databaseCreated) await admin.query(`DROP DATABASE ${pg.escapeIdentifier(databaseName)} WITH (FORCE)`);
+    if(runtimeCreated) await admin.query(`DROP ROLE ${pg.escapeIdentifier(runtimeRole)}`);
+    if(ownerCreated) await admin.query(`DROP ROLE ${pg.escapeIdentifier(ownerRole)}`);
     await admin.end();
     assert.deepEqual(await ownership(process.env.DATABASE_URL),beforeDev,'Local development ownership/ACLs unchanged');
     assert.deepEqual(await ownership(process.env.TEST_DATABASE_URL),beforeTest,'Local test ownership/ACLs unchanged');
