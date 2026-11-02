@@ -7,8 +7,9 @@ export function createApp(pool) {
   app.disable('x-powered-by');
   app.get('/api/health/ready', async (_req, res) => {
     try {
-      await pool.query('SELECT 1');
-      res.json({ status: 'ready', database: 'reachable' });
+      const schema = await pool.query("SELECT name FROM schema_migrations WHERE name='001_initial.sql'");
+      if (schema.rowCount !== 1) throw Error('Schema migration missing');
+      res.json({ status: 'ready', database: 'reachable', schema: 'current' });
     } catch { res.status(503).json({ status: 'not_ready' }); }
   });
   app.use('/api', (_req, res) => res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Endpoint not available' } }));

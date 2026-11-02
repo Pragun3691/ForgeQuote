@@ -31,4 +31,32 @@ Root `.env` requires `DATABASE_URL`. Set `NODE_ENV=development`, `PORT=3000`, `D
 
 ## Definition of complete
 
+## Database checkpoint setup
+
+On this workspace, `forgequote_dev` and `forgequote_test` have already been created and root `.env` configured. On a fresh machine, create two empty databases with your PostgreSQL administrator (adjust username/host):
+
+```powershell
+psql -h localhost -U postgres -d postgres -c "CREATE DATABASE forgequote_dev"
+psql -h localhost -U postgres -d postgres -c "CREATE DATABASE forgequote_test"
+```
+
+Set `DATABASE_URL` and `TEST_DATABASE_URL` in ignored `.env` to their respective PostgreSQL URLs. Test database name must end in `_test`. If using separate migration credentials, set `MIGRATION_DATABASE_URL` to the development database using that maintenance account. Never point migration/seed commands at real customer data.
+
+```powershell
+npm.cmd run db:migrate
+npm.cmd run db:seed
+npm.cmd test
+npm.cmd run test:db
+npm.cmd run build
+npm.cmd run dev:api
+# In another terminal:
+npm.cmd run dev:web
+```
+
+Migrations are atomic, checksummed and serialized; repeated execution is a no-op. Do not edit an applied migration: add a new one. Seed commands insert only the synthetic spindle, six rate keys/versions and its first route. They reject fixture drift instead of overwriting. No demo users or quotations are seeded yet.
+
+Database tests create a generated schema inside the dedicated test database, then remove only that schema. They require schema-creation privileges. NUMERIC/BIGINT transport remains strings. `rate_periods` derives each exclusive end from the next start; no explicit expiry gaps are supported.
+
+`GET /api/health/ready` returns 200 only when PostgreSQL and migration 001 are available, otherwise 503. No RFQ/costing/auth endpoints exist yet. The root page is an honest workspace status screen, not the final application.
+
 See `docs/requirements.md` and `tasks/T01-thin-slice.md`. This repo should progress through small reviewable commits, tests, and real deployed slices. Keep a working build throughout.
