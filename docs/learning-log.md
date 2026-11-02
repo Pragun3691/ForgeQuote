@@ -18,3 +18,9 @@ Before T01, explain in your own words: RFQ vs quote; why gross margin differs fr
 - Stack accepted; formulas and golden numbers unchanged.
 - Rate end derives from next start; no historical row edit. Explicit expiry gaps unsupported.
 - Owner practice: why can a backdated insert change a new calculation but not a saved snapshot? Why must authentication precede public writes?
+
+## 2026-11-02 / T01 milestone 2
+
+- React uses relative `/api` URLs; Vite proxies locally, Express serves built assets in production. Same-origin avoids cross-origin session configuration later.
+- `pg` preserves NUMERIC/BIGINT as strings. Configuration errors fail startup without exposing credentials.
+- Executed: 3 config/API tests passed; Vite build passed after sandbox escalation. No write endpoint exists.

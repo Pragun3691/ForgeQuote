@@ -8,20 +8,26 @@ Build one honest, working end-to-end RFQ → verified intake → deterministic c
 
 ## What this ZIP contains
 
-Planning scaffold and acceptance cases — **not a functioning application**. Do not claim features are implemented until they are tested. Initial implementation happens on `feature/T01-thin-slice` after reviewing the T01 plan.
+T01 foundation checkpoint: React/Express workspace and PostgreSQL configuration. Authentication and costing are not implemented yet. See `docs/current-status.md` for actual verification.
 
 ## Start (Windows PowerShell)
 
 ```powershell
-# Extract the ZIP so that AGENTS.md is directly inside ForgeQuote/
-cd ForgeQuote
-git init
-git add .
-git commit -m "chore: add project scaffold and engineering specs"
-git switch -c feature/T01-thin-slice
+npm.cmd ci
+# Create ignored .env at repository root; see configuration below.
+npm.cmd test
+npm.cmd run build
+# Terminal 1:
+npm.cmd run dev:api
+# Terminal 2:
+npm.cmd run dev:web
 ```
 
-Then hand the coding assistant `AGENTS.md`, `docs/costing-spec.md`, `docs/golden-cases.md`, and `tasks/T01-thin-slice.md`. Ask for a plan **before edits**.
+Use Node 24 and PostgreSQL 17. Vite prints its local URL (normally http://127.0.0.1:5173) and proxies `/api` to Express (default port 3000). For a same-origin production build run `npm.cmd run build`, then `npm.cmd start`; Express serves `apps/web/dist`. No write endpoints are enabled.
+
+Root `.env` requires `DATABASE_URL`. Set `NODE_ENV=development`, `PORT=3000`, `DEMO_GST_PERCENT=18`; omit unused variables rather than leaving blank overrides. PostgreSQL URLs must contain correctly URL-encoded credentials when required by your server. Never commit `.env`. `pg` uses standard PostgreSQL URL TLS parameters; do not disable certificate verification for deployment. Local superuser connections are development-only, never deployment runtime credentials.
+
+`.env.example` lists variable names only. Session and demo-password variables are reserved for milestone 4 and are not used yet. Deployment is not complete; no hosting has been purchased.
 
 ## Definition of complete
 
