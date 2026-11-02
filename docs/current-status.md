@@ -1,5 +1,14 @@
 # Current status - 2026-11-03
 
+## T02.1 - Manual RFQ creation complete; STOP before Gemini
+
+- Owner approved T02 with strict T02.1 stop. Clean tree and existing feature/T02-ai-rfq-intake verified at 099131f, identical to latest local main. No branch overwrite/rebase or T01/main development.
+- Estimator-only creation of 1-20 reviewed parts, real categorized key selection, server validation/ownership, atomic header/parts/initial routes/receipt and explicit errors. Existing register/detail shows results. Canonical replay, concurrent retries and uncertain-save browser recovery prevent retry duplicates.
+- New GET /api/rfq-rate-keys and POST /api/rfqs. Migration 005 adds immutable rfq_submissions/minimum column grants. Readiness and permission checks advance to 005. Applied only in disposable fixtures; existing development/public schema not migrated/regranted. Migrations 001-004, finance/spec and nine golden expectations unchanged.
+- Passed: 46/46 unit/config/costing, 63/63 reported PostgreSQL results, 32 module syntax checks, Vite build, 1/1 production startup, existing auth/quotation Chrome suites and new manual RFQ Chrome suite. Actual restricted LOGIN intake/replay checked separately. Chrome covers correction, multi-part save, lost committed response, refresh/exact-key retry, single-part goldens and 390px no-overflow; screenshots inspected. Initial Vite sandbox failure resolved through approved escalation.
+- Multiple-part intake/read works; existing quotation HTTP/UI visibly supports one part. No AI/SDK/provider/key verification, Excel/PDF intake, approval, quotation PDF, rate editor, purchase, push or deployment. No AI completion claim. Browser-storage/service-trust/demo ownership limits remain disclosed.
+- Manifest, workflow, contracts, evidence, limits and three owner questions: docs/t02-1-handoff.md; ADR-0008; tasks/T02-ai-rfq-intake.md. STOP for approval before T02.2. Initial configurable Gemini direction is gemini-3.5-flash-lite, synthetic/nonconfidential Free demo only.
+
 ## Post-audit correction and release verification
 
 - Owner approved this scoped checkpoint from clean 4dd32c4 on feature/T01-thin-slice. Fixed apiErrorHandler to delegate the original error before any header/body writes when headersSent is true. The focused regression failed before the fix (0 pass / 1 fail) and passed afterward (1 pass / 0 fail).

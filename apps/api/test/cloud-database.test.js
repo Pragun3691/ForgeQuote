@@ -53,9 +53,9 @@ test('fresh dedicated database provisions and operates with real restricted LOGI
     function url(role,password) {const result=new URL(adminUrl);result.pathname=`/${databaseName}`;result.username=role;result.password=password;return result.href;}
     owner=createPool(url(ownerRole,ownerPassword),{nodeEnv:'test',databaseTlsMode:'disable'});
     runtime=createPool(url(runtimeRole,runtimePassword),{nodeEnv:'test',databaseTlsMode:'disable'});
-    await t.test('clean 001-004 migrations, repeat preparation and repeated seeds preserve data',async()=>{
+    await t.test('clean 001-005 migrations, repeat preparation and repeated seeds preserve data',async()=>{
       assert.equal((await owner.query('SELECT current_user')).rows[0].current_user,ownerRole);
-      assert.deepEqual((await prepareCloudDatabase(owner,{databaseName,runtimeRoleName:runtimeRole})).applied,['001_initial.sql','002_authentication.sql','003_quotation_snapshots.sql','004_draft_submissions.sql']);
+      assert.deepEqual((await prepareCloudDatabase(owner,{databaseName,runtimeRoleName:runtimeRole})).applied,['001_initial.sql','002_authentication.sql','003_quotation_snapshots.sql','004_draft_submissions.sql','005_rfq_intake.sql']);
       await seed(owner);await seedUsers(owner,passwords);
       const hashes=(await owner.query('SELECT id,password_hash FROM users ORDER BY username')).rows;
       assert.deepEqual((await prepareCloudDatabase(owner,{databaseName,runtimeRoleName:runtimeRole})).applied,[]);
@@ -70,7 +70,7 @@ test('fresh dedicated database provisions and operates with real restricted LOGI
       assert.match(checked,/restricted/);
       await seed(owner);await seedUsers(owner,passwords);
       assert.deepEqual((await owner.query('SELECT id,password_hash FROM users ORDER BY username')).rows,hashes);
-      assert.deepEqual(await checkCloudPermissions(runtime,databaseName),{status:'restricted',tables:15,functions:4});
+      assert.deepEqual(await checkCloudPermissions(runtime,databaseName),{status:'restricted',tables:16,functions:4});
       const adminTarget=new URL(adminUrl);adminTarget.pathname=`/${databaseName}`;
       const impersonated=new pg.Pool({connectionString:adminTarget.href,options:`-c role=${runtimeRole}`});
       try {await assert.rejects(checkCloudPermissions(impersonated,databaseName),/authenticate directly/);}
@@ -105,6 +105,16 @@ test('fresh dedicated database provisions and operates with real restricted LOGI
       assert.equal((await owner.query('SELECT count(*) FROM draft_submissions')).rows[0].count,'1');
       assert.equal((await owner.query('SELECT count(*) FROM quotation_rates')).rows[0].count,'6');
       assert.equal((await owner.query('SELECT count(*) FROM quotation_part_tiers')).rows[0].count,'3');
+      // Exercise the new intake column grants using the actual restricted LOGIN,
+      // in addition to the schema fixtures which use SET ROLE.
+      const intakeBody={reference:'RFQ-LOGIN-INTAKE',customerName:'Synthetic LOGIN Customer',dueDate:'2026-11-07',parts:[{
+        partNumber:'LOGIN-PART',description:'Synthetic spindle',grossWeightKg:'0.61',requestedAnnualQty:'180000',cycleTimeMin:'3.2',setupHoursPerBatch:'12',
+        rateKeys:{material:fixtureId(1),machine:fixtureId(2),scrap:fixtureId(3),overhead:fixtureId(4),packaging:fixtureId(5),freight:fixtureId(6)}
+      }]},intakeKey=randomUUID();
+      const intake=await request('/api/rfqs',{method:'POST',key:intakeKey,body:intakeBody});assert.equal(intake.response.status,201);
+      const intakeReplay=await request('/api/rfqs',{method:'POST',key:intakeKey,body:intakeBody});assert.equal(intakeReplay.response.status,200);
+      assert.equal(intakeReplay.data.rfqId,intake.data.rfqId);
+      assert.equal((await request(`/api/rfqs/${intake.data.rfqId}`)).data.parts.length,1);
       assert.equal((await request('/api/auth/logout',{method:'POST'})).response.status,204);
       assert.equal((await request(`/api/quote-versions/${versionId}`)).response.status,401);
     });
@@ -130,7 +140,7 @@ test('fresh dedicated database provisions and operates with real restricted LOGI
       // rather than treating a non-error command as successful escalation.
       await runtime.query(`GRANT UPDATE ON public.users TO ${pg.escapeIdentifier(runtimeRole)}`);
       assert.equal((await runtime.query("SELECT has_table_privilege(current_user,'public.users','UPDATE') AS allowed")).rows[0].allowed,false);
-      assert.deepEqual(await checkCloudPermissions(runtime,databaseName),{status:'restricted',tables:15,functions:4});
+      assert.deepEqual(await checkCloudPermissions(runtime,databaseName),{status:'restricted',tables:16,functions:4});
     });
     await t.test('fresh-cloud procedure refuses mismatched targets or unrelated objects without repairing ownership',async()=>{
       await assert.rejects(prepareCloudDatabase(owner,{databaseName:'forgequote_dev',runtimeRoleName:runtimeRole}),/forbidden/);

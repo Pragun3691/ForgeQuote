@@ -5,7 +5,7 @@
 | ID | CORE requirement | How to prove it | Status |
 |---|---|---|---|
 | R1 | Estimator & sales-head roles | Demo sign-in + server authZ tests | Implemented/tested for demo roles; sales head read-only in T01 |
-| R2 | RFQ register with customer, due date, owner, status | Create/list/update RFQ and persistence test | Stored list/detail implemented; RFQ create/update still pending |
+| R2 | RFQ register with customer, due date, owner, status | Create/list/update RFQ and persistence test | T02.1 manual 1-20 part create/list/detail tested; server-owned owner/status; RFQ update pending |
 | R3 | RFQ intake AI extraction | Upload synthetic PDF/text, inspect evidence, confirm/correct | Planned |
 | R4 | Part costing, 2–3 volume prices | Golden tests for 3 parts × 3 tiers | Nine unchanged goldens; one-part HTTP/React three-tier workflow verified |
 | R5 | Effective-dated rate masters | Boundary tests, no overlapping rates, missing rate failure | Backend history/resolution tested; management UI pending |

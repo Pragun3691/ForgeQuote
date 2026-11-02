@@ -1,5 +1,15 @@
 # Learning log — fill during the build
 
+## 2026-11-03 / T02.1 manual RFQ intake
+
+- Manual RFQ intake separates business facts and real key selection from quotation-time rate resolution. No pricing logic belongs in intake; selecting a key does not prove historical rate availability.
+- Atomic means header, every part/route and retry receipt all commit or all roll back. A second-part route failure must leave no partial RFQ. One client/transaction and actor-key advisory lock enforce the service path; UNIQUE constraints remain final guards.
+- A failed response can follow successful COMMIT. Persist exact key/body before POST; lock inputs after uncertainty and retry the same intent. A fingerprint detects changed content; corrected confirmed-invalid requests reuse the uncommitted key. A new key is intentional new work, not error recovery.
+- Restricted INSERT columns permit creation without RFQ/master UPDATE, history mutation, status override or forged timestamps. Runtime credentials remain trusted for complete assembly/receipt correspondence; ordinary SQL grants do not implement user-role authorization or remove existing owner powers.
+- Real PostgreSQL and Chrome exercised rollback, six concurrent retries, lost acknowledgement/response, refresh recovery and original single-part cost 119.76/price 149.70. All nine independent goldens remain unchanged. Exact commands, results and bounds: docs/t02-1-handoff.md and ADR-0008.
+- Owner questions: Why must receipts and all RFQ rows share a transaction? Why retry the original key/body after uncertainty? Why resolve values by quotation date rather than invent rates during intake?
+- No provider calls/dependencies/keys, cloud/deployment or later scope. STOP for T02.2 approval.
+
 ## 2026-11-03 / T01 post-audit correction and verification
 
 - Error middleware must test headersSent before setting Cache-Control or writing a response. Once headers are sent, delegate the identical original error to Express. The focused regression failed on the old code and passed after the two-line reorder; it asserts no header/status/body write and exactly one delegation.

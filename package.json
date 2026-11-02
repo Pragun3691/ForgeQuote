@@ -22,6 +22,7 @@
     "db:seed-users": "npm run db:seed-users --workspace apps/api",
     "test:browser": "node tests/browser-auth.smoke.js",
     "test:browser:quotation": "node tests/browser-quotation.smoke.js",
+    "test:browser:rfq": "node tests/browser-rfq.smoke.js",
     "db:check-permissions": "npm run db:check-permissions --workspace apps/api",
     "db:grant-runtime": "npm run db:grant-runtime --workspace apps/api",
     "db:prepare-cloud": "npm run db:prepare-cloud --workspace apps/api",

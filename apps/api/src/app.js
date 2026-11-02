@@ -6,6 +6,7 @@ import { installAuth } from './auth/index.js';
 import { apiErrorHandler } from './errors.js';
 import { installQuotationRoutes } from './quotation-routes.js';
 import { requestLogging } from './request-logging.js';
+import { installRfqIntakeRoutes } from './rfq-routes.js';
 
 export function createApp(pool, config = readAuthConfig(), authOptions = {}) {
   const app = express();
@@ -15,12 +16,13 @@ export function createApp(pool, config = readAuthConfig(), authOptions = {}) {
   app.get('/api/health/live', (_req,res) => res.json({status:'alive'}));
   app.get('/api/health/ready', async (_req, res) => {
     try {
-      const schema = await pool.query("SELECT name FROM schema_migrations WHERE name='004_draft_submissions.sql'");
+      const schema = await pool.query("SELECT name FROM schema_migrations WHERE name='005_rfq_intake.sql'");
       if (schema.rowCount !== 1) throw Error('Schema migration missing');
       res.json({ status: 'ready', database: 'reachable', schema: 'current' });
     } catch { res.status(503).json({ status: 'not_ready' }); }
   });
   installAuth(app, pool, config, authOptions);
+  installRfqIntakeRoutes(app, pool, config, authOptions);
   installQuotationRoutes(app, pool, config, authOptions);
   app.use('/api', (_req, res) => res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Endpoint not available' } }));
   app.use(apiErrorHandler);

@@ -5,16 +5,21 @@ import { migrate } from './migrate.js';
 import { transaction } from './db.js';
 
 const tables=['rate_keys','rate_versions','rfqs','rfq_parts','routing_revisions','schema_migrations','users','sessions',
-  'quotations','quotation_versions','quotation_parts','quotation_rates','quotation_part_tiers','quotation_totals','draft_submissions'];
+  'quotations','quotation_versions','quotation_parts','quotation_rates','quotation_part_tiers','quotation_totals','draft_submissions','rfq_submissions'];
 const functions=['reject_history_mutation','guard_quote_assembly','guard_quote_header','guard_draft_submission'];
 const columnInserts={quotations:['id','rfq_id'],quotation_versions:['id','quotation_id','version_number','pricing_date','formula_version','currency','gst_percent','created_by','rfq_snapshot','annual_value_ex_gst'],
-  draft_submissions:['actor_user_id','submission_key','request_fingerprint','rfq_id','version_id']};
+  draft_submissions:['actor_user_id','submission_key','request_fingerprint','rfq_id','version_id'],
+  rfqs:['id','reference','customer_name','due_date','owner_label'],
+  rfq_parts:['id','rfq_id','part_number','description','gross_weight_kg','requested_annual_qty','material_rate_key_id','scrap_rate_key_id','overhead_rate_key_id','packaging_rate_key_id','freight_rate_key_id'],
+  routing_revisions:['id','part_id','revision_number','machine_rate_key_id','cycle_time_min','setup_hours_per_batch'],
+  rfq_submissions:['actor_user_id','submission_key','request_fingerprint','rfq_id']};
 const appendTables=['quotation_parts','quotation_rates','quotation_part_tiers','quotation_totals'];
 const triggers={rate_keys:['rate_keys_immutable'],rate_versions:['rate_versions_immutable','rate_versions_no_truncate'],
   routing_revisions:['routing_revisions_immutable','routing_revisions_no_truncate'],
   quotations:['quotations_allocate','quotations_no_delete','quotations_no_truncate'],quotation_versions:['immutable','no_truncate'],
   ...Object.fromEntries(appendTables.map(table=>[table,['immutable','no_truncate','assembly_only']])),
-  draft_submissions:['draft_submission_assembly','draft_submissions_immutable','draft_submissions_no_truncate']};
+  draft_submissions:['draft_submission_assembly','draft_submissions_immutable','draft_submissions_no_truncate'],
+  rfq_submissions:['rfq_submissions_immutable','rfq_submissions_no_truncate']};
 
 export function validateCloudTarget(name) {
   if(typeof name !== 'string' || !/^forgequote_[a-z0-9_]{1,48}$/.test(name) || ['forgequote_dev','forgequote_test'].includes(name)) throw Error('CLOUD_DATABASE_NAME must name a dedicated forgequote_ database; local dev/test targets are forbidden');
@@ -119,7 +124,7 @@ export async function checkCloudPermissions(pool,databaseName) {
     const actualTriggers=(await client.query(`SELECT c.relname,t.tgname,t.tgenabled FROM pg_trigger t
       JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
       WHERE n.nspname='public' AND NOT t.tgisinternal`)).rows;
-    assert.deepEqual(actualTriggers.map(row=>`${row.relname}.${row.tgname}`).sort(),Object.entries(triggers).flatMap(([table,names])=>names.map(name=>`${table}.${name}`)).sort(),'Application trigger inventory must match migrations 001-004');
+    assert.deepEqual(actualTriggers.map(row=>`${row.relname}.${row.tgname}`).sort(),Object.entries(triggers).flatMap(([table,names])=>names.map(name=>`${table}.${name}`)).sort(),'Application trigger inventory must match migrations 001-005');
     assert.ok(actualTriggers.every(row=>row.tgenabled==='O'),'Application triggers must remain enabled');
     return {status:'restricted',tables:tables.length,functions:functions.length};
   } finally {client.release();}

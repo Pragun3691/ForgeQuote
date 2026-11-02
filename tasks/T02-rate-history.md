@@ -1,6 +1,6 @@
 # T02 — Effective-dated masters and immutable quote versions
 
-**Branch:** `feature/T02-rate-history` (after T01 merge)
+**Superseded numbering:** Owner assigned T02 to RFQ intake on 2026-11-03. Active task: [T02 RFQ intake](T02-ai-rfq-intake.md), branch `feature/T02-ai-rfq-intake`. Retain this old scope as background; history/snapshot foundations were implemented in T01. This file does not authorize rate editing or issuance.
 
 ## Acceptance
 - Edit rate by adding a new effective-dated version, not overwriting previous version.

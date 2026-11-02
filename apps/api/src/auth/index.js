@@ -25,7 +25,9 @@ export function installAuth(app, pool, config, { sessionSchema = 'public', login
   });
   // Apply before session lookup/hash work, including malformed/CSRF-invalid login attempts.
   app.use('/api/auth/login', limiter);
-  app.use('/api', json({ limit: '4kb', strict: true }));
+  const ordinaryJson = json({ limit: '4kb', strict: true });
+  const intakeJson = json({ limit: '64kb', strict: true });
+  app.use('/api', (req,res,next) => (req.method === 'POST' && req.path === '/rfqs' ? intakeJson : ordinaryJson)(req,res,next));
   app.use('/api', session({
     name: cookieName, secret: config.sessionSecret, store, resave: false, saveUninitialized: false, rolling: false,
     cookie: { ...cookieOptions, maxAge: SESSION_MAX_AGE_MS }

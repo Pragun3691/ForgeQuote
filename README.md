@@ -8,7 +8,9 @@ Build one honest, working end-to-end RFQ → verified intake → deterministic c
 
 ## What this ZIP contains
 
-T01 milestone 8 preparation checkpoint: the working RFQ/costing workflow is ready for a reviewed Render Free + Neon Free deployment, with strict TLS, fresh-database role isolation, liveness, redacted logs and write throttling. No cloud accounts/resources/purchases/deployment yet. Local database ownership remains unchanged. See [Milestone 8 handoff](docs/milestone-8-handoff.md) and [deployment procedure](docs/deployment.md). Product/API/browser contracts remain documented in the [Milestone 7 handoff](docs/milestone-7-handoff.md). STOP before external actions or later features until explicitly authorized.
+Current checkpoint: T02.1 manual RFQ intake. Estimators create 1-20 reviewed parts using real internal rate keys; atomic saves and retained submission keys recover uncertain outcomes without retry duplicates. Open New RFQ from the register. Multiple-part intake/read works; existing quotation HTTP/UI still costs one part only. No Gemini/Excel/PDF intake or AI verification yet. See [T02.1 handoff and exact file manifest](docs/t02-1-handoff.md) and [ADR-0008](docs/decisions/0008-manual-rfq-intake.md). STOP for owner approval before T02.2. No deployment or purchase.
+
+Previous T01 milestone 8 preparation: strict TLS, fresh-database role isolation, liveness, redacted logs and write throttling. No cloud accounts/resources/purchases/deployment yet. Local database ownership remains unchanged. See [Milestone 8 handoff](docs/milestone-8-handoff.md) and [deployment procedure](docs/deployment.md). Quotation/API/browser contracts remain documented in the [Milestone 7 handoff](docs/milestone-7-handoff.md).
 
 ## Start (Windows PowerShell)
 
@@ -62,9 +64,9 @@ Migrations are atomic, checksummed and serialized; repeated execution is a no-op
 
 Database tests create generated schemas inside the dedicated test database and remove only their fixtures. Quote/HTTP/browser tests additionally use maintenance CREATE ROLE/SCHEMA capability to test a generated non-owner runtime role; those roles are cleaned up. NUMERIC/BIGINT transport remains strings. `rate_periods` derives each exclusive end from the next start; no explicit expiry gaps are supported.
 
-Local permissions: original development tables remain postgres-owned. Existing users/sessions were created under forgequote_app by commit 40f26fe; ownership is preserved per owner instruction. Ordinary runtime grants are SELECT-only on master data/users/ledger, sessions CRUD, snapshot SELECT/INSERT and column-specific header counter UPDATE. New draft_submissions has SELECT/column INSERT only. No history UPDATE/DELETE or TRUNCATE. The explicit maintenance command npm.cmd run db:grant-runtime applies apps/api/db/runtime-grants.sql without ownership changes, then npm.cmd run db:check-permissions verifies access. Existing auth-table/database ownership still gives forgequote_app DDL/self-grant powers and blocks public runtime isolation. Generated quote/HTTP test schemas are maintenance-owned; test runtime roles are non-owners.
+Local permissions: original development tables remain postgres-owned. Existing users/sessions ownership is preserved per owner instruction. Grants include master/user/ledger SELECT, session CRUD, snapshot INSERT and column-specific quotation counter UPDATE. T02.1 adds column INSERT for RFQs/parts/routes/receipts and receipt SELECT. No history/input UPDATE/DELETE or TRUNCATE. Apply 005 using npm.cmd run db:migrate before npm.cmd run db:grant-runtime, then npm.cmd run db:check-permissions. Existing auth-table/database ownership still permits owner DDL/self-grants and blocks public runtime isolation. Generated test fixtures use maintenance-owned tables and restricted runtime roles. T02.1 applied 005 only to disposable test fixtures, not existing development schemas.
 
-GET /api/health/live is DB/session-free and intended for frequent free-tier health probes. GET /api/health/ready separately requires PostgreSQL and migration 004. Auth endpoints: GET /api/auth/session, POST /api/auth/login, POST /api/auth/logout. Protected business endpoints: GET /api/rfqs, GET /api/rfqs/:id, POST /api/rfqs/:id/quote-versions and GET /api/quote-versions/:id. POST requires estimator role, Origin, X-CSRF-Token and a UUID Idempotency-Key, with a single-process 30-attempt/estimator/15-minute limiter. Sales head can read only. On 429 retain the key/body and retry later. The UI/server preserve decimal-string financial values and original idempotency semantics.
+GET /api/health/live is DB/session-free. GET /api/health/ready requires PostgreSQL and migration 005. Auth: GET /api/auth/session, POST /api/auth/login, POST /api/auth/logout. Protected business endpoints: GET /api/rfqs, GET /api/rfqs/:id, GET /api/rfq-rate-keys, POST /api/rfqs, POST /api/rfqs/:id/quote-versions and GET /api/quote-versions/:id. Business POST requires estimator role, Origin, X-CSRF-Token and UUID Idempotency-Key. RFQ and quote creation each have separate process-local 30-attempt/estimator/15-minute limits. Sales head reads only. On 429 retain key/body and retry later. RFQ POST allows 64 KiB; other JSON retains 4 KiB. All financial values stay decimal strings.
 
 ## Test login locally
 
@@ -78,12 +80,13 @@ Automated local browser verification uses installed Chrome by default and starts
 npm.cmd run build
 npm.cmd run test:browser
 npm.cmd run test:browser:quotation
+npm.cmd run test:browser:rfq
 # If only Edge is installed:
 $env:BROWSER_CHANNEL = 'msedge'
 npm.cmd run test:browser
 ```
 
-Both browser suites require the built frontend, a configured local TEST_DATABASE_URL ending in _test and same-host maintenance credentials able to create disposable databases/roles. They migrate/seed only their generated database and remove their fixtures afterward. The quotation smoke starts a real child API process, restarts it, and tests committed-response loss plus refresh/same-key recovery; it writes ignored desktop/mobile screenshots under .tmp. Both use installed Chrome (or BROWSER_CHANNEL=msedge). Unit/API tests use generated secrets; other integration tests use isolated fixtures in the dedicated _test database. Production cookie checks simulate HTTPS through a trusted proxy; they do not claim a deployed TLS service.
+All three browser suites require the built frontend, local TEST_DATABASE_URL ending in _test and same-host maintenance credentials able to create disposable databases/roles. They migrate/seed only generated databases and remove fixtures afterward. Quotation smoke tests real API process restart and committed-response loss; manual intake smoke tests multi-part correction/save, committed-response loss, exact key/body recovery and unchanged single-part costing. Screenshots go under ignored .tmp. Use Chrome or BROWSER_CHANNEL=msedge. Other integration tests use isolated dedicated _test fixtures. Production cookie checks simulate HTTPS through a trusted proxy; no deployed TLS claim.
 
 ## Deterministic costing checkpoint
 

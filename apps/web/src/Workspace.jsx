@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from './api.js';
 import QuoteResults, { grouped } from './QuoteResults.jsx';
+import RfqCreate from './RfqCreate.jsx';
 
 function useRoute() {
   const [route,setRoute] = useState(() => new URLSearchParams(window.location.hash.slice(1)));
@@ -24,6 +25,7 @@ function loadPending(key) {
 export default function Workspace({ session, onExpired }) {
   const route = useRoute(), rfqId = route.get('rfq');
   const [rfqs,setRfqs] = useState(null), [error,setError] = useState(''), [refresh,setRefresh] = useState(0);
+  const [creating,setCreating] = useState(false), [notice,setNotice] = useState('');
   useEffect(() => {
     const controller = new AbortController(); setError('');
     api('/rfqs',{signal:controller.signal}).then(result => setRfqs(result.rfqs)).catch(error => {
@@ -33,9 +35,12 @@ export default function Workspace({ session, onExpired }) {
   },[refresh]);
   if (rfqId) return <RfqWorkspace key={rfqId} rfqId={rfqId} versionId={route.get('version')} session={session} onExpired={onExpired}/>;
   return <main className="workspace"><div className="section-heading"><div><p className="eyebrow">Estimator workspace</p><h1>RFQ register</h1></div><span className="badge">Synthetic demo</span></div><p className="muted">Open an RFQ to prepare a costed, versioned quotation.</p>
+    {session.user.role === 'estimator' && !creating && <button onClick={()=>{setNotice('');setCreating(true);}}>New RFQ</button>}
+    {creating && <RfqCreate session={session} onExpired={onExpired} onCancel={()=>setCreating(false)} onCreated={()=>{setCreating(false);setNotice('RFQ saved successfully. Open it from the register below.');setRefresh(value=>value+1);}}/>}
+    {notice && <div role="status" className="success">{notice}</div>}
     {error && <div role="alert" className="error">{error}<br/><button onClick={() => setRefresh(value => value+1)}>Reload RFQs</button></div>}
     {!rfqs && !error && <p role="status">Loading RFQs...</p>}
-    {rfqs?.length === 0 && <section className="panel empty"><h2>No RFQs yet</h2><p>The register is empty. Load the synthetic fixture using the documented seed command.</p></section>}
+    {rfqs?.length === 0 && <section className="panel empty"><h2>No RFQs yet</h2><p>{session.user.role === 'estimator' ? 'Create an RFQ using New RFQ above.' : 'An estimator can create an RFQ for this register.'}</p></section>}
     {!!rfqs?.length && <div className="table-scroll panel"><table aria-label="RFQ register"><thead><tr><th>RFQ / customer</th><th>Due date</th><th>Owner</th><th>Status</th><th>Action</th></tr></thead><tbody>{rfqs.map(rfq => <tr key={rfq.id}><th scope="row">{rfq.reference}<span className="subtext">{rfq.customerName}</span></th><td>{rfq.dueDate}</td><td>{rfq.ownerLabel}</td><td><span className="badge">{rfq.status}</span></td><td><a href={link(rfq.id)}>Open RFQ</a></td></tr>)}</tbody></table></div>}
   </main>;
 }
