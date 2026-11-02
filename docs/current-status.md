@@ -1,6 +1,18 @@
 # Current status - 2026-11-02
 
-## Milestone 7 - current
+## Milestone 8 - deployment preparation current
+
+- Owner approved Render Free web + Neon Free PostgreSQL preparation only. Implemented on feature/T01-thin-slice from 230254a. STOP before external accounts, cloud resources or deployment until access and explicit action authorization. No paid plan/purchase or later feature work.
+- render.yaml prepares one Express/React Free service, Node 24.20.0, manual deploys, Singapore region and DB-free /api/health/live probes. /api/health/ready remains a separate DB/migration check. Production requires the frontend build and excludes maintenance/test/seed secrets and automatic local .env loading.
+- Strict production PostgreSQL TLS verifies CA/hostname and requires TLS 1.2+; URL SSL options cannot override explicit verification. Trusted TLS succeeds; untrusted CA/wrong hostname/plaintext peer tests fail as intended. Actual Neon connection and public HTTPS/proxy/browser checks remain pending access.
+- Fresh-cloud CLI requires a dedicated forgequote_ target and already SQL-created restricted LOGIN. It refuses forgequote_dev/forgequote_test/unrelated targets and never transfers ownership or resets credentials/data. Namespace/default ACL hardening, unchanged migrations 001-004 and scoped runtime/function/domain grants are repeatable. No migration edits/new migration, formula or golden changes.
+- Strict cloud checker verifies direct runtime LOGIN (not owner credentials hidden by SET ROLE), no elevated memberships/ownership/DDL rights, exact table/column permissions, functions/domain access and all 25 enabled guards. Fresh disposable database tests exercised setup/check CLIs, migrations/seeds, real login/sessions, quotes/replay and privilege denials. Existing local ownership/public ACL/relation-owner snapshots were unchanged before/after.
+- Production logs contain only request IDs, route patterns, statuses, durations and known response codes; no bodies/headers/queries/SQL details. Quote POST limit: 30/estimator/15 minutes, process-local, preserving same-key retries. Existing auth/CSRF/roles/history semantics unchanged.
+- Actual checks: 45/45 unit/config/API, 33/33 costing, 50/50 reported PostgreSQL (45 subtests + 5 parents), production React build, 30 API syntax checks, 1/1 actual production-server startup and both real Chrome suites passed. Final focused fresh-cloud isolation run 5/5 passed after the role-impersonation safeguard. Read-only legacy local permission checker still reports its preserved ownership limitation.
+- Code commits: 4f40ba0, 96f1917, 4c7d626, aa6852f; documentation follows separately. Exact settings, Neon SQL/CLI procedure, environment names, test evidence, limits and file manifest: docs/deployment.md and docs/milestone-8-handoff.md. Decision: ADR-0007.
+- No cloud setup was executed. Local forgequote_dev/forgequote_test ownership and data preserved; no MedReach access or ownership changes. Old local owner credentials must never be deployed. Free-tier cold starts/quotas, per-tab recovery, two-role global reads and unverified cross-cluster history restore remain disclosed limits.
+
+## Previous checkpoint - Milestone 7
 
 - Milestone 7 plan approved and implemented on feature/T01-thin-slice from clean e677955. STOP before Milestone 8 or deployment; another review is required.
 - Four protected HTTP routes now connect RFQ list/detail, idempotent draft creation and saved quotation retrieval to the React workspace. Estimator creates; sales head reads only. Existing session/activation/role/CSRF/Origin checks remain authoritative. Server configuration supplies illustrative GST 18%.

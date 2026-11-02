@@ -1,11 +1,126 @@
 # Deployment preparation — not deployed
 
-Same-origin build: `npm ci`, `npm run build`, then `npm start`. Express serves Vite assets and `/api` on the platform's PORT. Set DATABASE_URL, NODE_ENV=production, DEMO_GST_PERCENT=18, random SESSION_SECRET and actual HTTPS APP_ORIGIN (no trailing slash). Configure TRUST_PROXY_HOPS=1 only behind one trusted reverse proxy, with direct app access blocked; otherwise leave 0. Never put secrets in frontend assets. Run migrations with maintenance credentials; seed synthetic RFQ and users separately. Seed passwords are environment variables used only by db:seed-users and are not needed in the runtime environment.
+Milestone 8 prepares **Render Free web + Neon Free PostgreSQL**, one Express service serving the React build on the same HTTPS origin. The owner approved preparation only: no accounts accessed, resources created, services purchased or deployment performed. Cloud resource creation/deployment requires access and another explicit authorization. No paid fallback is approved. Local forgequote_dev/forgequote_test ownership and ACLs remain unchanged; do not touch MedReach or other existing databases.
 
-No services purchased or deployed. Auth APIs and the RFQ/quotation HTTP-to-React workflow are tested locally. Migrations/seeds/grants require a separate maintenance role through MIGRATION_DATABASE_URL (never runtime fallback); omit that URL from deployed API settings. Runtime grants preserve users/master/history/ledger SELECT and sessions CRUD; snapshots get SELECT/INSERT, with column-scoped header INSERT/counter UPDATE and version INSERT. Migration 004 receipts get SELECT/column INSERT only. No history UPDATE/DELETE or TRUNCATE. Existing forgequote_app database/auth-table ownership is preserved per instruction; owner DDL/self-grant powers remain and block full runtime isolation before public deployment. New quotation/receipt tables are maintenance-owned. Resolving existing ownership/provisioning needs separate authorization. Session errors return 503; no in-memory fallback.
+## Exact Render settings - future authorized action only
 
-Milestone 7 local verification: migration 004 applied, repeat applied nothing, npm.cmd run db:grant-runtime explicitly applied reviewed SQL through maintenance and db:check-permissions passed. Prior migrations/data unchanged. PostgreSQL 13+ is required for xid8/pg_current_xact_id() assembly guards. Quote/HTTP/browser tests use the configured dedicated test database and maintenance CREATE ROLE/SCHEMA capability to create isolated schemas/non-owner runtime roles. See milestone-7-handoff.md for exact test results. The transactional idempotency contract is implemented (ADR-0006): lookup, quotation and key receipt share one transaction. Uncertain outcomes require explicit same-key/body recovery; no automatic retry.
+| Setting | Value |
+| --- | --- |
+| Service | One Web Service; Node runtime; **Free** plan |
+| Repository root | Repository root, not apps/api (npm workspaces/build need both apps) |
+| Branch | feature/T01-thin-slice; deploy only the reviewed commit |
+| Node | **24.20.0**, pinned in .node-version and NODE_VERSION |
+| Region | Singapore in render.yaml; choose a nearby available Neon region |
+| Build | `npm ci --include=dev && npm run build` |
+| Start | `npm start` |
+| Health check | `/api/health/live` |
+| Auto-deploy | Off (`autoDeployTrigger: "off"`); initial resource creation can still start a deployment |
+| Port | Render-provided PORT; Express binds the platform port |
+| Predeploy/migrate/seed | None in the web service; perform separately with maintenance credentials |
 
-Hosting remains environment-configurable; no paid hosting requirement. Render free web services sleep after 15 idle minutes and free PostgreSQL expires after 30 days. A free deployment must document cold starts, database creation/expiry dates and a restore/migration plan covering the actual evaluation period; it cannot be called indefinitely available. See https://render.com/docs/free. Select a host/account only at deployment time with the owner; no automatic purchases or keep-alive workarounds.
+render.yaml contains no Render database, paid instance, worker or disk. Validate it with the provider before creation after access/approval; it has not been applied or validated through a hosting account. React dist is built on Render and served by Express. Production refuses a missing dist/index.html. Do not ship a local .env or compiled source containing secret values.
 
-Deployment verification pending: actual public HTTPS cookie/logout and deployed frontend/API/database workflow. Local Chrome login-to-persisted-quote, all three scenarios, provenance, missing-rate/invalid-input errors, refresh, full API process restart and lost-response recovery pass. HTTPS Secure-cookie behavior is tested with simulated trusted proxy headers. This is not a deployed quotation workflow. Login throttle uses process-local counters: one instance only; add a shared limiter before scaling. No quote-write throttle, pagination or multi-tenant access policy is implemented. Expired session pruning runs periodically; no password recovery, MFA or account-management screens in T01. STOP before deployment or Milestone 8 pending the owner's next review.
+## Neon setup - exact ordered procedure
+
+These are **future manual steps**, not completed cloud actions. Use a fresh Neon Free project/database, not a local database, trial/claimable temporary database, existing user database or paid plan. Keep the default Neon owner as maintenance. Create a dedicated database **forgequote_demo** owned by that identity. PostgreSQL 17 is the locally tested version; migrations require PostgreSQL 13+.
+
+1. Confirm the Neon host, database name and maintenance identity. Use a direct connection hostname (no `-pooler` alias) for both credentials during setup. In a private maintenance shell supply MIGRATION_DATABASE_URL and verify the target using `psql "$env:MIGRATION_DATABASE_URL" -v ON_ERROR_STOP=1` followed by `\conninfo`. Require certificate-validated TLS (`sslmode=verify-full` for psql). Do not put secrets in command files, Git or frontend VITE variables.
+2. Through **SQL**, create the runtime login below. Do not use Neon's console/API role-creation path, which grants elevated membership. If the role already exists, stop and verify its provenance/credentials; do not reset an unknown existing role. The transaction/target check below prevents applying it to the preserved local database names. Run it only on the fresh Neon endpoint.
+
+```sql
+BEGIN;
+DO $$ BEGIN
+  IF current_database() <> 'forgequote_demo' THEN
+    RAISE EXCEPTION 'Wrong database: expected fresh forgequote_demo';
+  END IF;
+END $$;
+CREATE ROLE forgequote_app LOGIN NOINHERIT NOSUPERUSER
+  NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+```
+
+```text
+\password forgequote_app
+```
+
+```sql
+COMMIT;
+SELECT rolname,rolsuper,rolcreatedb,rolcreaterole,rolreplication,rolbypassrls
+FROM pg_roles WHERE rolname='forgequote_app';
+SELECT parent.rolname
+FROM pg_auth_members m JOIN pg_roles parent ON parent.oid=m.roleid
+JOIN pg_roles child ON child.oid=m.member WHERE child.rolname='forgequote_app';
+```
+
+The membership query must return no rows. `\password` prompts privately; never commit the real password. Create DATABASE_URL for forgequote_app using the same direct host/port/database and a URL-encoded password. Keep the owner URL only in MIGRATION_DATABASE_URL. Neither URL should point at forgequote_dev, forgequote_test or MedReach.
+
+3. In the maintenance shell set the following names (no values belong in source): DATABASE_URL (runtime URL), MIGRATION_DATABASE_URL (owner URL), CLOUD_DATABASE_NAME=forgequote_demo, DATABASE_TLS_MODE=verify-full and NODE_ENV=production. Maintenance CLIs use readConfig, not the app-only secret exclusion check. Production skips repository .env loading, so all cloud settings must be explicitly supplied; it cannot accidentally borrow local database credentials. DATABASE_CA_CERT is optional trusted PEM roots when needed; normally leave it unset for Neon's publicly trusted certificate.
+4. Run from the repository root (use npm instead of npm.cmd on Linux/macOS):
+
+```powershell
+npm.cmd run db:prepare-cloud
+npm.cmd run db:check-cloud-permissions
+npm.cmd run db:seed
+# Supply distinct DEMO_ESTIMATOR_PASSWORD and DEMO_SALES_HEAD_PASSWORD privately:
+npm.cmd run db:seed-users
+npm.cmd run db:check-cloud-permissions
+```
+
+The preparation command requires the maintenance identity to own the fresh database and existing application objects. It refuses the preserved local names, a mismatched connected database, unexpected public objects or elevated runtime memberships. It does **not** create/reset credentials, transfer ownership or reset data. It hardens only this dedicated database's namespace/default privileges, runs checksummed migrations 001-004, and applies existing runtime-grants.sql plus specific function/domain privileges. Repeating setup/seed is safe and tested. Namespace, migrations and grants are separate transactions: on a partial failure stop, fix the cause and repeat; never drop/reset as a fallback. The application must remain unpublished until the strict checker succeeds.
+
+5. Verify role ownership/permission output is restricted, inspect synthetic fixtures and remove maintenance/test/seed credentials from the later Render environment. Close the maintenance shell when finished. Keep the maintenance secret separately for future explicit migration/seed/check operations. Never rotate/reset existing demo passwords through repeat seed; the existing seed deliberately refuses drift.
+
+## Render environment
+
+| Name | Intended value/source |
+| --- | --- |
+| NODE_VERSION | 24.20.0 |
+| NODE_ENV | production |
+| DATABASE_URL | Restricted SQL-created runtime login, fresh Neon database; never owner URL |
+| DATABASE_TLS_MODE | verify-full |
+| DATABASE_CA_CERT | Optional trusted PEM CA; normally unset |
+| SESSION_SECRET | Stable random secret, >=32 bytes; Blueprint generateValue produces a 256-bit value |
+| APP_ORIGIN | Exact assigned HTTPS origin, without path/trailing slash |
+| TRUST_PROXY_HOPS | 1 for the verified Render edge path only |
+| DEMO_GST_PERCENT | 18, explicitly illustrative |
+| PORT | Platform-provided |
+
+DATABASE_URL and APP_ORIGIN are `sync: false` prompts on initial Blueprint creation. Determine the real assigned HTTPS URL; never use a guessed/placeholder origin. If the URL is available only after service creation, configure APP_ORIGIN and redeploy before any handoff; a missing value correctly prevents startup. New `sync: false` values on an existing service must be configured manually. Keep SESSION_SECRET stable across restarts and routine deploys; a deliberate rotation invalidates sessions.
+
+Do **not** put MIGRATION_DATABASE_URL, TEST_DATABASE_URL or either DEMO_*_PASSWORD in the production application environment: startup rejects them. CLOUD_DATABASE_NAME is a maintenance/preflight setting, not required by Render. Do not set NODE_TLS_REJECT_UNAUTHORIZED=0, rejectUnauthorized:false or production DATABASE_TLS_MODE=disable. No AI keys are required. Secrets stay in provider settings/private maintenance environment, never a tracked .env, source ZIP or frontend bundle.
+
+## Permission contract
+
+Maintenance owns/manages schema objects. Runtime owns no database/schema/table/index/view/function/domain and has no owner/neon_superuser membership or role/database creation powers. It receives database CONNECT and public USAGE; users/RFQ/routing/rates/ledger/view SELECT; sessions CRUD; snapshot SELECT/INSERT; narrowly scoped header INSERT/counter UPDATE; version and receipt column INSERT. No history UPDATE/DELETE/TRUNCATE/TRIGGER/REFERENCES or schema CREATE/TEMP. There are no sequence grants because current IDs are UUIDs. The four guard functions and quote_amount domain receive explicit EXECUTE/USAGE.
+
+`db:check-cloud-permissions` checks all of this plus the 25 expected enabled triggers. `db:check-permissions` is the legacy local grant checker and still reports the intentionally preserved local users/sessions ownership limitation. Do not confuse that legacy result with cloud isolation. Keep future migrations maintenance-owned and add grants explicitly; no blanket default runtime writes.
+
+The current local ownership issue is not repaired or used for deployment: cloud data starts fresh from synthetic seeds. No local histories/password hashes/drawings are imported. Existing formulas, migrations, snapshots and goldens remain unchanged. Any later cross-cluster restore needs a separate rehearsal/review of transaction-ID-based assembly guards; this milestone makes no historical restore guarantee.
+
+## Health, logs and limits
+
+Render must probe `/api/health/live`: no DB query, session lookup or cookie. It indicates only a responsive process. `/api/health/ready` separately checks the database and migration 004; use it for release/diagnostics rather than frequent free-tier probes. Frequent DB readiness calls can keep serverless compute awake. Session pruning still queries the database periodically while the app is running.
+
+Production request logs allow only request ID, method, registered route pattern, status, duration and known response code. Successful liveness probes are suppressed. No raw paths/queries, bodies, passwords, cookies, tokens, document contents, SQL messages or stack traces are serialized. Existing database/session error logs are generic. This is minimal diagnosis, not durable centralized observability or financial audit logging. Snapshot tables remain the business record.
+
+Quotation writes are limited per estimator to 30 attempts/15 minutes in this single process. Invalid role/CSRF is rejected before the limiter. Replays count; 429/Retry-After must retain the pending key/body and be retried explicitly later. Login throttling remains 10/IP/15 minutes. Both stores reset on process restart and need shared storage before multiple instances. No automated POST replay is added.
+
+Free-plan facts checked from provider documentation on 2026-11-02: [Render Free](https://render.com/docs/free) sleeps after 15 idle minutes with about a one-minute wake and has shared instance/build/bandwidth limits. This plan does not use its expiring free PostgreSQL. [Neon Free](https://neon.com/pricing) includes 1 GB/project and 100 CU-hours/project/month, scales idle compute to zero and suspends compute on exhausted compute/network quotas. Neon is not the Render 30-day database trial, but it still provides no uninterrupted-demo guarantee. Check actual account allowance/region before creation. No artificial keep-alives, paid upgrades, extra domains/services or billing assumptions.
+
+## Verification and release gates
+
+Local results: 45 unit/config/API tests, 50 reported PostgreSQL tests, 33 costing tests, frontend build, 30 API module syntax checks, one actual production-server startup test and both Chrome suites passed. Fresh-database tests used real separate LOGIN credentials, not SET ROLE impersonation, and verified preserved local database ownership/ACLs before/after. OpenSSL on PATH is required for ephemeral TLS transport tests. See milestone-8-handoff.md for exact evidence and files.
+
+```powershell
+npm.cmd test
+npm.cmd run test:costing
+npm.cmd run test:db
+npm.cmd run check:api
+npm.cmd run build
+npm.cmd run test:production
+npm.cmd run test:browser
+npm.cmd run test:browser:quotation
+```
+
+After future resource/deployment approval, verify the actual Neon TLS connection and strict cloud permissions, then the assigned Render origin/proxy path, Secure HTTP-only __Host cookie, login/logout, expiry, anonymous/role/CSRF rejection, 119.76/149.70 saved spindle baseline, all scenarios/GST/provenance, same-key replay/conflict/concurrency, refresh and real service restart. Confirm no secret values in tracked source/build/logs and record quotas and evaluation retention dates. Do not announce a live demo until these public-URL checks pass. No deployed HTTPS, Neon execution, public uptime, restore/backup or load-test claim is made now.
+
+References: [Render Blueprint spec](https://render.com/docs/blueprint-spec), [Node pinning](https://render.com/docs/node-version), [Neon SQL roles](https://neon.com/docs/manage/roles), [node-postgres SSL URL caveat](https://node-postgres.com/features/ssl). STOP before external account/resource/deployment actions or later AI/approval/rate-management/PDF features.

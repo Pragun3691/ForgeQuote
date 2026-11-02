@@ -8,7 +8,7 @@ Build one honest, working end-to-end RFQ → verified intake → deterministic c
 
 ## What this ZIP contains
 
-T01 milestone 7 checkpoint: sign in, open a stored RFQ, edit costing inputs, save through the authenticated/idempotent API and inspect saved three-tier quotations with historical rate provenance. Refresh and backend restart preserve the saved version. See [Milestone 7 handoff](docs/milestone-7-handoff.md) for actual tests, API contracts, commands, screenshots and limits. STOP before Milestone 8 or deployment.
+T01 milestone 8 preparation checkpoint: the working RFQ/costing workflow is ready for a reviewed Render Free + Neon Free deployment, with strict TLS, fresh-database role isolation, liveness, redacted logs and write throttling. No cloud accounts/resources/purchases/deployment yet. Local database ownership remains unchanged. See [Milestone 8 handoff](docs/milestone-8-handoff.md) and [deployment procedure](docs/deployment.md). Product/API/browser contracts remain documented in the [Milestone 7 handoff](docs/milestone-7-handoff.md). STOP before external actions or later features until explicitly authorized.
 
 ## Start (Windows PowerShell)
 
@@ -64,7 +64,7 @@ Database tests create generated schemas inside the dedicated test database and r
 
 Local permissions: original development tables remain postgres-owned. Existing users/sessions were created under forgequote_app by commit 40f26fe; ownership is preserved per owner instruction. Ordinary runtime grants are SELECT-only on master data/users/ledger, sessions CRUD, snapshot SELECT/INSERT and column-specific header counter UPDATE. New draft_submissions has SELECT/column INSERT only. No history UPDATE/DELETE or TRUNCATE. The explicit maintenance command npm.cmd run db:grant-runtime applies apps/api/db/runtime-grants.sql without ownership changes, then npm.cmd run db:check-permissions verifies access. Existing auth-table/database ownership still gives forgequote_app DDL/self-grant powers and blocks public runtime isolation. Generated quote/HTTP test schemas are maintenance-owned; test runtime roles are non-owners.
 
-GET /api/health/ready requires PostgreSQL and migration 004. Auth endpoints: GET /api/auth/session, POST /api/auth/login, POST /api/auth/logout. Protected business endpoints: GET /api/rfqs, GET /api/rfqs/:id, POST /api/rfqs/:id/quote-versions and GET /api/quote-versions/:id. POST requires estimator role, Origin, X-CSRF-Token and a UUID Idempotency-Key. Sales head can read only. See the handoff for strict request/response/error contracts. The UI and server preserve exact decimal-string financial values.
+GET /api/health/live is DB/session-free and intended for frequent free-tier health probes. GET /api/health/ready separately requires PostgreSQL and migration 004. Auth endpoints: GET /api/auth/session, POST /api/auth/login, POST /api/auth/logout. Protected business endpoints: GET /api/rfqs, GET /api/rfqs/:id, POST /api/rfqs/:id/quote-versions and GET /api/quote-versions/:id. POST requires estimator role, Origin, X-CSRF-Token and a UUID Idempotency-Key, with a single-process 30-attempt/estimator/15-minute limiter. Sales head can read only. On 429 retain the key/body and retry later. The UI/server preserve decimal-string financial values and original idempotency semantics.
 
 ## Test login locally
 
@@ -90,6 +90,24 @@ The legacy auth smoke requires local development PostgreSQL/migrations/seeded us
 Milestone 5 adds a pure decimal.js engine, independent of HTTP, database and UI. Run `npm.cmd run test:costing` for the nine approved golden cases and financial boundaries. See [costing-engine.md](docs/costing-engine.md) for its input/output contract. Milestone 6 adds six snapshot tables and an internal service; Milestone 7 wraps it in authenticated HTTP and React with transactional submission-key receipts. Approved v0.2 formulas/goldens and migrations 001-003 remain unchanged. See [Milestone 7 handoff](docs/milestone-7-handoff.md), [ADR-0005](docs/decisions/0005-quotation-snapshots.md) and [ADR-0006](docs/decisions/0006-http-submission-idempotency.md).
 
 After migration 004, run npm.cmd run db:grant-runtime explicitly with maintenance credentials and npm.cmd run db:check-permissions. Do not migrate as runtime or change existing ownership. Keep MIGRATION_DATABASE_URL out of deployed runtime settings. No deployment is authorized in this milestone.
+
+## Milestone 8 preparation checks
+
+Node is pinned to the tested 24.20.0. Production requires certificate/hostname-verified PostgreSQL TLS; local development remains unchanged. Production skips .env auto-loading and rejects maintenance/test/seed credentials in its application environment. New configuration names are DATABASE_TLS_MODE, optional DATABASE_CA_CERT and maintenance-only CLOUD_DATABASE_NAME. Values/secrets must never be committed.
+
+```powershell
+npm.cmd test
+npm.cmd run test:db
+npm.cmd run check:api
+npm.cmd run build
+npm.cmd run test:production
+npm.cmd run test:browser
+npm.cmd run test:browser:quotation
+```
+
+TLS tests require OpenSSL on PATH and generate/delete ephemeral keys under ignored .tmp. Fresh-cloud tests additionally require the local maintenance/test bootstrap to create disposable databases and roles; they never transfer ownership of existing databases. The generated database is migrated/seeded and accessed through real restricted LOGIN credentials, then removed. Before/after checks preserve local ownership/public ACLs. Existing cost formulas, migrations 001-004 and goldens are unchanged.
+
+For a future approved fresh Neon database only: db:prepare-cloud and db:check-cloud-permissions are separate maintenance/preflight commands. They require explicit CLOUD_DATABASE_NAME and refuse preserved local targets. Do not run them as local ownership repair. See [deployment.md](docs/deployment.md) for SQL role creation, exact environment separation, Render settings and manual release gates. No account access or cloud setup occurred in this milestone.
 
 ## Definition of complete
 
