@@ -4,7 +4,7 @@ import { rateLimit } from 'express-rate-limit';
 import { randomBytes } from 'node:crypto';
 import { json } from 'express';
 import { hashPassword, verifyPassword } from './passwords.js';
-import { csrfToken, csrfProtection, destroySession, saveSession, regenerateSession, loadUser, requireUser, requireRole, failure } from './middleware.js';
+import { csrfToken, csrfProtection, destroySession, saveSession, regenerateSession, loadUser, requireUser, failure } from './middleware.js';
 
 const PgStore = connectPgSimple(session);
 // Same scrypt work for unknown users. Generated per process; never a usable identity.
@@ -61,8 +61,4 @@ export function installAuth(app, pool, config, { sessionSchema = 'public', login
     await destroySession(req); clearCookie(res); res.sendStatus(204);
   });
 
-  // Authorization boundary only. Milestone 6 will replace 501 with real persistence.
-  app.post('/api/rfqs/:rfqId/quote-versions', requireUser, requireRole('estimator'), csrf, (_req, res) => {
-    failure(res, 501, 'DRAFT_CREATION_UNAVAILABLE', 'Draft creation is not implemented at this checkpoint.');
-  });
 }

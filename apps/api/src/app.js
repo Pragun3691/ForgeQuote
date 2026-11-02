@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { readAuthConfig } from './config.js';
 import { installAuth } from './auth/index.js';
+import { apiErrorHandler } from './errors.js';
 
 export function createApp(pool, config = readAuthConfig(), authOptions = {}) {
   const app = express();
@@ -16,13 +17,7 @@ export function createApp(pool, config = readAuthConfig(), authOptions = {}) {
   });
   installAuth(app, pool, config, authOptions);
   app.use('/api', (_req, res) => res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Endpoint not available' } }));
-  app.use((error, _req, res, _next) => {
-    res.set('Cache-Control', 'no-store');
-    if (res.headersSent) return;
-    const status = error.type === 'entity.too.large' ? 413 : error.type === 'entity.parse.failed' ? 400 : 503;
-    const code = status === 413 ? 'REQUEST_TOO_LARGE' : status === 400 ? 'INVALID_JSON' : 'AUTH_SERVICE_UNAVAILABLE';
-    res.status(status).json({ error: { code, message: status === 503 ? 'Authentication service unavailable. Please retry.' : 'Invalid request body.' } });
-  });
+  app.use(apiErrorHandler);
   const dist = fileURLToPath(new URL('../../web/dist/', import.meta.url));
   if (existsSync(dist)) {
     app.use(express.static(dist));

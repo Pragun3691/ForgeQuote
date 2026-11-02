@@ -44,3 +44,10 @@ The owner changed database ownership and configured forgequote_app credentials i
 - Tests executed: 5 unit/config/API tests; 19 real PostgreSQL subtests plus 2 parents (21 reported); production build; real Chrome wrong-password/both-role login/reload/logout/mobile smoke. Cookie/proxy tests simulate trusted HTTPS headers; public deployment remains unverified.
 - Found and fixed Vite reading server NODE_ENV=development during a production build; now only proxy-port settings are read without mutating Vite's environment.
 - Owner questions: Why regenerate the session ID after login? Why does an HTTP-only cookie still need CSRF protection? Why does disabling a user invalidate access without waiting eight hours?
+
+### Milestone 4 follow-up: maintenance and runtime separation
+
+- Owner requested separate maintenance credentials and no ownership changes. CLIs now reject absent/same-role/different-target maintenance URLs; existing development migrations validated as a no-op. Explicit table-specific grants give runtime SELECT except session CRUD. Historical trigger protections remain intact.
+- Removed the draft-route placeholder. Only a test-only middleware probe exercises estimator permissions; no quote-write authorization claim.
+- Existing users/sessions from 40f26fe remain forgequote_app-owned. ACL revocation removes ordinary DML permissions but cannot remove an owner's DDL/self-grant powers. Full isolation requires an additional owner-authorized provisioning decision, so do not present this development account as deployment-ready.
+- Owner questions: Why does database ownership differ from table ownership? Why must session storage have DELETE permission? Why can revoked ordinary grants fail to fully restrict a table owner?

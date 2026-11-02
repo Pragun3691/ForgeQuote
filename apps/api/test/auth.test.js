@@ -7,12 +7,19 @@ import '../src/config.js';
 import { migrate } from '../src/migrate.js';
 import { seedUsers } from '../src/auth/seed-users.js';
 import { verifyPassword } from '../src/auth/passwords.js';
-import { createApp } from '../src/app.js';
+import express from 'express';
+import { installAuth } from '../src/auth/index.js';
+import { requireUser, requireRole, csrfProtection } from '../src/auth/middleware.js';
+import { apiErrorHandler } from '../src/errors.js';
 
 const randomSecret = () => randomBytes(32).toString('hex');
 
 async function start(pool, config, options) {
-  const app = createApp(pool, config, options);
+  // Test-only probe exercises real auth middleware; no quotation API is implemented.
+  const app = express();
+  installAuth(app, pool, config, options);
+  app.post('/api/test/estimator-only', requireUser, requireRole('estimator'), csrfProtection(config.appOrigin), (_req, res) => res.sendStatus(204));
+  app.use(apiErrorHandler);
   const server = app.listen(0, '127.0.0.1');
   await once(server, 'listening');
   return { app, server, base: `http://127.0.0.1:${server.address().port}`, close: async () => { app.locals.sessionStore.close(); await new Promise(resolve => server.close(resolve)); } };
@@ -91,15 +98,15 @@ test('real PostgreSQL authentication lifecycle and security boundaries', async t
       try { const disabled = await client.login('sales_head', passwords.DEMO_SALES_HEAD_PASSWORD); assert.equal(disabled.response.status, 401); assert.deepEqual(disabled.data, wrong.data); }
       finally { await pool.query("UPDATE users SET active=true WHERE username='sales_head'"); }
     });
-    await t.test('draft guard rejects anonymous and sales-head; estimator creates no fake draft', async () => {
-      const path = '/api/rfqs/demo/quote-versions';
+    await t.test('independent middleware probe rejects anonymous and sales-head and permits estimator', async () => {
+      const path = '/api/test/estimator-only';
       const anonymous = agent(running.base, config.appOrigin);
       assert.equal((await anonymous.request(path, { method: 'POST' })).response.status, 401);
       const sales = agent(running.base, config.appOrigin); assert.equal((await sales.login('sales_head', passwords.DEMO_SALES_HEAD_PASSWORD)).response.status, 200);
       assert.equal((await sales.request(path, { method: 'POST' })).response.status, 403);
       const estimator = agent(running.base, config.appOrigin); await estimator.login('estimator', passwords.DEMO_ESTIMATOR_PASSWORD);
       const permitted = await estimator.request(path, { method: 'POST' });
-      assert.equal(permitted.response.status, 501); assert.equal(permitted.data.error.code, 'DRAFT_CREATION_UNAVAILABLE');
+      assert.equal(permitted.response.status, 204);
     });
     await t.test('missing or mismatched CSRF and wrong origin rejected, including login/logout', async () => {
       const client = agent(running.base, config.appOrigin); await client.bootstrap();
@@ -107,14 +114,14 @@ test('real PostgreSQL authentication lifecycle and security boundaries', async t
       for (const headers of [{ 'X-CSRF-Token': '' }, { 'X-CSRF-Token': randomSecret() }, { Origin: 'https://other.example' }, { Origin: '' }]) assert.equal((await client.request('/api/auth/login', { method: 'POST', body, headers })).response.status, 403);
       const beforeLogin = client.token; await client.login('estimator', passwords.DEMO_ESTIMATOR_PASSWORD);
       assert.equal((await client.request('/api/auth/logout', { method: 'POST', headers: { 'X-CSRF-Token': beforeLogin } })).response.status, 403);
-      assert.equal((await client.request('/api/rfqs/demo/quote-versions', { method: 'POST', headers: { 'X-CSRF-Token': '' } })).response.status, 403);
+      assert.equal((await client.request('/api/test/estimator-only', { method: 'POST', headers: { 'X-CSRF-Token': '' } })).response.status, 403);
     });
     await t.test('logout destroys stored session and invalidates replayed cookie', async () => {
       const client = agent(running.base, config.appOrigin); await client.login('estimator', passwords.DEMO_ESTIMATOR_PASSWORD);
       const oldCookie = client.cookie;
       assert.equal((await client.request('/api/auth/logout', { method: 'POST' })).response.status, 204);
       const replay = agent(running.base, config.appOrigin); replay.cookie = oldCookie;
-      assert.equal((await replay.request('/api/rfqs/demo/quote-versions', { method: 'POST' })).response.status, 401);
+      assert.equal((await replay.request('/api/test/estimator-only', { method: 'POST' })).response.status, 401);
       assert.equal((await replay.bootstrap()).data.user, null);
     });
     await t.test('database expiry, absolute expiry and disabled active users invalidate sessions', async () => {
@@ -124,7 +131,7 @@ test('real PostgreSQL authentication lifecycle and security boundaries', async t
         if (mode === 'database') await pool.query("UPDATE sessions SET expire=now()-interval '1 minute' WHERE sid=$1", [sid]);
         if (mode === 'absolute') await pool.query("UPDATE sessions SET sess=jsonb_set(sess::jsonb,'{expiresAt}','0'::jsonb)::json WHERE sid=$1", [sid]);
         if (mode === 'disabled') await pool.query('UPDATE users SET active=false WHERE id=$1', [login.data.user.id]);
-        try { assert.equal((await client.request('/api/rfqs/demo/quote-versions', { method: 'POST' })).response.status, 401); assert.equal((await client.bootstrap()).data.user, null); }
+        try { assert.equal((await client.request('/api/test/estimator-only', { method: 'POST' })).response.status, 401); assert.equal((await client.bootstrap()).data.user, null); }
         finally { await pool.query('UPDATE users SET active=true WHERE id=$1', [login.data.user.id]); }
       }
     });

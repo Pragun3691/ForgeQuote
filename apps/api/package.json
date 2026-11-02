@@ -10,7 +10,8 @@
     "test:db": "node --test test/database.test.js test/auth.test.js",
     "db:migrate": "node scripts/migrate.js",
     "db:seed": "node scripts/seed.js",
-    "db:seed-users": "node scripts/seed-users.js"
+    "db:seed-users": "node scripts/seed-users.js",
+    "db:check-permissions": "node scripts/check-permissions.js"
   },
   "dependencies": {
     "connect-pg-simple": "^10.0.0",

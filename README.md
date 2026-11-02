@@ -42,7 +42,7 @@ psql -h localhost -U postgres -d postgres -c "CREATE DATABASE forgequote_dev"
 psql -h localhost -U postgres -d postgres -c "CREATE DATABASE forgequote_test"
 ```
 
-Set `DATABASE_URL` and `TEST_DATABASE_URL` in ignored `.env` to their respective PostgreSQL URLs. Test database name must end in `_test`. If using separate migration credentials, set `MIGRATION_DATABASE_URL` to the development database using that maintenance account. Never point migration/seed commands at real customer data.
+Set DATABASE_URL and TEST_DATABASE_URL in ignored .env to their respective PostgreSQL URLs. Test database name must end in _test. MIGRATION_DATABASE_URL is mandatory for migration and seed commands: use a different maintenance role targeting the same host, port and development database. There is no runtime-credential fallback. Omit maintenance credentials from the deployed API environment. Never point migration/seed commands at real customer data.
 
 ```powershell
 npm.cmd run db:migrate
@@ -60,9 +60,9 @@ Migrations are atomic, checksummed and serialized; repeated execution is a no-op
 
 Database tests create a generated schema inside the dedicated test database, then remove only that schema. They require schema-creation privileges. NUMERIC/BIGINT transport remains strings. `rate_periods` derives each exclusive end from the next start; no explicit expiry gaps are supported.
 
-Local permission note: changing database ownership does not transfer existing tables. This workspace's postgres-owned development tables grant forgequote_app SELECT/INSERT, plus SELECT on rate_periods; UPDATE/DELETE are not granted. Future migrations altering these existing objects require owner-level maintenance credentials through MIGRATION_DATABASE_URL. Do not solve this by making the runtime role a superuser or disabling history triggers. Test-generated schemas are owned by the configured test role and do not modify development tables.
+Local permissions: original development tables remain postgres-owned. Existing users/sessions were created under forgequote_app by commit 40f26fe; ownership is preserved per owner instruction. Ordinary runtime grants are SELECT-only on users/business/history/ledger and SELECT on rate_periods; sessions alone have SELECT/INSERT/UPDATE/DELETE. No TRUNCATE granted. The explicit maintenance file apps/api/db/runtime-grants.sql applies these table-specific grants without changing ownership. After reviewing the current schema, run it with your maintenance connection, then npm.cmd run db:check-permissions. Existing auth-table/database ownership still gives forgequote_app DDL powers and self-grant capability; removing these requires a separate, explicitly approved ownership/provisioning decision before public deployment. Test-generated schemas are isolated and owned by the test role.
 
-`GET /api/health/ready` requires PostgreSQL and migration 002. Auth endpoints: GET /api/auth/session, POST /api/auth/login, POST /api/auth/logout. The draft POST /api/rfqs/:id/quote-versions enforces auth/role/CSRF, then returns explicit 501 for an estimator because persistence is not implemented. No RFQ read API or costing engine exists yet.
+GET /api/health/ready requires PostgreSQL and migration 002. Auth endpoints: GET /api/auth/session, POST /api/auth/login, POST /api/auth/logout. No draft-creation endpoint exists; it returns 404. Authentication/role/CSRF middleware is tested independently on a test-only probe, not a real quotation write. No RFQ read API, quotation tables or costing engine exists yet.
 
 ## Test login locally
 

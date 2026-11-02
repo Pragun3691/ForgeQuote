@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readConfig, readAuthConfig } from '../src/config.js';
 import { randomBytes } from 'node:crypto';
+import { readMaintenanceUrl } from '../src/maintenance.js';
 
 test('configuration fails explicitly without valid PostgreSQL URL', () => {
   for (const env of [{}, { DATABASE_URL: 'invalid' }, { DATABASE_URL: 'https://localhost' }]) assert.throws(() => readConfig(env), /DATABASE_URL/);
@@ -21,4 +22,12 @@ test('configuration validates port, environment and approved illustrative GST', 
   for (const PORT of ['0', '65536', 'NaN', '1.2']) assert.throws(() => readConfig({ ...base, PORT }), /PORT/);
   assert.throws(() => readConfig({ ...base, NODE_ENV: 'invalid' }), /NODE_ENV/);
   assert.throws(() => readConfig({ ...base, DEMO_GST_PERCENT: '5' }), /GST/);
+});
+
+test('maintenance configuration requires separate credentials targeting the same database', () => {
+  const env = { DATABASE_URL: 'postgres://app@localhost/forgequote_dev' };
+  assert.throws(() => readMaintenanceUrl(env), /required/);
+  assert.throws(() => readMaintenanceUrl({ ...env, MIGRATION_DATABASE_URL: env.DATABASE_URL }), /roles must differ/);
+  assert.throws(() => readMaintenanceUrl({ ...env, MIGRATION_DATABASE_URL: 'postgres://maintenance@localhost/other' }), /same host/);
+  assert.equal(new URL(readMaintenanceUrl({ ...env, MIGRATION_DATABASE_URL: 'postgres://maintenance@localhost/forgequote_dev' })).username, 'maintenance');
 });
