@@ -6,13 +6,17 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "test": "node --test test/config.test.js test/app.test.js test/passwords.test.js test/costing.test.js",
-    "test:db": "node --test test/database.test.js test/auth.test.js test/quotations.test.js test/quotation-api.test.js",
+    "test": "node --test test/config.test.js test/app.test.js test/passwords.test.js test/costing.test.js test/deployment.test.js test/tls.test.js",
+    "test:db": "node --test test/database.test.js test/auth.test.js test/quotations.test.js test/quotation-api.test.js test/cloud-database.test.js",
     "db:migrate": "node scripts/migrate.js",
     "db:seed": "node scripts/seed.js",
     "db:seed-users": "node scripts/seed-users.js",
     "db:check-permissions": "node scripts/check-permissions.js",
     "db:grant-runtime": "node scripts/grant-runtime.js",
+    "db:prepare-cloud": "node scripts/prepare-cloud.js",
+    "db:check-cloud-permissions": "node scripts/check-cloud-permissions.js",
+    "check": "node scripts/check-syntax.js",
+    "test:production": "node --test test/production.test.js",
     "test:costing": "node --test test/costing.test.js"
   },
   "dependencies": {

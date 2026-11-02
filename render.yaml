@@ -1,0 +1,29 @@
+# Preparation only. Creating/syncing a Blueprint requires separate owner approval.
+services:
+  - type: web
+    name: forgequote
+    runtime: node
+    plan: free
+    region: singapore
+    branch: feature/T01-thin-slice
+    autoDeployTrigger: "off"
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health/live
+    envVars:
+      - key: NODE_VERSION
+        value: 24.20.0
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_TLS_MODE
+        value: verify-full
+      - key: TRUST_PROXY_HOPS
+        value: "1"
+      - key: DEMO_GST_PERCENT
+        value: "18"
+      - key: DATABASE_URL
+        sync: false
+      - key: APP_ORIGIN
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true

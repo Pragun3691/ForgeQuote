@@ -24,6 +24,10 @@
     "test:browser:quotation": "node tests/browser-quotation.smoke.js",
     "db:check-permissions": "npm run db:check-permissions --workspace apps/api",
     "db:grant-runtime": "npm run db:grant-runtime --workspace apps/api",
+    "db:prepare-cloud": "npm run db:prepare-cloud --workspace apps/api",
+    "db:check-cloud-permissions": "npm run db:check-cloud-permissions --workspace apps/api",
+    "check:api": "npm run check --workspace apps/api",
+    "test:production": "npm run test:production --workspace apps/api",
     "test:costing": "npm run test:costing --workspace apps/api"
   },
   "devDependencies": {
