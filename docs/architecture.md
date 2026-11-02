@@ -1,4 +1,6 @@
-# Proposed architecture (not implemented yet)
+# Architecture - current slice and future scope
+
+Current checkpoint: Milestone 7 implements login -> RFQ register/detail -> authenticated idempotent POST -> immutable PostgreSQL snapshot -> saved GET -> React results. The diagram below also includes future scope; approvals, intake AI and PDF are not implemented. No deployment. See milestone-7-handoff.md for verified interfaces.
 
 ```text
 Estimator/Sales Head React UI
@@ -44,4 +46,10 @@ Milestone 6 now adds quotation snapshot tables and separately tests real interna
 
 `src/quotations.js`: trusted actor/config -> DB role check -> header lock/counter -> single master/rate-resolution statement -> pure engine -> atomic immutable snapshot. Tables: quotations -> quotation_versions -> quotation_parts -> quotation_rates/quotation_part_tiers; versions also own quotation_totals. Parts/rates retain both master references and copied data. Numeric JSON inputs are strings and financial SQL outputs use unbounded NUMERIC with exact-paise checks.
 
-Retrieval reads saved snapshots only; explicit diagnostic reproduction dispatches the saved formula version. Transaction-ID child guards prohibit later appends; mutation/truncate guards protect committed history. Service completeness and trusted credentials are explicit boundaries. See quotation-persistence.md and ADR-0005. There is no HTTP/UI connection, issue/approval or PDF. Stop for review before milestone 7.
+Retrieval reads saved snapshots only; explicit diagnostic reproduction dispatches the saved formula version. Transaction-ID child guards prohibit later appends; mutation/truncate guards protect committed history. Service completeness and trusted credentials are explicit boundaries. See quotation-persistence.md and ADR-0005. Milestone 7 subsequently adds the HTTP/UI connection below; no issue/approval or PDF workflow exists.
+
+## Milestone 7 HTTP and React integration
+
+`quotation-routes.js` wraps existing session/role/CSRF protection around RFQ reads and draft writes. `rfqs.js` provides stored inputs/routes/default integer quantities and version metadata. `quotation-request.js` strictly validates and canonicalizes explicit business fields. `draft-submissions.js` owns one transaction for actor/key lock, replay/conflict lookup, quotation creation via shared client and append-only receipt insertion. Migration 004 adds UNIQUE(actor_user_id, submission_key); no generic job framework or automatic retries. See ADR-0006.
+
+React Workspace reads the register/details, accepts date/margin/routing/three quantities and stores exact pending key/body in per-actor/RFQ sessionStorage before POST. Unknown outcomes use explicit same-key recovery. Only Start new calculation generates another key. QuoteResults renders saved GET financial strings and selected rates; hash URLs retain saved version on refresh. Actual Chrome tests verify full API-process restart and loss of a committed POST response followed by refresh/replay. HTTP T01 rejects multi-part RFQs; internal service still supports multiple parts. No deployment or Milestone 8 work.

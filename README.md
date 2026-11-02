@@ -8,7 +8,7 @@ Build one honest, working end-to-end RFQ → verified intake → deterministic c
 
 ## What this ZIP contains
 
-T01 milestone 6 checkpoint: React/Express authentication, PostgreSQL rate history, pure decimal.js costing and immutable transactional quotation persistence through an internal service. Quotation HTTP/frontend integration awaits review. See `docs/current-status.md` and [Milestone 6 handoff](docs/quotation-persistence.md) for verification.
+T01 milestone 7 checkpoint: sign in, open a stored RFQ, edit costing inputs, save through the authenticated/idempotent API and inspect saved three-tier quotations with historical rate provenance. Refresh and backend restart preserve the saved version. See [Milestone 7 handoff](docs/milestone-7-handoff.md) for actual tests, API contracts, commands, screenshots and limits. STOP before Milestone 8 or deployment.
 
 ## Start (Windows PowerShell)
 
@@ -16,6 +16,8 @@ T01 milestone 6 checkpoint: React/Express authentication, PostgreSQL rate histor
 npm.cmd ci
 # Create ignored .env at repository root; see configuration below.
 npm.cmd run db:migrate
+npm.cmd run db:grant-runtime
+npm.cmd run db:check-permissions
 npm.cmd run db:seed
 npm.cmd run db:seed-users
 npm.cmd test
@@ -58,33 +60,36 @@ npm.cmd run dev:web
 
 Migrations are atomic, checksummed and serialized; repeated execution is a no-op. Do not edit an applied migration: add a new one. db:seed inserts the synthetic spindle, six rate keys/versions and first route. db:seed-users separately inserts estimator and sales_head with salted hashes. Both reject drift instead of overwriting; the user seed never resets credentials or reactivates users. No quotation results are seeded.
 
-Database tests create a generated schema inside the dedicated test database, then remove only that schema. They require schema-creation privileges. NUMERIC/BIGINT transport remains strings. `rate_periods` derives each exclusive end from the next start; no explicit expiry gaps are supported.
+Database tests create generated schemas inside the dedicated test database and remove only their fixtures. Quote/HTTP/browser tests additionally use maintenance CREATE ROLE/SCHEMA capability to test a generated non-owner runtime role; those roles are cleaned up. NUMERIC/BIGINT transport remains strings. `rate_periods` derives each exclusive end from the next start; no explicit expiry gaps are supported.
 
-Local permissions: original development tables remain postgres-owned. Existing users/sessions were created under forgequote_app by commit 40f26fe; ownership is preserved per owner instruction. Ordinary runtime grants are SELECT-only on users/business/history/ledger and SELECT on rate_periods; sessions alone have SELECT/INSERT/UPDATE/DELETE. No TRUNCATE granted. The explicit maintenance file apps/api/db/runtime-grants.sql applies these table-specific grants without changing ownership. After reviewing the current schema, run it with your maintenance connection, then npm.cmd run db:check-permissions. Existing auth-table/database ownership still gives forgequote_app DDL powers and self-grant capability; removing these requires a separate, explicitly approved ownership/provisioning decision before public deployment. Test-generated schemas are isolated and owned by the test role.
+Local permissions: original development tables remain postgres-owned. Existing users/sessions were created under forgequote_app by commit 40f26fe; ownership is preserved per owner instruction. Ordinary runtime grants are SELECT-only on master data/users/ledger, sessions CRUD, snapshot SELECT/INSERT and column-specific header counter UPDATE. New draft_submissions has SELECT/column INSERT only. No history UPDATE/DELETE or TRUNCATE. The explicit maintenance command npm.cmd run db:grant-runtime applies apps/api/db/runtime-grants.sql without ownership changes, then npm.cmd run db:check-permissions verifies access. Existing auth-table/database ownership still gives forgequote_app DDL/self-grant powers and blocks public runtime isolation. Generated quote/HTTP test schemas are maintenance-owned; test runtime roles are non-owners.
 
-GET /api/health/ready requires PostgreSQL and migration 002; it is an authentication readiness check, not verification of the later quote schema. Auth endpoints: GET /api/auth/session, POST /api/auth/login, POST /api/auth/logout. No draft-creation endpoint exists; it returns 404. Authentication/role/CSRF middleware is tested on a test-only probe. Milestone 6 separately tests real internal quotation writes with database actor authorization and restricted runtime privileges. No RFQ read or quotation HTTP API exists.
+GET /api/health/ready requires PostgreSQL and migration 004. Auth endpoints: GET /api/auth/session, POST /api/auth/login, POST /api/auth/logout. Protected business endpoints: GET /api/rfqs, GET /api/rfqs/:id, POST /api/rfqs/:id/quote-versions and GET /api/quote-versions/:id. POST requires estimator role, Origin, X-CSRF-Token and a UUID Idempotency-Key. Sales head can read only. See the handoff for strict request/response/error contracts. The UI and server preserve exact decimal-string financial values.
 
 ## Test login locally
 
-Run the API and Vite commands above. Select Estimator or Sales head, use its password from ignored .env, sign in, reload, and sign out. All actions use the real API and PostgreSQL sessions. An incorrect password gives a generic error. Ten login requests per IP in 15 minutes trigger 429, including successful requests. Restarting the single API instance clears its process-local throttle; sessions remain in PostgreSQL.
+Run the API and Vite commands above. Select Estimator, use its password from ignored .env, sign in and open RFQ-2611-014. Select pricing date 2026-11-02, margin 20 and quantities 90000/180000/270000; calculate/save. The saved baseline cost is 119.76 and price is 149.70. Refresh to retrieve the same saved version. Sales head can inspect it but cannot create. Start new calculation is an explicit new version/key; after uncertain failure, retry the same pending submission. The tab retains pending key/body across refresh/expiry in sessionStorage. No authoritative client pricing or fake business values.
+
+An incorrect password gives a generic error. Ten login requests per IP in 15 minutes trigger 429, including successful requests. Restarting the single API instance clears its process-local throttle; sessions remain in PostgreSQL.
 
 Automated local browser verification uses installed Chrome by default, starts an ephemeral same-origin API serving the built frontend, and reads the local seed credentials without printing them:
 
 ```powershell
 npm.cmd run build
 npm.cmd run test:browser
+npm.cmd run test:browser:quotation
 # If only Edge is installed:
 $env:BROWSER_CHANNEL = 'msedge'
 npm.cmd run test:browser
 ```
 
-Browser smoke requires local PostgreSQL, migration/seeded users and the built frontend. Unit/API tests use generated secrets; integration tests use generated isolated schemas in the _test database. Production cookie checks simulate HTTPS through a trusted proxy; they do not claim a deployed TLS service.
+The legacy auth smoke requires local development PostgreSQL/migrations/seeded users and built frontend. The quotation smoke creates an isolated test schema/non-owner role and random users, starts a real child API process, restarts it, and tests committed-response loss plus refresh/same-key recovery. It writes ignored desktop/mobile screenshots under .tmp. Both use installed Chrome (or BROWSER_CHANNEL=msedge). Unit/API tests use generated secrets; integration tests use the dedicated _test database. Production cookie checks simulate HTTPS through a trusted proxy; they do not claim a deployed TLS service.
 
 ## Deterministic costing checkpoint
 
-Milestone 5 adds a pure decimal.js engine, independent of HTTP, database and UI. Run `npm.cmd run test:costing` for the nine approved golden cases and financial boundaries. See [costing-engine.md](docs/costing-engine.md) for the public input/output contract and examples. Milestone 6 adds six quotation tables in migration 003 and an internal creation/retrieval service using that engine. Approved v0.2 values remain unchanged. See [quotation-persistence.md](docs/quotation-persistence.md) and [ADR-0005](docs/decisions/0005-quotation-snapshots.md) for schema, API, concurrency, historical evidence and limitations. Stop before Milestone 7; quotation HTTP/frontend integration is not implemented.
+Milestone 5 adds a pure decimal.js engine, independent of HTTP, database and UI. Run `npm.cmd run test:costing` for the nine approved golden cases and financial boundaries. See [costing-engine.md](docs/costing-engine.md) for its input/output contract. Milestone 6 adds six snapshot tables and an internal service; Milestone 7 wraps it in authenticated HTTP and React with transactional submission-key receipts. Approved v0.2 formulas/goldens and migrations 001-003 remain unchanged. See [Milestone 7 handoff](docs/milestone-7-handoff.md), [ADR-0005](docs/decisions/0005-quotation-snapshots.md) and [ADR-0006](docs/decisions/0006-http-submission-idempotency.md).
 
-After migration 003, apply `apps/api/db/runtime-grants.sql` explicitly with maintenance credentials and run `npm.cmd run db:check-permissions`. Do not run migrations as runtime or change ownership of existing tables. Quote integration tests additionally require maintenance credentials with CREATE ROLE/SCHEMA capability on the configured dedicated test database; generated test roles/schemas are cleaned up. Keep MIGRATION_DATABASE_URL out of deployed runtime settings.
+After migration 004, run npm.cmd run db:grant-runtime explicitly with maintenance credentials and npm.cmd run db:check-permissions. Do not migrate as runtime or change existing ownership. Keep MIGRATION_DATABASE_URL out of deployed runtime settings. No deployment is authorized in this milestone.
 
 ## Definition of complete
 

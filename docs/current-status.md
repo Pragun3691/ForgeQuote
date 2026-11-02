@@ -1,5 +1,19 @@
 # Current status - 2026-11-02
 
+## Milestone 7 - current
+
+- Milestone 7 plan approved and implemented on feature/T01-thin-slice from clean e677955. STOP before Milestone 8 or deployment; another review is required.
+- Four protected HTTP routes now connect RFQ list/detail, idempotent draft creation and saved quotation retrieval to the React workspace. Estimator creates; sales head reads only. Existing session/activation/role/CSRF/Origin checks remain authoritative. Server configuration supplies illustrative GST 18%.
+- Migration 004 adds immutable draft_submissions with UNIQUE(actor_user_id, submission_key). Lookup, quotation creation and receipt insertion share one PostgreSQL transaction/client. Canonical fingerprints exclude transient security data and normalize UUID casing, margin zeros and property order. Same-key replay returns original ID; changed payload conflicts; no automatic POST/COMMIT retry.
+- React displays real RFQ inputs, editable date/margin/three quantities/routing, saved cost/price/annual GST tables, rate provenance and version history. URL hash retains saved version. Per-actor/RFQ sessionStorage preserves pending key/body across refresh and expiry; unknown outcomes freeze inputs for explicit retry. Only Start new calculation creates another key. Invalid storage blocks saving.
+- Actual checks: npm.cmd test 39/39; test:costing 33/33 unchanged; test:db 44/44 reported (40 subtests + 4 parents); production build passed; both real Chrome browser suites passed. Browser coverage includes an actual API process restart and successful POST whose response was lost, refresh and same-key recovery. Desktop/mobile screenshots generated and inspected.
+- Six concurrent same-key HTTP requests returned one 201 and five 200 responses with one version. Receipt-write failure rolled back every snapshot/counter/key. Unsupported multi-part HTTP RFQs fail visibly; internal multi-part/golden behavior is preserved.
+- Local migration 004 applied, repeat no-op, db:grant-runtime and db:check-permissions passed. Previous migrations 001-003, finance engine/spec and golden expectations unchanged. No existing data reset/ownership changes; no public deployment.
+- Existing runtime auth-table/database ownership remains the deployment isolation blocker. Both active roles read all demo RFQs/drafts; no tenant isolation, quote-write throttling or pagination. sessionStorage recovery ends if the tab/storage is lost. All quotes remain immutable drafts; no approval/AI/PDF or optional features.
+- Exact files, commits, HTTP contracts, commands, observed values and limits: docs/milestone-7-handoff.md. Architecture decision: ADR-0006.
+
+## Previous checkpoint - Milestone 6
+
 - Branch: feature/T01-thin-slice. Milestones 1-6 complete. STOP before Milestone 7: another owner review is required before HTTP/frontend quotation integration.
 - Milestone 6 started at clean HEAD 1644ba1. Implementation commits: 9654823 and 197cd39; documentation handoff follows separately. No prior work overwritten or rebased.
 - Accepted decisions: stack ADR-0001; unchanged v0.2 finance ADR-0002; append-only effective starts ADR-0003; sessions ADR-0004; transactional immutable quotation snapshots ADR-0005.
