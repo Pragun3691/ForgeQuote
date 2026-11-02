@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "test": "node --test test/config.test.js test/app.test.js test/passwords.test.js test/costing.test.js test/deployment.test.js test/tls.test.js",
-    "test:db": "node --test test/database.test.js test/auth.test.js test/quotations.test.js test/quotation-api.test.js test/cloud-database.test.js test/rfq-intake.test.js",
+    "test": "node --test test/config.test.js test/app.test.js test/passwords.test.js test/costing.test.js test/deployment.test.js test/tls.test.js test/ai-extraction.test.js",
+    "test:db": "node --test test/database.test.js test/auth.test.js test/quotations.test.js test/quotation-api.test.js test/cloud-database.test.js test/rfq-intake.test.js test/ai-api.test.js",
+    "test:ai:live": "node scripts/test-ai-live.js",
     "db:migrate": "node scripts/migrate.js",
     "db:seed": "node scripts/seed.js",
     "db:seed-users": "node scripts/seed-users.js",
@@ -20,11 +21,13 @@
     "test:costing": "node --test test/costing.test.js"
   },
   "dependencies": {
+    "@google/genai": "2.32.0",
     "connect-pg-simple": "^10.0.0",
     "decimal.js": "^10.6.0",
     "express": "^5.1.0",
     "express-rate-limit": "^8.7.2",
     "express-session": "^1.19.0",
-    "pg": "^8.16.0"
+    "pg": "^8.16.0",
+    "zod": "4.6.7"
   }
 }

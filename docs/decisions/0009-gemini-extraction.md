@@ -1,0 +1,49 @@
+# ADR-0009 - Gemini extraction proposes evidence-backed fields
+
+- Status: ACCEPTED implementation of owner's T02.2 authorization, 2026-11-03. Initial branch/HEAD verified clean: feature/T02-ai-rfq-intake at 63ada4513758d9798782f0ecac15696166148e8d.
+- Scope: pasted synthetic email/plain text only. No Excel/PDF, approvals, deployment or billing activation. Real-provider verification remains pending because no local API key exists.
+
+## Provider and data policy
+
+Use the official server-only @google/genai SDK, pinned 2.32.0; Zod 4.6.7 validates structured output. Initial model gemini-3.5-flash-lite, configurable via AI_MODEL. AI_API_KEY is read only on the server, passed explicitly to the Developer API (vertexai:false), never included in the prompt, browser configuration, logs or source control. AI_TIMEOUT_MS defaults to 20000; allowed 1000-30000. Empty optional variables use defaults; invalid model syntax/deadline disables AI without blocking manual intake. No implicit GOOGLE_API_KEY/GEMINI_API_KEY, ADC or alternate-provider fallback.
+
+Policy checked on 2026-11-03 against [Gemini additional terms](https://ai.google.dev/gemini-api/terms), [Google APIs terms](https://developers.google.com/terms), [available regions](https://ai.google.dev/gemini-api/docs/available-regions) and [model pricing](https://ai.google.dev/gemini-api/docs/pricing#gemini-3.5-flash-lite). Unpaid inputs/outputs may improve Google products and receive human review; sensitive, confidential and personal information must not be submitted. The local demo is restricted to synthetic nonconfidential documents with two explicit request-bound attestations (synthetic/no personal data; consent to sending to Google). The UI links terms and discloses processing before extraction. These attestations are not a classifier or proof of confidentiality. Terms require adult professional/business developer use in supported regions; India is listed. Unpaid public clients in EEA/Switzerland/UK are outside this authorization. No public deployment occurred.
+
+Configure only an unpaid project key. The application never activates billing or buys services; a key's billing/project status cannot be inferred from the key and is an operator responsibility. There is no paid/model fallback when access/quota fails. Pricing availability is documentation evidence, not proof this project's key has quota. Model documentation lists structured-output support; actual project access remains unverified.
+
+SDK references: [official SDK](https://googleapis.github.io/js-genai/release_docs/index.html), [structured-generation configuration](https://googleapis.github.io/js-genai/release_docs/interfaces/types.GenerateContentConfig.html), [retry semantics](https://googleapis.github.io/js-genai/release_docs/interfaces/types.HttpRetryOptions.html), [Zod JSON Schema](https://zod.dev/json-schema), [model](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite). SDK attempts includes the first request; explicitly set attempts:1 and automaticContinuation:false so application retry/deadline limits are authoritative.
+
+## Untrusted structured output
+
+The model receives a separate system instruction plus JSON-encoded untrusted source. No tools, browsing, code execution, database access, keys or internal rate catalog. Instruct it to copy raw values and verbatim quotes, identify each part by an exact source header, flag conflicts and leave absent facts missing. It must not infer manufacturing facts, rate keys, costs or prices.
+
+One strict Zod schema defines the provider JSON Schema and application validation. Exactly three header fields (reference/customerName/dueDate); up to 20 parts with anchor and seven fields (partNumber/description/material/grossWeightKg/requestedAnnualQty/cycleTimeMin/setupHoursPerBatch). Every field has status present/missing/ambiguous, nullable rawValue and up to three quotes. Reject extra fields (including keys/prices/confidence), wrong types, overlong strings, invalid JSON, blocked/incomplete/truncated output. Semantic inconsistencies such as present without evidence become unsupported fields. No confidence percentages.
+
+## What verified means
+
+Verification is conservative literal validation, not general language entailment or approval:
+
+1. Derive independent source sections from full labeled Part:/Part number:/Item: lines. Header fields belong before the first part. Anchor must match a unique section and unique model part. Missing source parts are appended as missing placeholders; unknown/duplicate associations remain unsupported. Reject unreconcilable output beyond 20 parts. No cross-part inheritance.
+2. Find every quote verbatim within its proper section and require a unique occurrence there. Compute zero-based UTF-16 character offsets, end exclusive, and one-based source line numbers on the server. Missing, repeated or out-of-scope evidence cannot verify a field.
+3. Independently recognize the matching labeled source line. The claimed raw value must equal its complete value, and a cited quote on that line must contain it. A numeric substring such as 61 inside 610 is insufficient. Unlabeled narrative may be shown as a suggestion but cannot automatically populate the form.
+4. Parse the whole numeric token, optional standard thousands grouping and supported unit. Annual count must be an integer 1-1000000000 with annual labeling. Weight kg/g, cycle minutes/seconds/hours, setup hours/minutes/seconds convert using an isolated decimal.js instance at precision 80. Accept only exact results within manual bounds and six fractional digits; never round a repeating conversion. Label/value unit disagreement is ambiguous. Dates accept valid ISO or explicit day + English named month + year; numeric date ambiguity remains manual.
+5. Compare all recognized labeled values in each section independently of model claims; unequal normalized facts or unresolved duplicates are ambiguous. Revision/uncertainty markers (correction, revised, amended, instead, alternatively, actually, supersedes, not final, TBD, to be confirmed) conservatively mark the section ambiguous. Model-reported ambiguity also blocks automatic mapping. Broader semantic contradictions cannot be proven universally; estimator review remains required.
+
+Material is displayed as customer text only. No auto-matching to internal material/machine keys. Cycle/setup times are proposals only when explicitly stated, never inferred routing. Setup requires an explicit per-batch basis; generic setup time is ambiguous. Only verified normalized values copy into the manual form through a deliberate button that discloses replacement. All rate-key selects start empty; unsupported/ambiguous/missing values remain empty. Edits reset existing manual confirmation. Save still uses unmodified T02.1 validation/transaction/idempotency; extraction itself never writes an RFQ.
+
+## Reliability and retention
+
+- GET /api/rfq-extraction: active estimator only; safe provider/model/configured status. available means key/configuration present, not live connectivity verified.
+- POST same path: active estimator, CSRF, exact Origin, {sourceText,consent:true,syntheticOnly:true}. Maximum 12000 characters and 64 KiB JSON. Existing other body limits unchanged.
+- Maximum 8192 output tokens and 65536 UTF-8 response bytes. Large multipart responses may truncate and fail visibly. Total deadline includes the one optional retry. Abort on deadline/client disconnect; SDK abort cannot guarantee cancellation of provider-side work already submitted.
+- At most one retry after 250 ms for 500/502/503/504 or network TypeError; no automatic retry for quota/access/model/validation/timeout errors. Disable SDK retries/continuations. No browser background retry. Re-extraction can consume quota again; only RFQ persistence has T02.1 idempotency.
+- Process-local five attempts/estimator/15 minutes and two simultaneous extractions. Both are separate from manual RFQ limits. Requires shared limits before horizontal scaling; no new distributed infrastructure.
+- Errors use controlled messages/codes only, including missing config, access/model failure, quota, timeout, interrupted connection, invalid output and busy/rate limit. Existing allowlist logging excludes text, provider errors, cookies and secrets. No raw output logging.
+- Obvious instruction tripwires reject selected patterns before provider contact; source remains data, no tools, strict schema/evidence checks and human review constrain the rest. This is defense in depth, not a general prompt-injection detector. Polished adversarial source facts can still deceive an estimator.
+- Full source/evidence exist only in request/browser memory; no extraction database table or local recovery storage. Confirmed business values use normal T02.1 storage. Refresh/logout loses unconfirmed source/review; existing save key/body recovery remains intact. React renders text, not provider HTML.
+
+## Validation and limits
+
+Unit tests include the official SDK's actual request serializer against a mocked fetch transport. HTTP/browser tests use an injected test-only provider function and real disposable PostgreSQL. These prove boundaries, not Gemini connectivity. npm run test:ai:live uses the real adapter and tracked synthetic fixture, prints only a bounded result/code, and reports LIVE PROVIDER TEST NOT RUN when no AI_API_KEY exists. That is the actual result of this checkpoint. No AI completion/connectivity claim.
+
+No migrations/grants or T02.1 save-service changes. Financial spec, costing/history, auth policy, migrations 001-005 and nine goldens remain unchanged. Existing multipart HTTP costing limitation and two-role demo read scope remain. Stop before T02.3.
