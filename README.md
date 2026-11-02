@@ -57,6 +57,8 @@ Migrations are atomic, checksummed and serialized; repeated execution is a no-op
 
 Database tests create a generated schema inside the dedicated test database, then remove only that schema. They require schema-creation privileges. NUMERIC/BIGINT transport remains strings. `rate_periods` derives each exclusive end from the next start; no explicit expiry gaps are supported.
 
+Local permission note: changing database ownership does not transfer existing tables. This workspace's postgres-owned development tables grant forgequote_app SELECT/INSERT, plus SELECT on rate_periods; UPDATE/DELETE are not granted. Future migrations altering these existing objects require owner-level maintenance credentials through MIGRATION_DATABASE_URL. Do not solve this by making the runtime role a superuser or disabling history triggers. Test-generated schemas are owned by the configured test role and do not modify development tables.
+
 `GET /api/health/ready` returns 200 only when PostgreSQL and migration 001 are available, otherwise 503. No RFQ/costing/auth endpoints exist yet. The root page is an honest workspace status screen, not the final application.
 
 See `docs/requirements.md` and `tasks/T01-thin-slice.md`. This repo should progress through small reviewable commits, tests, and real deployed slices. Keep a working build throughout.
