@@ -27,8 +27,8 @@ try {
   const versionInsert = ['id','quotation_id','version_number','pricing_date','formula_version','currency','gst_percent','created_by','rfq_snapshot','annual_value_ex_gst'];
   const expected = [
     ...['id','rfq_id'].map(column => `quotations.${column}.INSERT`), 'quotations.next_version.UPDATE',
-    ...versionInsert.map(column => `quotation_versions.${column}.INSERT`)
-    ,...['actor_user_id','submission_key','request_fingerprint','rfq_id','version_id'].map(column => `draft_submissions.${column}.INSERT`)
+    ...versionInsert.map(column => `quotation_versions.${column}.INSERT`),
+    ...['actor_user_id','submission_key','request_fingerprint','rfq_id','version_id'].map(column => `draft_submissions.${column}.INSERT`)
   ].sort();
   assert.deepEqual(columns.map(row => `${row.table_name}.${row.column_name}.${row.privilege_type}`).sort(), expected);
   for (const name of ['quotations','quotation_versions','draft_submissions', ...appendTables]) {

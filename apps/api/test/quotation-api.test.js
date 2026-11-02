@@ -145,6 +145,16 @@ test('quotation HTTP API with real sessions and restricted PostgreSQL runtime', 
       }
       assert.equal((await db.runtime.query("SELECT has_table_privilege(current_user,'rate_versions','UPDATE') AS allowed")).rows[0].allowed,false);
     });
+    await t.test('unsupported multi-part RFQ is rejected without silently dropping parts', async () => {
+      const extraPart=randomUUID(),before=await count();
+      await db.owner.query(`INSERT INTO rfq_parts(id,rfq_id,part_number,description,gross_weight_kg,requested_annual_qty,material_rate_key_id,scrap_rate_key_id,overhead_rate_key_id,packaging_rate_key_id,freight_rate_key_id)
+        SELECT $1,rfq_id,'UNSUPPORTED-EXTRA',description,gross_weight_kg,requested_annual_qty,material_rate_key_id,scrap_rate_key_id,overhead_rate_key_id,packaging_rate_key_id,freight_rate_key_id FROM rfq_parts WHERE id=$2`,[extraPart,fixtureId(22)]);
+      try {
+        const response=await estimator.request(path,{method:'POST',key:randomUUID(),body:body()});
+        assert.equal(response.status,422);assert.equal(response.data.error.code,'UNSUPPORTED_RFQ');
+        assert.deepEqual(await count(),before);
+      } finally {await db.owner.query('DELETE FROM rfq_parts WHERE id=$1',[extraPart]);}
+    });
   } finally {
     app.locals.sessionStore.close(); await new Promise(resolve => server.close(resolve)); await db.close();
   }

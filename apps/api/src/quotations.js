@@ -136,8 +136,8 @@ export function createQuotationService(pool, { gstPercent }) {
       };
       if (sharedClient) await create(sharedClient);
       else await transaction(pool, create);
-      // Return a receipt without a second post-COMMIT database operation which
-      // could misleadingly make a successful creation look like a failed write.
+      // Standalone calls have committed here; composed calls leave commit to
+      // their caller. No extra post-COMMIT lookup can obscure a successful write.
       return { versionId };
     },
     async getDraftVersion(actorId, versionId) {
