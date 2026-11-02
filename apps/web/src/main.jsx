@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
 import { api } from './api.js';
+import Workspace from './Workspace.jsx';
 
 function App() {
   const [session, setSession] = useState(null);
@@ -44,16 +45,18 @@ function App() {
     } finally { setBusy(false); }
   }
 
-  return <main>
-    <p className="eyebrow">ForgeQuote / Synthetic demo</p><h1>RFQ to quotation</h1>
+  async function expired() {
+    setError('Your session expired. Sign in again to continue. Your pending submission is retained in this tab.');
+    setSession(null);
+    try {setSession(await api('/auth/session'));} catch {setError('Your session could not be refreshed. Check the connection and reload.');}
+  }
+
+  return <><header className="topbar"><a className="brand" href="#"><span className="brand-mark">FQ</span><span>ForgeQuote<small>Manufacturing quotations</small></span></a>{session?.user && <div className="identity"><h2>Signed in as {session.user.username}</h2><button className="secondary" onClick={logout} disabled={busy}>{busy?'Signing out...':'Sign out'}</button></div>}</header>
+    {session?.user && <>{error && <p role="alert" className="error auth-error">{error}</p>}<Workspace session={session} onExpired={expired}/></>}
+    {!session?.user && <main className="login-panel">
+    <p className="eyebrow">Synthetic demo · Secure workspace</p><h1>RFQ to quotation</h1>
     {loading && <p role="status">Loading your session...</p>}
     {error && <p role="alert" className="error">{error}</p>}
-    {!loading && session?.user && <section aria-label="Signed-in session">
-      <h2>Signed in as {session.user.username}</h2>
-      <p>Role: {session.user.role === 'sales_head' ? 'Sales head' : 'Estimator'}</p>
-      <p>Authentication is available. Costing and quotation creation will follow in later milestones.</p>
-      <button onClick={logout} disabled={busy}>{busy ? 'Signing out...' : 'Sign out'}</button>
-    </section>}
     {!loading && session && !session.user && <form onSubmit={login}>
       <h2>Sign in</h2><p>Use one of the seeded demo identities and its configured password.</p>
       <label htmlFor="username">Demo identity</label>
@@ -65,6 +68,6 @@ function App() {
       <button type="submit" disabled={busy}>{busy ? 'Signing in...' : 'Sign in'}</button>
     </form>}
     {!loading && !session && <button onClick={() => window.location.reload()}>Reload session</button>}
-  </main>;
+  </main>}</>;
 }
 createRoot(document.getElementById('root')).render(<App />);

@@ -8,7 +8,7 @@ import { seed } from '../../apps/api/src/seed.js';
 import { seedUsers } from '../../apps/api/src/auth/seed-users.js';
 
 // Isolated real database fixture shared by HTTP/browser tests. Never reset dev data.
-export async function testDatabase() {
+export async function testDatabase({ seedBusiness = true } = {}) {
   const target = new URL(process.env.TEST_DATABASE_URL);
   assert.match(target.pathname, /_test$/);
   const maintenance = new URL(process.env.MIGRATION_DATABASE_URL);
@@ -32,7 +32,8 @@ export async function testDatabase() {
     await admin.query(`CREATE ROLE ${role} NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE`);
     owner = new pg.Pool({ connectionString: maintenance.href, options: `-c search_path=${schema}`, max: 4 });
     await migrate(owner); assert.deepEqual(await migrate(owner), []);
-    await seed(owner); await seedUsers(owner, passwords);
+    if (seedBusiness) await seed(owner);
+    await seedUsers(owner, passwords);
     await admin.query(`GRANT USAGE ON SCHEMA ${schema} TO ${role}`);
     const grants = (await readFile(new URL('../../apps/api/db/runtime-grants.sql', import.meta.url), 'utf8')).replaceAll('public.', `${schema}.`).replaceAll('forgequote_app', role);
     await owner.query(grants);

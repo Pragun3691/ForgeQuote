@@ -1,0 +1,157 @@
+import assert from 'node:assert/strict';
+import { randomBytes } from 'node:crypto';
+import { fork } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { mkdir } from 'node:fs/promises';
+import { chromium } from 'playwright';
+import { testDatabase } from './helpers/database.js';
+import { seed, fixtureId } from '../apps/api/src/seed.js';
+
+const db=await testDatabase({seedBusiness:false});
+const secret=randomBytes(32).toString('hex');
+let child,browser,port;
+async function start() {
+  const processChild=fork(fileURLToPath(new URL('./helpers/browser-server.js',import.meta.url)),[],{
+    windowsHide:true,stdio:['ignore','pipe','pipe','ipc'],env:{...process.env,
+      FQ_TEST_CONNECTION:db.connectionString,FQ_TEST_OPTIONS:db.runtimeOptions,FQ_TEST_SCHEMA:db.schema,FQ_TEST_SECRET:secret,FQ_TEST_PORT:String(port || 0)}
+  });
+  child=processChild;
+  await new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>reject(Error('Test API startup timed out')),15000);
+    processChild.once('error',error=>{clearTimeout(timer);reject(error);});
+    processChild.once('exit',code=>{clearTimeout(timer);reject(Error(`Test API exited during startup (${code})`));});
+    processChild.once('message',message=>{clearTimeout(timer);assert.equal(message.type,'ready');port=message.port;resolve();});
+  });
+}
+async function stop() {
+  if(!child || child.exitCode !== null) return;
+  const stopping=child;
+  await new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>{stopping.kill();reject(Error('Test API shutdown timed out'));},12000);
+    stopping.once('exit',()=>{clearTimeout(timer);resolve();});
+    stopping.send('stop');
+  });
+  child=null;
+}
+const counts=async()=> (await db.owner.query('SELECT (SELECT count(*) FROM quotation_versions) AS versions,(SELECT count(*) FROM draft_submissions) AS submissions')).rows[0];
+try {
+  await start();
+  browser=await chromium.launch({channel:process.env.BROWSER_CHANNEL || 'chrome',headless:true});
+  const page=await browser.newPage({viewport:{width:1440,height:1000}});
+  page.setDefaultTimeout(12000);
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  const origin=`http://127.0.0.1:${port}`;
+  async function login(username,password) {
+    await page.getByRole('heading',{name:'Sign in',exact:true}).waitFor();
+    await page.getByLabel('Demo identity').selectOption(username);
+    await page.getByLabel('Password',{exact:true}).fill(password);
+    await page.getByRole('button',{name:'Sign in',exact:true}).click();
+    await page.getByRole('heading',{name:`Signed in as ${username}`,exact:true}).waitFor();
+  }
+  async function saved() {
+    await page.getByRole('heading',{name:/Saved quotation/}).waitFor();
+    assert.equal(await page.getByTestId('baseline-cost').innerText(),'₹119.76');
+    assert.equal(await page.getByTestId('baseline-price').innerText(),'₹149.70');
+  }
+  async function record() {
+    return page.evaluate(()=>JSON.parse(sessionStorage.getItem(Object.keys(sessionStorage).find(key=>key.startsWith('forgequote:submission:')))));
+  }
+  await page.goto(origin);
+  await login('estimator',db.passwords.DEMO_ESTIMATOR_PASSWORD);
+  await page.getByRole('heading',{name:'No RFQs yet'}).waitFor();
+  await seed(db.owner);await page.reload();
+  await page.getByRole('link',{name:'Open RFQ'}).click();
+  await page.getByRole('heading',{name:'RFQ-2611-014',exact:true}).waitFor();
+  await page.getByLabel('Gross margin (%)').fill('100');
+  await page.getByRole('button',{name:'Calculate & save draft',exact:true}).click();
+  assert.equal(await page.getByLabel('Gross margin (%)').evaluate(input=>input.checkValidity()),false);
+  assert.deepEqual(await counts(),{versions:'0',submissions:'0'});
+  await page.getByLabel('Gross margin (%)').fill('20');
+  await page.getByLabel('50% annual quantity',{exact:true}).fill('1000000001');
+  await page.getByRole('button',{name:'Calculate & save draft',exact:true}).click();
+  await page.getByRole('alert').filter({hasText:'Annual quantities must be integer strings'}).waitFor();
+  assert.deepEqual(await counts(),{versions:'0',submissions:'0'});
+  await page.getByLabel('50% annual quantity',{exact:true}).fill('90000');
+  await page.getByLabel('Pricing date').fill('2026-11-01');
+  await page.getByRole('button',{name:'Calculate & save draft',exact:true}).click();
+  await page.getByRole('alert').filter({hasText:'No effective rate'}).waitFor();
+  assert.deepEqual(await counts(),{versions:'0',submissions:'0'});
+  await page.getByLabel('Pricing date').fill('2026-11-02');
+  const initialGet=page.waitForResponse(response=>/\/api\/quote-versions\//.test(response.url()) && response.request().method()==='GET');
+  await page.getByRole('button',{name:'Calculate & save draft',exact:true}).click();
+  const savedResponse=await (await initialGet).json();await saved();
+  assert.equal(savedResponse.parts[0].result.tiers[1].sellingPricePerUnitExGst,'149.70');
+  const breakdown=page.getByRole('table',{name:'Cost breakdown SPINDLE-DEMO'});
+  assert.ok((await breakdown.innerText()).includes('₹150.55'));assert.ok((await breakdown.innerText()).includes('₹149.41'));
+  assert.ok((await breakdown.innerText()).includes('90,000'));assert.ok((await breakdown.innerText()).includes('2,70,000'));
+  await page.getByText('Selected rates & provenance',{exact:true}).click();
+  await page.getByRole('table',{name:'Rate provenance'}).waitFor();
+  assert.ok((await page.getByRole('table',{name:'Rate provenance'}).innerText()).includes(fixtureId(11)));
+  assert.ok((await page.getByRole('table',{name:'Annual quotation totals'}).innerText()).includes('₹3,17,96,280.00'));
+  await mkdir(new URL('../.tmp/',import.meta.url),{recursive:true});
+  await page.screenshot({path:fileURLToPath(new URL('../.tmp/milestone7-desktop.png',import.meta.url)),fullPage:true});
+  assert.deepEqual(await counts(),{versions:'1',submissions:'1'});
+  const replayResponse=page.waitForResponse(response=>response.request().method()==='POST' && response.url().endsWith('/quote-versions'));
+  await page.getByRole('button',{name:'Retrieve same submission',exact:true}).click();
+  assert.equal((await replayResponse).status(),200);await saved();
+  assert.deepEqual(await counts(),{versions:'1',submissions:'1'});
+  // A changed live RFQ input must not cause browser-side repricing of saved data.
+  await db.owner.query("UPDATE rfq_parts SET gross_weight_kg='2' WHERE id=$1",[fixtureId(22)]);
+  await page.reload();await saved();
+  assert.ok((await page.locator('.part-facts').innerText()).includes('2.000000 kg'));
+  await db.owner.query("UPDATE rfq_parts SET gross_weight_kg='0.61' WHERE id=$1",[fixtureId(22)]);
+  const pidBefore=child.pid;await stop();await start();assert.notEqual(child.pid,pidBefore);
+  await page.reload();await saved();
+  assert.deepEqual(await counts(),{versions:'1',submissions:'1'});
+  console.log('PASS: real Chrome estimator workflow, empty register, invalid input, missing rate, all three saved golden scenarios, replay, refresh, changed-master isolation and OS-process API restart.');
+
+  const originalKey=(await record()).submissionKey;
+  await page.getByRole('button',{name:'Start new calculation',exact:true}).click();
+  assert.notEqual((await record()).submissionKey,originalKey);
+  // Commit the real request, then lose its response before the browser receives it.
+  await page.route('**/api/rfqs/*/quote-versions',async route=>{await route.fetch();await route.abort('failed');},{times:1});
+  await page.getByRole('button',{name:'Calculate & save draft',exact:true}).click();
+  await page.getByRole('alert').filter({hasText:'Network failure'}).waitFor();
+  const uncertain=await record();
+  assert.equal(uncertain.phase,'uncertain');assert.deepEqual(await counts(),{versions:'2',submissions:'2'});
+  await page.reload();
+  await page.getByRole('button',{name:'Retry same submission',exact:true}).waitFor();
+  assert.deepEqual(await record(),uncertain);
+  const recovered=page.waitForResponse(response=>response.request().method()==='POST' && response.url().endsWith('/quote-versions'));
+  await page.getByRole('button',{name:'Retry same submission',exact:true}).click();
+  assert.equal((await recovered).status(),200);await saved();
+  assert.deepEqual(await counts(),{versions:'2',submissions:'2'});
+  assert.equal((await record()).submissionKey,uncertain.submissionKey);
+  assert.equal(await page.locator('.results .badge').innerText(),'Draft v2');
+  console.log('PASS: a deliberate new calculation used a fresh key; lost successful POST response retained the exact pending key/body across refresh; same-key recovery returned HTTP 200 and no duplicate version.');
+
+  await db.owner.query("UPDATE sessions SET expire=now()-interval '1 minute'");
+  await page.getByRole('button',{name:'Retrieve same submission',exact:true}).click();
+  await page.getByRole('heading',{name:'Sign in',exact:true}).waitFor();
+  await page.getByRole('alert').filter({hasText:'session expired'}).waitFor();
+  assert.equal((await record()).submissionKey,uncertain.submissionKey);
+  await login('estimator',db.passwords.DEMO_ESTIMATOR_PASSWORD);
+  await page.getByRole('button',{name:'Retry same submission',exact:true}).waitFor();
+  await page.getByRole('button',{name:'Retry same submission',exact:true}).click();await saved();
+  assert.deepEqual(await counts(),{versions:'2',submissions:'2'});
+  await page.getByRole('button',{name:'Sign out',exact:true}).click();
+  await login('sales_head',db.passwords.DEMO_SALES_HEAD_PASSWORD);await saved();
+  await page.getByText('Sales head access is read only in T01.',{exact:false}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'Calculate & save draft',exact:true}).count(),0);
+  const denied=await page.evaluate(async ({rfqId,body})=>{
+    const session=await (await fetch('/api/auth/session')).json();
+    return (await fetch(`/api/rfqs/${rfqId}/quote-versions`,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':session.csrfToken,'Idempotency-Key':crypto.randomUUID()},body:JSON.stringify(body)})).status;
+  },{rfqId:fixtureId(21),body:uncertain.body});
+  assert.equal(denied,403);assert.deepEqual(await counts(),{versions:'2',submissions:'2'});
+  await page.setViewportSize({width:390,height:844});
+  await page.screenshot({path:fileURLToPath(new URL('../.tmp/milestone7-mobile.png',import.meta.url)),fullPage:true});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
+  await page.getByRole('button',{name:'Sign out',exact:true}).click();
+  await page.getByRole('heading',{name:'Sign in',exact:true}).waitFor();
+  assert.equal((await page.request.get(`${origin}/api/quote-versions/${savedResponse.versionId}`)).status(),401);
+  assert.deepEqual(errors,[]);
+  console.log('PASS: expired-session recovery retained pending key; sales head saw saved results but POST returned 403; anonymous GET returned 401; 390px layout had no page overflow; no browser page errors.');
+} finally {
+  if(browser) await browser.close();
+  await stop();await db.close();
+}
