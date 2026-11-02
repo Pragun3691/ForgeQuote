@@ -1,0 +1,34 @@
+export function inputError(message, code = 'INVALID_QUOTATION_INPUT') {
+  return Object.assign(new Error(message), { code });
+}
+export function validateId(value) {
+  if (typeof value !== 'string' || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value)) throw inputError('Expected a UUID identifier.');
+  return value.toLowerCase();
+}
+export function validateDate(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith('0000') ||
+      !Number.isFinite(Date.parse(value)) || new Date(value).toISOString().slice(0, 10) !== value) throw inputError('Pricing date must be a valid YYYY-MM-DD date.');
+  return value;
+}
+function fields(value, keys) {
+  if (!value || Object.getPrototypeOf(value) !== Object.prototype || Object.keys(value).sort().join(',') !== [...keys].sort().join(',')) throw inputError(`Expected fields: ${keys.join(', ')}.`);
+}
+function quantity(value) {
+  if (typeof value !== 'string' || !/^[1-9]\d{0,9}$/.test(value) || BigInt(value) > 1000000000n) throw inputError('Annual quantities must be integer strings from 1 to 1000000000.');
+  return value;
+}
+// Canonicalize only validated, explicit business inputs. No CSRF, session,
+// submission key, current master values or current GST setting enters the hash.
+export function canonicalRequest(rfqId, body) {
+  fields(body, ['pricingDate','partId','routingRevisionId','marginPercent','tierQuantities']);
+  fields(body.tierQuantities, ['50','100','150']);
+  const margin = body.marginPercent;
+  if (typeof margin !== 'string' || !/^(?:0|[1-9]\d{0,11})(?:\.\d{1,6})?$/.test(margin) || BigInt(margin.split('.')[0]) >= 100n) throw inputError('Margin must be a decimal string from 0 to below 100, with at most six decimal places.');
+  const normalizedMargin = margin.includes('.') ? margin.replace(/0+$/, '').replace(/\.$/, '') : margin;
+  return {
+    rfqId: validateId(rfqId), pricingDate: validateDate(body.pricingDate),
+    parts: [{ partId: validateId(body.partId), routingRevisionId: validateId(body.routingRevisionId), marginPercent: normalizedMargin,
+      requestedAnnualQty: quantity(body.tierQuantities['100']),
+      tierQuantities: Object.fromEntries(['50','100','150'].map(scenario => [scenario, quantity(body.tierQuantities[scenario])])) }]
+  };
+}

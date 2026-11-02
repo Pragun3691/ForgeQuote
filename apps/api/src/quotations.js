@@ -51,7 +51,7 @@ export function createQuotationService(pool, { gstPercent }) {
   // Reuse the engine's validation, including the complete accepted GST range.
   const normalizedGst = calculateQuotationTotals({ lines: [{ unitPriceExGst: '0.00', annualQty: '1' }], gstPercent }).gstPercent;
   return {
-    async createDraftVersion(actorId, request) {
+    async createDraftVersion(actorId, request, { client: sharedClient } = {}) {
       fields(request, ['rfqId', 'parts'], ['pricingDate']);
       id(request.rfqId);
       const pricingDate = Object.hasOwn(request, 'pricingDate') ? request.pricingDate : businessDate(); date(pricingDate);
@@ -64,7 +64,9 @@ export function createQuotationService(pool, { gstPercent }) {
         requestedParts.set(part.partId.toLowerCase(), part);
       }
       const versionId = randomUUID();
-      await transaction(pool, async client => {
+      // Internal composition only: the caller owns BEGIN/COMMIT/ROLLBACK when
+      // supplying a client. This keeps submission receipts and snapshots atomic.
+      const create = async client => {
         await authorize(client, actorId, true);
         const rfq = (await client.query('SELECT id,reference,customer_name,due_date::text,owner_label,status FROM rfqs WHERE id=$1', [request.rfqId])).rows[0];
         if (!rfq) fail('RFQ_NOT_FOUND', 'RFQ not found');
@@ -131,7 +133,9 @@ export function createQuotationService(pool, { gstPercent }) {
           version_id: versionId, scenario: total.scenario, taxable_subtotal: total.taxableSubtotal,
           gst_amount: total.gstAmount, total_with_gst: total.totalWithGst
         });
-      });
+      };
+      if (sharedClient) await create(sharedClient);
+      else await transaction(pool, create);
       // Return a receipt without a second post-COMMIT database operation which
       // could misleadingly make a successful creation look like a failed write.
       return { versionId };
