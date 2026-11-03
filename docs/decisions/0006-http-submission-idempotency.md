@@ -1,5 +1,7 @@
 # ADR-0006 - HTTP draft submission idempotency and browser recovery
 
+T03 extension: ADR-0012 supersedes the single-part HTTP/UI restriction and quotation POST size below. Legacy flat requests/fingerprints/recovery remain supported; the original milestone description follows for history.
+
 - Status: ACCEPTED implementation of the owner's approved Milestone 7 plan and three transaction/key refinements, 2026-11-02.
 - Scope: authenticated RFQ reads, draft POST, saved-version GET and React integration only. No deployment or later features. Costing formulas, golden expectations and applied migrations 001-003 remain unchanged.
 - Relationship: implements ADR-0005's future HTTP submission-key contract. Existing snapshot/reference/immutability policies remain in force. Earlier statements that no quotation HTTP interface or idempotency ledger exists describe the Milestone 6 checkpoint.

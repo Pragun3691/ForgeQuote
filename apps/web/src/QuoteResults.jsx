@@ -17,6 +17,7 @@ export default function QuoteResults({ snapshot }) {
     <div className="section-heading"><div><p className="eyebrow">Persisted quotation</p><h2>Saved quotation <span className="badge">Draft v{snapshot.versionNumber}</span></h2></div><span className="muted">Pricing date {snapshot.pricingDate}</span></div>
     <p className="muted">{snapshot.rfq.reference} · {snapshot.rfq.customer_name} · Saved {new Date(snapshot.createdAt).toLocaleString('en-IN', { timeZone:'Asia/Kolkata' })} IST</p>
     <p className="notice">Draft only. These are saved backend results. Changing the form creates a new version.</p>
+    <p>Combined baseline annual value, excluding GST: <strong data-testid="annual-baseline-value">{money(snapshot.annualValueExGst)}</strong></p>
     {snapshot.parts.map(part => <article key={part.quotationPartId}>
       <div className="result-summary"><div><p className="eyebrow">{part.part.part_number} · baseline unit price, ex-GST</p><p className="headline-price" data-testid="baseline-price">{money(part.result.tiers[1].sellingPricePerUnitExGst)}</p></div><div><p className="eyebrow">Manufacturing cost / unit</p><p className="summary-number" data-testid="baseline-cost">{money(part.result.tiers[1].costPerUnit)}</p></div><div><p className="eyebrow">Annual baseline quantity</p><p className="summary-number">{grouped(part.result.requestedAnnualQty)}</p></div></div>
       <h3>Cost breakdown & volume comparison</h3>

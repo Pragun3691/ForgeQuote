@@ -31,6 +31,7 @@ input,select {display:block;margin-top:.45rem;width:100%;border:1px solid #adbfb
 input:disabled,select:disabled {background:#f3f6f5;color:#5c7069;opacity:1;}
 fieldset {border:0;padding:0;margin:0;min-width:0;}
 .input-grid {display:grid;grid-template-columns:1fr 1fr 2fr;gap:1rem;margin-top:1rem;}
+.costing-part-inputs {grid-template-columns:1fr 2fr;}
 .quantities {grid-template-columns:repeat(3,1fr);border-top:1px solid var(--border);padding-top:1.25rem;margin-top:1.5rem;}
 button {background:var(--teal);color:white;border:1px solid var(--teal);cursor:pointer;font-size:.85rem;font-weight:600;}
 button:hover {filter:brightness(.95);}

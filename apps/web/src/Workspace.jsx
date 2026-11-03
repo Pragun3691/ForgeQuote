@@ -10,14 +10,22 @@ function useRoute() {
 }
 const link = (rfq,version) => `#${new URLSearchParams({rfq,...(version ? {version} : {})})}`;
 const storageKey = (userId,rfqId) => `forgequote:submission:${userId}:${rfqId}`;
+const requestParts = body => Object.hasOwn(body,'parts') ? body.parts : [body];
+function validPendingBody(body) {
+  if (!body || typeof body.pricingDate !== 'string') return false;
+  const parts=requestParts(body);
+  return Array.isArray(parts) && parts.length>=1 && parts.length<=20 && parts.every(part=>part &&
+    ['partId','routingRevisionId','marginPercent'].every(field=>typeof part[field]==='string') &&
+    part.tierQuantities && ['50','100','150'].every(scenario=>typeof part.tierQuantities[scenario]==='string')) &&
+    new Set(parts.map(part=>part.partId)).size===parts.length;
+}
 function loadPending(key) {
   const raw = sessionStorage.getItem(key);
   if (!raw) return null;
   const stored = JSON.parse(raw);
   const uuid = value => typeof value === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value);
   if (!stored || !uuid(stored.submissionKey) || !['saving','saved','rejected','uncertain'].includes(stored.phase) ||
-      !stored.body || ['pricingDate','partId','routingRevisionId','marginPercent'].some(field => typeof stored.body[field] !== 'string') ||
-      !stored.body.tierQuantities || ['50','100','150'].some(scenario => typeof stored.body.tierQuantities[scenario] !== 'string') ||
+      !validPendingBody(stored.body) ||
       (stored.phase === 'saved' && !uuid(stored.versionId))) throw Error('Saved submission is unreadable. Do not submit again until the previous outcome is checked.');
   return stored;
 }
@@ -65,8 +73,8 @@ function RfqWorkspace({ rfqId, versionId, session, onExpired }) {
       setRfq(data);
       let record;
       try { record=loadPending(key); setPending(record); } catch(error) { setStorageError(error.message); }
-      const part=data.parts[0];
-      setForm(record?.body || (part && {pricingDate:data.businessDate,partId:part.id,routingRevisionId:part.routes[0]?.id || '',marginPercent:'20',tierQuantities:part.defaultTierQuantities}));
+      // Keep recovered legacy bodies byte-for-byte; never reshape an uncertain request.
+      setForm(record?.body || {pricingDate:data.businessDate,parts:data.parts.map(part=>({partId:part.id,routingRevisionId:part.routes[0]?.id || '',marginPercent:'20',tierQuantities:part.defaultTierQuantities}))});
     }).catch(error => { if(error.name !== 'AbortError') handleError(error); });
     return () => controller.abort();
   },[rfqId]);
@@ -107,16 +115,25 @@ function RfqWorkspace({ rfqId, versionId, session, onExpired }) {
       persist(next);
     } catch {setStorageError('Browser storage is unavailable. Reload before starting a new calculation.');}
   }
-  const supported=rfq?.parts.length === 1 && rfq.parts[0].routes.length>0;
+  const supported=rfq?.parts.length>=1 && rfq.parts.length<=20 && rfq.parts.every(part=>part.routes.length>0);
+  function changePart(partId, change) {
+    setForm(current=>Object.hasOwn(current,'parts') ? {...current,parts:current.parts.map(part=>part.partId===partId?{...part,...change}:part)} : {...current,...change});
+  }
   return <main className="workspace"><a className="back-link" href="#">← RFQ register</a>
     {error && <p role="alert" className="error">{error}</p>}{storageError && <p role="alert" className="error">{storageError}</p>}
     {!rfq && !error && <p role="status">Loading RFQ...</p>}
     {rfq && <><div className="section-heading"><div><p className="eyebrow">{rfq.customerName}</p><h1>{rfq.reference}</h1></div><span className="badge">{canWrite?'Estimator':'Sales head · read only'}</span></div><p className="muted">Due {rfq.dueDate} · {rfq.ownerLabel} · {rfq.status}</p>
-      {!supported && <p role="alert" className="error">This workspace supports one RFQ part with a routing revision. This RFQ cannot be costed here.</p>}
+      {!supported && <p role="alert" className="error">Costing requires 1–20 RFQ parts, each with a supported routing revision. No partial quotation can be saved.</p>}
       {rfq.parts.map(part => <section className="panel part-facts" key={part.id}><div><p className="eyebrow">Part</p><h2>{part.partNumber}</h2><p>{part.description}</p></div><div><p className="eyebrow">Gross weight</p><strong>{part.grossWeightKg} kg</strong></div><div><p className="eyebrow">RFQ annual quantity</p><strong>{grouped(part.requestedAnnualQty)}</strong></div></section>)}
       {supported && form && <form className="panel costing-form" onSubmit={submit}><div className="section-heading"><div><h2>Costing inputs</h2><p className="muted">Choose annual production quantities. The 100% scenario is the headline price.</p></div></div>
-        <fieldset disabled={!canWrite || !!frozen || !!storageError}><div className="input-grid"><label>Pricing date<input required type="date" value={form.pricingDate} onChange={e=>setForm({...form,pricingDate:e.target.value})}/></label><label>Gross margin (%)<input required inputMode="decimal" pattern="(?:0|[1-9][0-9]?)(?:\.[0-9]{1,6})?" title="Enter 0 to below 100, with up to six decimal places." value={form.marginPercent} onChange={e=>setForm({...form,marginPercent:e.target.value})}/></label><label>Routing revision<select value={form.routingRevisionId} onChange={e=>setForm({...form,routingRevisionId:e.target.value})}>{rfq.parts[0].routes.map(route=><option key={route.id} value={route.id}>Rev {route.revisionNumber} · {route.machineCode} · {route.cycleTimeMin} min · {route.setupHoursPerBatch} setup hours/batch</option>)}</select></label></div>
-        <div className="input-grid quantities">{['50','100','150'].map(scenario=><label key={scenario}>{scenario}% annual quantity<input required inputMode="numeric" pattern="[1-9][0-9]{0,9}" title="Enter a whole number from 1 to 1000000000." value={form.tierQuantities[scenario]} onChange={e=>setForm({...form,tierQuantities:{...form.tierQuantities,[scenario]:e.target.value}})}/></label>)}</div></fieldset>
+        <fieldset disabled={!canWrite || !!frozen || !!storageError}><label>Pricing date<input required type="date" value={form.pricingDate} onChange={e=>setForm({...form,pricingDate:e.target.value})}/></label>
+          {requestParts(form).map(input=>{
+            const part=rfq.parts.find(part=>part.id.toLowerCase()===input.partId.toLowerCase());
+            return <fieldset className="intake-part" key={input.partId} aria-label={`Costing ${part?.partNumber || input.partId}`}><legend>{part?.partNumber || input.partId}</legend>
+              <div className="input-grid costing-part-inputs"><label>Gross margin (%)<input required inputMode="decimal" pattern="(?:0|[1-9][0-9]?)(?:\.[0-9]{1,6})?" title="Enter 0 to below 100, with up to six decimal places." value={input.marginPercent} onChange={e=>changePart(input.partId,{marginPercent:e.target.value})}/></label><label>Routing revision<select required value={input.routingRevisionId} onChange={e=>changePart(input.partId,{routingRevisionId:e.target.value})}>{!part?.routes.some(route=>route.id===input.routingRevisionId) && <option value={input.routingRevisionId}>{input.routingRevisionId || 'No routing available'}</option>}{part?.routes.map(route=><option key={route.id} value={route.id}>Rev {route.revisionNumber} · {route.machineCode} · {route.cycleTimeMin} min · {route.setupHoursPerBatch} setup hours/batch</option>)}</select></label></div>
+              <div className="input-grid quantities">{['50','100','150'].map(scenario=><label key={scenario}>{scenario}% annual quantity<input required inputMode="numeric" pattern="[1-9][0-9]{0,9}" title="Enter a whole number from 1 to 1000000000." value={input.tierQuantities[scenario]} onChange={e=>changePart(input.partId,{tierQuantities:{...input.tierQuantities,[scenario]:e.target.value}})}/></label>)}</div>
+            </fieldset>;
+          })}</fieldset>
         {!canWrite ? <p className="notice">Sales head access is read only in T01. Select a saved version below.</p> : <div className="actions"><button type="submit" disabled={saving || !!storageError}>{saving?'Saving draft...':pending?.phase === 'saved'?'Retrieve same submission':frozen?'Retry same submission':'Calculate & save draft'}</button>{pending && <button type="button" className="secondary" disabled={saving || !!storageError} onClick={startNew}>Start new calculation</button>}</div>}
         {pending && <p className="muted submission-note">Submission key: <span className="identifier">{pending.submissionKey}</span>{['saving','uncertain'].includes(pending.phase) && ' · Outcome may be uncertain. Retry this submission before starting a new calculation.'}</p>}
       </form>}

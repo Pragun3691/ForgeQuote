@@ -6,6 +6,8 @@ import { testDatabase } from '../../../tests/helpers/database.js';
 import { createApp } from '../src/app.js';
 import { fixtureId } from '../src/seed.js';
 import { createSubmissionService } from '../src/draft-submissions.js';
+import { multipartRfq, multipartTotals } from '../../../tests/helpers/multipart-rfq.js';
+import { goldenCases } from './fixtures/golden-v02.js';
 
 test('quotation HTTP API with real sessions and restricted PostgreSQL runtime', async t => {
   const db = await testDatabase();
@@ -81,6 +83,8 @@ test('quotation HTTP API with real sessions and restricted PostgreSQL runtime', 
       const response = await estimator.request(path, { method:'POST',key,body:body() });
       assert.equal(response.status, 201); assert.equal(response.data.replayed, false);
       versionId = response.data.versionId;
+      // Frozen pre-T03 fingerprint of this legacy request, not derived from new code.
+      assert.equal((await db.owner.query('SELECT request_fingerprint FROM draft_submissions WHERE version_id=$1',[versionId])).rows[0].request_fingerprint,'a847dc282987d7fb019d3a26f44c8ae4590a58e43a3624fd07b384bcc2fbd936');
       assert.equal(response.response.headers.get('location'), `/api/quote-versions/${versionId}`);
       const saved = await estimator.request(`/api/quote-versions/${versionId}`);
       assert.equal(saved.status, 200); assert.equal(saved.response.headers.get('cache-control'), 'no-store');
@@ -95,6 +99,8 @@ test('quotation HTTP API with real sessions and restricted PostgreSQL runtime', 
       const equivalent = { tierQuantities:{'150':'270000','100':'180000','50':'90000'},marginPercent:'20.000000',routingRevisionId:fixtureId(23).toUpperCase(),partId:fixtureId(22),pricingDate:'2026-11-02' };
       const replay = await estimator.request(path, { method:'POST',key,body:equivalent });
       assert.equal(replay.status, 200); assert.deepEqual(replay.data, { versionId,replayed:true });
+      const {pricingDate,...part}=body();
+      assert.deepEqual((await estimator.request(path,{method:'POST',key,body:{pricingDate,parts:[part]}})).data,{versionId,replayed:true});
       assert.equal((await estimator.request(path, { method:'POST',key,body:{...body(),marginPercent:'21'} })).status, 409);
       assert.equal((await estimator.request(`/api/rfqs/${randomUUID()}/quote-versions`, { method:'POST',key,body:body() })).status, 409);
       assert.deepEqual(await count(), before);
@@ -145,13 +151,13 @@ test('quotation HTTP API with real sessions and restricted PostgreSQL runtime', 
       }
       assert.equal((await db.runtime.query("SELECT has_table_privilege(current_user,'rate_versions','UPDATE') AS allowed")).rows[0].allowed,false);
     });
-    await t.test('unsupported multi-part RFQ is rejected without silently dropping parts', async () => {
+    await t.test('incomplete RFQ coverage is rejected without silently dropping parts', async () => {
       const extraPart=randomUUID(),before=await count();
       await db.owner.query(`INSERT INTO rfq_parts(id,rfq_id,part_number,description,gross_weight_kg,requested_annual_qty,material_rate_key_id,scrap_rate_key_id,overhead_rate_key_id,packaging_rate_key_id,freight_rate_key_id)
         SELECT $1,rfq_id,'UNSUPPORTED-EXTRA',description,gross_weight_kg,requested_annual_qty,material_rate_key_id,scrap_rate_key_id,overhead_rate_key_id,packaging_rate_key_id,freight_rate_key_id FROM rfq_parts WHERE id=$2`,[extraPart,fixtureId(22)]);
       try {
         const response=await estimator.request(path,{method:'POST',key:randomUUID(),body:body()});
-        assert.equal(response.status,422);assert.equal(response.data.error.code,'UNSUPPORTED_RFQ');
+        assert.equal(response.status,400);assert.equal(response.data.error.code,'INVALID_QUOTATION_INPUT');
         assert.deepEqual(await count(),before);
       } finally {await db.owner.query('DELETE FROM rfq_parts WHERE id=$1',[extraPart]);}
     });
@@ -178,4 +184,103 @@ test('quotation HTTP API with real sessions and restricted PostgreSQL runtime', 
   } finally {
     app.locals.sessionStore.close(); await new Promise(resolve => server.close(resolve)); await db.close();
   }
+});
+
+test('complete multipart quotation HTTP, persistence and recovery',async t=>{
+  const db=await testDatabase();
+  const config={nodeEnv:'test',gstPercent:'18',sessionSecret:randomBytes(32).toString('hex'),appOrigin:'http://localhost:5173',trustProxyHops:0};
+  const app=createApp(db.runtime,config,{sessionSchema:db.schema,quoteLimit:200});
+  const server=app.listen(0,'127.0.0.1');await once(server,'listening');
+  const base=`http://127.0.0.1:${server.address().port}`;
+  function client(){return {cookie:'',token:'',async request(path,{method='GET',body,key,headers={}}={}){
+    const response=await fetch(base+path,{method,headers:{Cookie:this.cookie,...(method==='POST'?{Origin:config.appOrigin,'X-CSRF-Token':this.token}:{}),...(body?{'Content-Type':'application/json'}:{}),...(key?{'Idempotency-Key':key}:{}),...headers},...(body?{body:JSON.stringify(body)}:{})});
+    for(const cookie of response.headers.getSetCookie())this.cookie=cookie.split(';')[0];const data=await response.json();if(data.csrfToken)this.token=data.csrfToken;return {status:response.status,data};
+  },async login(username,password){await this.request('/api/auth/session');assert.equal((await this.request('/api/auth/login',{method:'POST',body:{username,password}})).status,200);}};}
+  const estimator=client(),sales=client(),anonymous=client();
+  const counts=async()=> (await db.owner.query(`SELECT (SELECT count(*) FROM quotations) headers,(SELECT count(*) FROM quotation_versions) versions,
+    (SELECT count(*) FROM quotation_parts) parts,(SELECT count(*) FROM quotation_rates) rates,(SELECT count(*) FROM quotation_part_tiers) tiers,
+    (SELECT count(*) FROM quotation_totals) totals,(SELECT count(*) FROM draft_submissions) receipts,(SELECT coalesce(sum(next_version),0)::text FROM quotations) counter`)).rows[0];
+  try{
+    await estimator.login('estimator',db.passwords.DEMO_ESTIMATOR_PASSWORD);await sales.login('sales_head',db.passwords.DEMO_SALES_HEAD_PASSWORD);
+    const two=await multipartRfq(db.owner,2),three=await multipartRfq(db.owner,3);
+    const post=(fixture,body=fixture.body,key=randomUUID(),headers={})=>estimator.request(`/api/rfqs/${fixture.rfqId}/quote-versions`,{method:'POST',body,key,headers});
+    await t.test('exact coverage, bounds, cross-part routing, rates and financial failures leave no partial version',async()=>{
+      const before=await counts();
+      const invalid=[{...two.body,parts:[]},{...two.body,parts:two.body.parts.slice(1)},
+        {...two.body,parts:[two.body.parts[0],two.body.parts[0]]},
+        {...two.body,parts:[two.body.parts[0],three.body.parts[1]]},
+        {...two.body,parts:[two.body.parts[0],{...two.body.parts[1],partId:randomUUID()}]},
+        {...two.body,parts:Array(21).fill(two.body.parts[0])},
+        {...two.body,parts:two.body.parts.map((part,i)=>i?{...part,marginPercent:'100'}:part)},
+        {...two.body,parts:two.body.parts.map((part,i)=>i?{...part,tierQuantities:{...part.tierQuantities,'50':'0'}}:part)}];
+      for(const request of invalid) assert.equal((await post(two,request)).status,400);
+      assert.equal((await post(two,{...two.body,parts:two.body.parts.map((part,i)=>i?{...part,routingRevisionId:two.body.parts[0].routingRevisionId}:part)})).status,404);
+      assert.equal((await post(two,{...two.body,pricingDate:'2026-11-01'})).status,422);
+      // A rate missing on just one part must roll back the whole quote/counter.
+      const late=await multipartRfq(db.owner,2),latePart=late.body.parts[1];
+      await db.owner.query("INSERT INTO routing_revisions(id,part_id,revision_number,machine_rate_key_id,cycle_time_min,setup_hours_per_batch) SELECT $1,part_id,2,machine_rate_key_id,'1','1' FROM routing_revisions WHERE id=$2",[randomUUID(),latePart.routingRevisionId]);
+      const missing=await db.owner.query("INSERT INTO rate_keys(id,code,category,unit) VALUES($1,$2,'machine','INR/hour') RETURNING id",[randomUUID(),'T03-MISSING-'+randomUUID()]);
+      const route=randomUUID();await db.owner.query("INSERT INTO routing_revisions(id,part_id,revision_number,machine_rate_key_id,cycle_time_min,setup_hours_per_batch) VALUES($1,$2,3,$3,'1','1')",[route,latePart.partId,missing.rows[0].id]);
+      assert.equal((await post(late,{...late.body,parts:late.body.parts.map(part=>part.partId===latePart.partId?{...part,routingRevisionId:route}:part)})).status,422);
+      assert.deepEqual(await counts(),before);
+    });
+    const saved=[];
+    for(const fixture of [two,three])await t.test(`${fixture.body.parts.length} parts persist all scenarios, exact golden prices and combined totals`,async()=>{
+      const n=fixture.body.parts.length,key=randomUUID();
+      const created=await post(fixture,{...fixture.body,parts:[...fixture.body.parts].reverse()},key);assert.equal(created.status,201);
+      const snapshot=(await estimator.request('/api/quote-versions/'+created.data.versionId)).data;
+      assert.equal(snapshot.parts.length,n);assert.equal(snapshot.annualValueExGst,multipartTotals[n][1][0]);
+      assert.deepEqual(snapshot.totals.map(total=>[total.taxableSubtotal,total.gstAmount,total.totalWithGst]),multipartTotals[n]);
+      for(const [i,input] of fixture.body.parts.entries()){
+        const part=snapshot.parts.find(part=>part.partId===input.partId);assert.ok(part);assert.equal(part.routingRevisionId,input.routingRevisionId);
+        assert.deepEqual(part.result.tiers.map(tier=>[tier.costPerUnit,tier.sellingPricePerUnitExGst]),goldenCases[i].expected.map(tier=>[tier.cost,tier.price]));
+        assert.equal(Object.keys(part.rates).length,6);
+      }
+      const rows=(await db.owner.query('SELECT (SELECT count(*) FROM quotation_parts WHERE version_id=$1) parts,(SELECT count(*) FROM quotation_part_tiers WHERE version_id=$1) tiers,(SELECT count(*) FROM quotation_rates WHERE version_id=$1) rates',[snapshot.versionId])).rows[0];
+      assert.deepEqual(rows,{parts:String(n),tiers:String(n*3),rates:String(n*6)});
+      const before=await counts(),replay=await post(fixture,fixture.body,key);assert.equal(replay.status,200);assert.equal(replay.data.versionId,snapshot.versionId);
+      const changed=structuredClone(fixture.body);changed.parts[1].marginPercent='19';assert.equal((await post(fixture,changed,key)).status,409);assert.deepEqual(await counts(),before);
+      assert.equal((await sales.request('/api/quote-versions/'+snapshot.versionId)).status,200);saved.push({fixture,snapshot,key});
+    });
+    await t.test('multipart authorization and CSRF/Origin remain server-side',async()=>{
+      const path=`/api/rfqs/${two.rfqId}/quote-versions`,before=await counts();
+      assert.equal((await anonymous.request(path,{method:'POST',body:two.body,key:randomUUID()})).status,401);
+      assert.equal((await sales.request(path,{method:'POST',body:two.body,key:randomUUID()})).status,403);
+      assert.equal((await post(two,two.body,randomUUID(),{'X-CSRF-Token':'wrong'})).status,403);
+      assert.equal((await post(two,two.body,randomUUID(),{Origin:'http://untrusted.invalid'})).status,403);assert.deepEqual(await counts(),before);
+    });
+    await t.test('concurrent reordered retries save exactly one complete three-part version',async()=>{
+      const key=randomUUID(),before=await counts();const results=await Promise.all(Array.from({length:6},(_,i)=>post(three,{...three.body,parts:i%2?[...three.body.parts].reverse():three.body.parts},key)));
+      assert.deepEqual(results.map(result=>result.status).sort(),[200,200,200,200,200,201]);assert.equal(new Set(results.map(result=>result.data.versionId)).size,1);
+      const after=await counts();assert.equal(BigInt(after.versions)-BigInt(before.versions),1n);assert.equal(BigInt(after.parts)-BigInt(before.parts),3n);assert.equal(BigInt(after.receipts)-BigInt(before.receipts),1n);
+    });
+    await t.test('later-part storage failure and receipt failure roll back all parts and counter',async()=>{
+      for(const [table,condition] of [['quotation_parts',"NEW.part_snapshot->>'part_number'='T03-2-lift arm'"],['draft_submissions','true']]){
+        const before=await counts(),key=randomUUID();
+        await db.owner.query(`CREATE FUNCTION fail_multipart() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF ${condition} THEN RAISE EXCEPTION 'private multipart failure'; END IF; RETURN NEW; END; $$; CREATE TRIGGER fail_multipart BEFORE INSERT ON ${table} FOR EACH ROW EXECUTE FUNCTION fail_multipart()`);
+        try{const failed=await post(three,three.body,key);assert.equal(failed.status,503);assert.ok(!JSON.stringify(failed.data).includes('private multipart failure'));assert.deepEqual(await counts(),before);}
+        finally{await db.owner.query(`DROP TRIGGER fail_multipart ON ${table}; DROP FUNCTION fail_multipart()`);}
+        assert.equal((await post(three,three.body,key)).status,201);assert.equal((await post(three,three.body,key)).status,200);
+      }
+    });
+    await t.test('lost COMMIT acknowledgement replays one complete version',async()=>{
+      const actor=(await db.owner.query("SELECT id FROM users WHERE username='estimator'")).rows[0].id,key=randomUUID();
+      const uncertain={async connect(){const c=await db.runtime.connect();return {async query(sql,values){const result=await c.query(sql,values);if(sql==='COMMIT')throw Error('lost multipart acknowledgement');return result;},release(){c.release();}};}};
+      await assert.rejects(createSubmissionService(uncertain,config)(actor,three.rfqId,key,three.body),/lost multipart acknowledgement/);
+      const before=await counts();assert.equal((await post(three,three.body,key)).status,200);assert.deepEqual(await counts(),before);
+    });
+    await t.test('saved multipart versions survive changed masters and remain immutable',async()=>{
+      const {fixture,snapshot,key}=saved[1];await db.owner.query("UPDATE rfq_parts SET description='Changed current fact' WHERE id=$1",[fixture.body.parts[1].partId]);
+      assert.deepEqual((await estimator.request('/api/quote-versions/'+snapshot.versionId)).data,snapshot);
+      assert.equal((await post(fixture,fixture.body,key)).data.versionId,snapshot.versionId);
+      for(const table of ['quotation_versions','quotation_parts','quotation_rates','quotation_part_tiers','quotation_totals'])await assert.rejects(db.owner.query(`DELETE FROM ${table} WHERE version_id=$1`.replace('quotation_versions WHERE version_id','quotation_versions WHERE id'),[snapshot.versionId]),{code:'55000'});
+    });
+    await t.test('20-part body above 4 KiB works; 64 KiB and unrelated 4 KiB limits remain bounded',async()=>{
+      const max=await multipartRfq(db.owner,20);
+      for(const part of max.body.parts){part.marginPercent='20.000000';part.tierQuantities={'50':'1000000000','100':'1000000000','150':'1000000000'};}
+      assert.ok(JSON.stringify(max.body).length>4096);assert.equal((await post(max)).status,201);
+      assert.equal((await post(two,{...two.body,padding:'x'.repeat(65536)})).status,413);
+      assert.equal((await estimator.request('/api/auth/logout',{method:'POST',body:{padding:'x'.repeat(5000)}})).status,413);
+    });
+  }finally{app.locals.sessionStore.close();await new Promise(resolve=>server.close(resolve));await db.close();}
 });

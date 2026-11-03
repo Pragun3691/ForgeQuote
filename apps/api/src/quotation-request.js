@@ -19,16 +19,27 @@ function quantity(value) {
 }
 // Canonicalize only validated, explicit business inputs. No CSRF, session,
 // submission key, current master values or current GST setting enters the hash.
-export function canonicalRequest(rfqId, body) {
-  fields(body, ['pricingDate','partId','routingRevisionId','marginPercent','tierQuantities']);
+function canonicalPart(body) {
   fields(body.tierQuantities, ['50','100','150']);
   const margin = body.marginPercent;
   if (typeof margin !== 'string' || !/^(?:0|[1-9]\d{0,11})(?:\.\d{1,6})?$/.test(margin) || BigInt(margin.split('.')[0]) >= 100n) throw inputError('Margin must be a decimal string from 0 to below 100, with at most six decimal places.');
   const normalizedMargin = margin.includes('.') ? margin.replace(/0+$/, '').replace(/\.$/, '') : margin;
-  return {
-    rfqId: validateId(rfqId), pricingDate: validateDate(body.pricingDate),
-    parts: [{ partId: validateId(body.partId), routingRevisionId: validateId(body.routingRevisionId), marginPercent: normalizedMargin,
+  return { partId: validateId(body.partId), routingRevisionId: validateId(body.routingRevisionId), marginPercent: normalizedMargin,
       requestedAnnualQty: quantity(body.tierQuantities['100']),
-      tierQuantities: Object.fromEntries(['50','100','150'].map(scenario => [scenario, quantity(body.tierQuantities[scenario])])) }]
-  };
+      tierQuantities: Object.fromEntries(['50','100','150'].map(scenario => [scenario, quantity(body.tierQuantities[scenario])])) };
+}
+export function canonicalRequest(rfqId, body) {
+  const multipart = body && Object.hasOwn(body, 'parts');
+  fields(body, multipart ? ['pricingDate','parts'] : ['pricingDate','partId','routingRevisionId','marginPercent','tierQuantities']);
+  const supplied = multipart ? body.parts : [body];
+  if (!Array.isArray(supplied) || supplied.length < 1 || supplied.length > 20) throw inputError('Supply between 1 and 20 RFQ parts.');
+  const parts = supplied.map(part => {
+    if (multipart) fields(part, ['partId','routingRevisionId','marginPercent','tierQuantities']);
+    return canonicalPart(part);
+  });
+  if (new Set(parts.map(part=>part.partId)).size !== parts.length) throw inputError('Supply every RFQ part exactly once; duplicate part ID.');
+  // Stable ID order makes new multipart retries independent of presentation order.
+  // The one-part canonical object/property order remains byte-for-byte legacy-compatible.
+  parts.sort((a,b)=>a.partId < b.partId ? -1 : a.partId > b.partId ? 1 : 0);
+  return { rfqId: validateId(rfqId), pricingDate: validateDate(body.pricingDate), parts };
 }

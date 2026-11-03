@@ -30,7 +30,8 @@ export function installAuth(app, pool, config, { sessionSchema = 'public', login
   app.use('/api', (req,res,next) => {
     // Binary imports authenticate and check CSRF/type before their route reads bytes.
     if(req.method==='POST' && req.path==='/rfq-import/xlsx')return next();
-    return (req.method === 'POST' && ['/rfqs','/rfq-extraction'].includes(req.path) ? intakeJson : ordinaryJson)(req,res,next);
+    const quotationPost = /^\/rfqs\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\/quote-versions\/?$/i.test(req.path);
+    return (req.method === 'POST' && (['/rfqs','/rfq-extraction'].includes(req.path) || quotationPost) ? intakeJson : ordinaryJson)(req,res,next);
   });
   app.use('/api', session({
     name: cookieName, secret: config.sessionSecret, store, resave: false, saveUninitialized: false, rolling: false,

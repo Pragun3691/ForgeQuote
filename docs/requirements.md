@@ -7,7 +7,7 @@
 | R1 | Estimator & sales-head roles | Demo sign-in + server authZ tests | Implemented/tested for demo roles; sales head read-only in T01 |
 | R2 | RFQ register with customer, due date, owner, status | Create/list/update RFQ and persistence test | T02.1 manual 1-20 part create/list/detail tested; server-owned owner/status; RFQ update pending |
 | R3 | RFQ intake AI extraction | Upload synthetic PDF/text, inspect evidence, confirm/correct | T02.2 pasted-text SDK/review/evidence path implemented and mock-provider/real-DB/Chrome tested; real synthetic Gemini extraction verified; deterministic Excel part-list import/review/save verified; numbered SP-101/BR-202 association finding corrected and real-provider/Chrome verified (part-association handoff); RFQ PDF intake pending |
-| R4 | Part costing, 2–3 volume prices | Golden tests for 3 parts × 3 tiers | Nine unchanged goldens; one-part HTTP/React three-tier workflow verified |
+| R4 | Part costing, 2–3 volume prices | Golden tests for 3 parts × 3 tiers | T03 complete 1-20-part HTTP/React quotation integration; real two/three-part workflows, combined scenario totals and nine unchanged goldens verified; approval/PDF pending |
 | R5 | Effective-dated rate masters | Boundary tests, no overlapping rates, missing rate failure | Backend history/resolution tested; management UI pending |
 | R6 | Old quotes preserve historical rates | Issued quote unchanged after rate update | Immutable draft snapshots verified; issuance pending |
 | R7 | Sales-head approval for annual value > ₹25,00,000 | Threshold tests; unauthorized bypass rejected | Planned |

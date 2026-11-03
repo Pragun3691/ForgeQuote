@@ -6,6 +6,8 @@ import { mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { browserTestDatabase } from './helpers/database.js';
 import { seed, fixtureId } from '../apps/api/src/seed.js';
+import { multipartRfq, multipartTotals } from './helpers/multipart-rfq.js';
+import { goldenCases } from '../apps/api/test/fixtures/golden-v02.js';
 
 const db=await browserTestDatabase({seedBusiness:false});
 const secret=randomBytes(32).toString('hex');
@@ -91,6 +93,13 @@ try {
   await mkdir(new URL('../.tmp/',import.meta.url),{recursive:true});
   await page.screenshot({path:fileURLToPath(new URL('../.tmp/milestone7-desktop.png',import.meta.url)),fullPage:true});
   assert.deepEqual(await counts(),{versions:'1',submissions:'1'});
+  // Pre-T03 pending records keep their original flat body, key and recovery path.
+  await page.evaluate(()=>{
+    const key=Object.keys(sessionStorage).find(key=>key.startsWith('forgequote:submission:'));
+    const record=JSON.parse(sessionStorage.getItem(key));
+    const {pricingDate,parts}=record.body;record.body={pricingDate,...parts[0]};sessionStorage.setItem(key,JSON.stringify(record));
+  });
+  await page.reload();await saved();assert.equal(Object.hasOwn((await record()).body,'parts'),false);
   const replayResponse=page.waitForResponse(response=>response.request().method()==='POST' && response.url().endsWith('/quote-versions'));
   await page.getByRole('button',{name:'Retrieve same submission',exact:true}).click();
   assert.equal((await replayResponse).status(),200);await saved();
@@ -157,6 +166,59 @@ try {
   assert.deepEqual(await counts(),{versions:'2',submissions:'2'});
   assert.deepEqual(errors,[]);
   console.log('PASS: expired-session recovery retained pending key; sales head saw saved results but POST returned 403; anonymous GET returned 401; 390px layout had no page overflow; malformed pending storage blocked saving; no browser page errors.');
+
+  // Complete two- and three-part quotations use the same workspace/transaction.
+  for(const n of [2,3]) {
+    const fixture=await multipartRfq(db.owner,n),before=await counts();
+    await page.setViewportSize({width:1440,height:1000});
+    await page.goto(`${origin}/#rfq=${fixture.rfqId}`);
+    await page.getByRole('group',{name:'Costing T03-1-spindle',exact:true}).waitFor();
+    await page.getByLabel('Pricing date').fill('2026-11-02');
+    for(let i=0;i<n;i++) {
+      const group=page.getByRole('group',{name:`Costing T03-${i+1}-${goldenCases[i].name}`,exact:true});
+      await group.getByLabel('Gross margin (%)').fill(goldenCases[i].input.marginPercent);
+      for(const [scenario,quantity] of Object.entries(fixture.body.parts[i].tierQuantities))assert.equal(await group.getByLabel(`${scenario}% annual quantity`,{exact:true}).inputValue(),quantity);
+    }
+    const multiRecord=()=>page.evaluate(rfqId=>JSON.parse(sessionStorage.getItem(Object.keys(sessionStorage).find(key=>key.startsWith('forgequote:submission:')&&key.endsWith(':'+rfqId)))),fixture.rfqId);
+    if(n===3)await page.getByRole('group',{name:'Costing T03-1-spindle',exact:true}).screenshot({path:'.tmp/t03-part-controls.png'});
+    if(n===2) await page.route('**/api/rfqs/*/quote-versions',async route=>{await route.fetch();await route.abort('failed');},{times:1});
+    const submission=n===3?page.waitForResponse(response=>response.request().method()==='POST'&&response.url().endsWith('/quote-versions')):null;
+    await page.getByRole('button',{name:'Calculate & save draft',exact:true}).click();
+    if(n===2){
+      await page.getByRole('alert').filter({hasText:'Network failure'}).waitFor();
+      const pending=await multiRecord();assert.equal(pending.phase,'uncertain');assert.equal(pending.body.parts.length,2);
+      await page.reload();await page.getByRole('button',{name:'Retry same submission',exact:true}).waitFor();assert.deepEqual(await multiRecord(),pending);
+      const retry=page.waitForResponse(response=>response.request().method()==='POST'&&response.url().endsWith('/quote-versions'));
+      await page.getByRole('button',{name:'Retry same submission',exact:true}).click();assert.equal((await retry).status(),200);
+    }else assert.equal((await submission).status(),201);
+    await page.getByRole('heading',{name:/Saved quotation/}).waitFor();
+    assert.equal(await page.getByTestId('baseline-price').count(),n);
+    assert.equal(await page.getByTestId('annual-baseline-value').innerText(),n===2?'₹5,54,12,640.00':'₹8,26,50,240.00');
+    const pending=await multiRecord(),snapshot=await (await page.request.get(`${origin}/api/quote-versions/${pending.versionId}`)).json();
+    assert.equal(snapshot.parts.length,n);assert.deepEqual(snapshot.totals.map(total=>[total.taxableSubtotal,total.gstAmount,total.totalWithGst]),multipartTotals[n]);
+    for(let i=0;i<n;i++) {
+      const breakdown=page.getByRole('table',{name:`Cost breakdown T03-${i+1}-${goldenCases[i].name}`,exact:true});
+      for(const expected of goldenCases[i].expected)assert.ok((await breakdown.innerText()).replaceAll(',','').includes(expected.price));
+    }
+    assert.deepEqual(await counts(),{versions:String(BigInt(before.versions)+1n),submissions:String(BigInt(before.submissions)+1n)});
+    // Reordered saved bodies must map every editable field by stable ID and replay.
+    await page.evaluate(rfqId=>{
+      const key=Object.keys(sessionStorage).find(key=>key.startsWith('forgequote:submission:')&&key.endsWith(':'+rfqId));
+      const record=JSON.parse(sessionStorage.getItem(key));record.body.parts.reverse();sessionStorage.setItem(key,JSON.stringify(record));
+    },fixture.rfqId);
+    await page.reload();await page.getByRole('heading',{name:/Saved quotation/}).waitFor();
+    for(let i=0;i<n;i++)assert.equal(await page.getByRole('group',{name:`Costing T03-${i+1}-${goldenCases[i].name}`,exact:true}).getByLabel('Gross margin (%)').inputValue(),goldenCases[i].input.marginPercent);
+    const replay=page.waitForResponse(response=>response.request().method()==='POST'&&response.url().endsWith('/quote-versions'));
+    await page.getByRole('button',{name:'Retrieve same submission',exact:true}).click();assert.equal((await replay).status(),200);
+    await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
+    await page.screenshot({path:`.tmp/t03-${n}-part-mobile.png`,fullPage:true});
+    assert.deepEqual(await counts(),{versions:String(BigInt(before.versions)+1n),submissions:String(BigInt(before.submissions)+1n)});
+  }
+  await page.getByRole('button',{name:'Sign out',exact:true}).click();await login('sales_head',db.passwords.DEMO_SALES_HEAD_PASSWORD);
+  await page.getByRole('heading',{name:/Saved quotation/}).waitFor();assert.equal(await page.getByTestId('baseline-price').count(),3);
+  assert.equal(await page.getByRole('button',{name:'Calculate & save draft',exact:true}).count(),0);
+  assert.deepEqual(errors,[]);
+  console.log('PASS: real Chrome two/three-part golden quotations, all scenario/combined totals, legacy flat recovery, multipart lost-response refresh/replay, stable-ID reordered controls, mobile layout and sales-head read-only saved results.');
 } finally {
   if(browser) await browser.close();
   await stop();await db.close();

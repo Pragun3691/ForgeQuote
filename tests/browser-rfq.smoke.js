@@ -70,7 +70,12 @@ try {
   assert.equal((await db.owner.query("SELECT count(*) FROM rfqs WHERE reference='RFQ-BROWSER-MULTI'")).rows[0].count,'1');
   await row.getByRole('link',{name:'Open RFQ',exact:true}).click();
   await page.getByRole('heading',{name:'BROWSER-A',exact:true}).waitFor();await page.getByRole('heading',{name:'BROWSER-B',exact:true}).waitFor();
-  await page.getByRole('alert').filter({hasText:'cannot be costed here'}).waitFor();
+  await page.getByRole('group',{name:'Costing BROWSER-A',exact:true}).waitFor();
+  await page.getByRole('group',{name:'Costing BROWSER-B',exact:true}).waitFor();
+  await page.getByLabel('Pricing date',{exact:true}).fill('2026-11-02');
+  await page.getByRole('button',{name:'Calculate & save draft',exact:true}).click();
+  await page.getByRole('heading',{name:/Saved quotation/}).waitFor();
+  assert.equal(await page.getByTestId('baseline-price').count(),2);
   await page.getByRole('link',{name:/RFQ register/}).click();
   await page.getByRole('button',{name:'New RFQ',exact:true}).click();await page.getByRole('button',{name:'Create another RFQ',exact:true}).click();
   await fillHeader('RFQ-BROWSER-SINGLE');await fillPart(1,'BROWSER-SINGLE');await page.getByRole('checkbox').check();

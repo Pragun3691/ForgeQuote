@@ -21,11 +21,8 @@ export function createSubmissionService(pool, config) {
         if (previous.request_fingerprint !== fingerprint) throw inputError('This submission key was already used for different inputs. Start a new calculation.', 'SUBMISSION_CONFLICT');
         return { versionId: previous.version_id, replayed: true };
       }
-      const count = (await client.query('SELECT count(*) FROM rfq_parts WHERE rfq_id=$1', [request.rfqId])).rows[0].count;
-      if (count === '0') {
-        if (!(await client.query('SELECT id FROM rfqs WHERE id=$1', [request.rfqId])).rowCount) throw inputError('RFQ not found.', 'RFQ_NOT_FOUND');
-      }
-      if (count !== '1') throw inputError('T01 supports exactly one part per RFQ. No draft was created.', 'UNSUPPORTED_RFQ');
+      // The quotation service requires exact coverage by stable part IDs and
+      // resolves each selected route/rate within this same transaction.
       const receipt = await quotations.createDraftVersion(actor, request, { client });
       await client.query('INSERT INTO draft_submissions(actor_user_id,submission_key,request_fingerprint,rfq_id,version_id) VALUES ($1,$2,$3,$4,$5)', [actor, key, fingerprint, request.rfqId, receipt.versionId]);
       return { ...receipt, replayed: false };
