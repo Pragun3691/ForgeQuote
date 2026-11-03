@@ -7,7 +7,7 @@ const config = readAuthConfig();
 if (config.nodeEnv === 'production' && !existsSync(new URL('../../web/dist/index.html',import.meta.url))) throw Error('Production frontend build missing');
 const pool = createPool(config.databaseUrl,config);
 const app = createApp(pool, config);
-const server = app.listen(config.port, () => console.log(`ForgeQuote listening on port ${config.port}`));
+const server = app.listen(config.port, '0.0.0.0', () => console.log(`ForgeQuote listening on port ${config.port}`));
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => {
   const timeout = setTimeout(() => process.exit(1), 10000).unref();
   server.close(async () => { app.locals.sessionStore.close(); await pool.end(); clearTimeout(timeout); });

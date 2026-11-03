@@ -8,11 +8,11 @@ Build one honest, working end-to-end RFQ → verified intake → deterministic c
 
 ## What this ZIP contains
 
-Current checkpoint: T02.2 pasted-text Gemini extraction/review is implemented using the real server SDK, strict structured output and source-evidence checks. **LIVE PROVIDER TEST NOT RUN: no API key is configured.** Mocked provider/SDK-transport tests and real PostgreSQL/Chrome workflows passed; they do not prove live connectivity. See [T02.2 handoff, setup and exact file manifest](docs/t02-2-handoff.md) and [ADR-0009 provider policy/verification rules](docs/decisions/0009-gemini-extraction.md). STOP before T02.3. No Excel/PDF intake, deployment, billing activation or purchase.
+Current checkpoint: T03 supports complete 1-20-part draft quotations, unchanged deterministic three-scenario costing/GST, immutable snapshots and idempotent recovery. Intake supports reviewed manual entry, pasted-text Gemini suggestions with literal evidence checks, and bounded template-based Excel import. [T03 handoff](docs/t03-handoff.md) records the verified scope and unchanged nine goldens. Approval, issuance, customer quotation PDF and RFQ PDF intake remain pending.
 
-Manual T02.1 intake remains available with or without AI: estimators create 1-20 reviewed parts using real internal rate keys; atomic saves and retained keys recover uncertain outcomes without retry duplicates. Multiple-part intake/read works; existing quotation HTTP/UI still costs one part only. See [T02.1 handoff](docs/t02-1-handoff.md) and [ADR-0008](docs/decisions/0008-manual-rfq-intake.md).
+Estimators confirm every imported/proposed part, fill missing manufacturing facts and choose internal rate keys before saving. Real local Gemini SDK/Chrome extraction was verified in the [association handoff](docs/t02-part-association-handoff.md); current production Gemini connectivity/billing/data handling is unverified. Automated normal suites mock the provider. Manual/Excel entry remains available without an AI key.
 
-Previous T01 milestone 8 preparation: strict TLS, fresh-database role isolation, liveness, redacted logs and write throttling. No cloud accounts/resources/purchases/deployment yet. Local database ownership remains unchanged. See [Milestone 8 handoff](docs/milestone-8-handoff.md) and [deployment procedure](docs/deployment.md). Quotation/API/browser contracts remain documented in the [Milestone 7 handoff](docs/milestone-7-handoff.md).
+T07 updates Render to main, Node 24.20.0 and the existing one-origin Express/React architecture. Neon provisioning is complete with maintenance-owned objects and a separate restricted runtime role; local databases are preserved. No public Render deployment is claimed. Exact dashboard/environment settings, private maintenance boundaries and outstanding live checks are in [deployment instructions](docs/deployment.md). This checkpoint does not push, merge or deploy.
 
 ## Start (Windows PowerShell)
 

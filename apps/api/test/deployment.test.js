@@ -5,7 +5,7 @@ import {once} from 'node:events';
 import {readFile} from 'node:fs/promises';
 import {databasePoolConfig} from '../src/database-config.js';
 import {readConfig,readAuthConfig} from '../src/config.js';
-import {validateCloudTarget} from '../src/cloud-database.js';
+import {validateCloudTarget,validateCloudConnection} from '../src/cloud-database.js';
 import {createApp} from '../src/app.js';
 
 test('TLS policy verifies certificates, normalizes URL flags and rejects downgrade/global bypass',()=>{
@@ -28,6 +28,11 @@ test('TLS policy verifies certificates, normalizes URL flags and rejects downgra
 test('cloud target guard cannot select preserved local or unrelated databases',()=>{
   for(const name of [undefined,'','forgequote_dev','forgequote_test','MedReach','medreach','postgres','forgequote_demo;DROP DATABASE x']) assert.throws(()=>validateCloudTarget(name),/CLOUD_DATABASE_NAME/);
   assert.equal(validateCloudTarget('forgequote_demo'),'forgequote_demo');
+  const config={databaseUrl:'postgres://runtime@ep-approved.ap-southeast-1.aws.neon.tech/neondb'};
+  const env={CLOUD_DATABASE_NAME:'neondb',CLOUD_DATABASE_HOST:'ep-approved.ap-southeast-1.aws.neon.tech'};
+  assert.equal(validateCloudConnection(config,env),'neondb');
+  for(const change of [{CLOUD_DATABASE_HOST:undefined},{CLOUD_DATABASE_HOST:'ep-other.neon.tech'}])assert.throws(()=>validateCloudConnection(config,{...env,...change}),/confirmed direct Neon/);
+  for(const databaseUrl of ['postgres://runtime@localhost/neondb','postgres://runtime@ep-approved-pooler.neon.tech/neondb','postgres://runtime@ep-approved.ap-southeast-1.aws.neon.tech/forgequote_dev'])assert.throws(()=>validateCloudConnection({databaseUrl},env));
 });
 
 test('production configuration excludes maintenance/test/seed secrets from application environment',()=>{
@@ -42,6 +47,8 @@ test('Render preparation is free, single-service, manually deployed and pinned t
   assert.equal(node,'24.20.0');
   assert.ok(yaml.includes(`value: ${node}`));
   assert.match(yaml,/plan: free/);assert.match(yaml,/autoDeployTrigger: "off"/);
+  assert.match(yaml,/branch: main/);assert.doesNotMatch(yaml,/branch: feature\//);
+  assert.match(yaml,/key: AI_MODEL/);assert.match(yaml,/value: gemini-3.5-flash-lite/);
   assert.match(yaml,/healthCheckPath: \/api\/health\/live/);
   assert.match(yaml,/buildCommand: npm ci --include=dev && npm run build/);
   assert.match(yaml,/startCommand: npm start/);

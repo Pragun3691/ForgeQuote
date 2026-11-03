@@ -1,11 +1,11 @@
-# Preparation only. Creating/syncing a Blueprint requires separate owner approval.
+# Owner-approved one-origin Render deployment; maintenance runs separately.
 services:
   - type: web
     name: forgequote
     runtime: node
     plan: free
     region: singapore
-    branch: feature/T01-thin-slice
+    branch: main
     autoDeployTrigger: "off"
     buildCommand: npm ci --include=dev && npm run build
     startCommand: npm start
@@ -27,3 +27,7 @@ services:
         sync: false
       - key: SESSION_SECRET
         generateValue: true
+      - key: AI_MODEL
+        value: gemini-3.5-flash-lite
+      - key: AI_TIMEOUT_MS
+        value: "20000"

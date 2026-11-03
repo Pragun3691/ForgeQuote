@@ -22,7 +22,15 @@ const triggers={rate_keys:['rate_keys_immutable'],rate_versions:['rate_versions_
   rfq_submissions:['rfq_submissions_immutable','rfq_submissions_no_truncate']};
 
 export function validateCloudTarget(name) {
-  if(typeof name !== 'string' || !/^forgequote_[a-z0-9_]{1,48}$/.test(name) || ['forgequote_dev','forgequote_test'].includes(name)) throw Error('CLOUD_DATABASE_NAME must name a dedicated forgequote_ database; local dev/test targets are forbidden');
+  if(typeof name !== 'string' || (!/^forgequote_[a-z0-9_]{1,48}$/.test(name) && name!=='neondb') || ['forgequote_dev','forgequote_test'].includes(name)) throw Error('CLOUD_DATABASE_NAME must name a dedicated forgequote_ database or the approved Neon neondb; local dev/test targets are forbidden');
+  return name;
+}
+// The generic Neon database name needs an exact independently confirmed cloud host.
+// This is additional target checking, not an ownership/privilege-check exception.
+export function validateCloudConnection(config,env=process.env) {
+  const name=validateCloudTarget(env.CLOUD_DATABASE_NAME),url=new URL(config.databaseUrl);
+  if(decodeURIComponent(url.pathname.slice(1))!==name) throw Error('DATABASE_URL does not match CLOUD_DATABASE_NAME');
+  if(name==='neondb' && (!env.CLOUD_DATABASE_HOST || url.hostname!==env.CLOUD_DATABASE_HOST || !/^[a-z0-9.-]+\.neon\.tech$/.test(url.hostname) || url.hostname.includes('-pooler') || (url.port && url.port!=='5432'))) throw Error('neondb requires the exact confirmed direct Neon CLOUD_DATABASE_HOST on port 5432');
   return name;
 }
 async function target(client,name) {

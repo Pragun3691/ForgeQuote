@@ -1,5 +1,12 @@
 # Current status - 2026-11-03
 
+## T07 - Local deployment configuration and handoff; STOP
+
+- Existing feature/T07-cloud-deployment at b19a86d retained; six partial deployment changes completed. Render targets main with pinned Node, same-origin React/Express and existing real health endpoints; Express explicitly binds 0.0.0.0/PORT. neondb CLI requires an exact confirmed direct Neon host; strict ownership/ACL/inventory checks remain unchanged.
+- Neon provisioning was completed in the prior authorized phase (001-005, synthetic seeds, restricted SQL LOGIN and strict checker passed). Owner explicitly prohibited further Neon/Render access on resume; none occurred. No public URL or live HTTPS/provider success is claimed. Owner credential exposure was previously reported; reset confirmation is outside this local-only checkpoint.
+- Completed interrupted local regression job: 78 unit/config/costing, 33 dedicated costing, 104 PostgreSQL, all six Chrome suites, 40 syntax modules and production startup 1/1 passed; disposable fixtures/parent removed. Production build and final local unit/syntax/startup rerun passed. Nine goldens unchanged.
+- Temporary credential handoffs and cloud helper scripts removed; unexposed runtime/demo/session credentials preserved in ignored Windows-DPAPI vault .env.cloud-secrets.dpapi, without maintenance URL. Cached credential/dashboard state cleared from automation memory. README/deployment/task/ADR/handoff/learning docs updated. No push, merge, deployment, ownership/grant/schema/financial change or approval/PDF work. Details: docs/t07-handoff.md.
+
 ## T03 - Complete multipart quotation integration; STOP
 
 - Continued owner-approved T03 on feature/T03-multipart-quotations at d29d2b5. Shutdown/network recovery found exactly the three reported partial backend edits and preserved them; no unrelated changes or T03 commit existed.
