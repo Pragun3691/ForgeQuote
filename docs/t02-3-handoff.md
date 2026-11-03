@@ -12,7 +12,9 @@ Browser execution first failed in test:browser:xlsx with apiRequestContext.get I
 
 The checked-in npm.cmd run test:ai:live also PASSED against unchanged gemini-3.5-flash-lite with the existing configured key and synthetic fixture. Excel browser tests separately assert zero Gemini calls. Full diff/23-file review found no protected finance/migration/history/save-service edits and no exact current secret literals in changed/new files; this bounded scan is not a universal secret-detection guarantee. No credential or raw provider response was printed. No PDF implementation, push or deployment.
 
-## Separate unresolved Gemini manual-QA finding
+## Historical separate Gemini manual-QA finding
+
+Subsequently resolved for the supplied numbered fixture by a separately approved correction from f08264c; see docs/t02-part-association-handoff.md. The paragraph below records its status at the Excel checkpoint.
 
 Owner-reported manual QA: a synthetic two-part RFQ containing SP-101 and BR-202 produced four suggested parts with unsupported associations. This is an unresolved T02.2 Gemini finding, separate from deterministic Excel import. The complete source/request and a captured response were not provided for reproduction in this recovery run. No Gemini correction or model/prompt/evidence change was made. Passing the standard live fixture does not resolve this case; require separate approval to investigate/fix it.
 

@@ -18,6 +18,8 @@ Correction manifest (only): apps/api/src/ai/schema.js; apps/api/src/ai/gemini.js
 
 Correction questions: Why does omitting a provider constraint leave the server's 20-part limit intact? Why should Gemini HTTP 400 not be labeled model unavailable? What does one successful synthetic live test prove, and what remains dependent on estimator review and project quota?
 
+Subsequent owner-approved numbered-part correction from f08264c: the SP-101/BR-202 manual-QA case now returns two source-ordered verified components, confirmed with real Gemini and real Chrome. Section/reconciliation policy and current evidence: docs/t02-part-association-handoff.md and ADR-0009. Prior checkpoint evidence below is historical.
+
 ## Provider configuration and local setup
 
 Official @google/genai 2.32.0 and Zod 4.6.7 are pinned in the API workspace/lockfile. Initial AI_MODEL is gemini-3.5-flash-lite. SDK is explicitly Developer API, server-only key, no tools/ADC/Vertex/alternate-model fallback. Provider terms/policy, verifier rules and reliability decisions: [ADR-0009](decisions/0009-gemini-extraction.md).

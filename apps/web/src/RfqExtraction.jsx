@@ -50,7 +50,7 @@ export default function RfqExtraction({session,onExpired,disabled,onApply,onBusy
     <fieldset disabled={disabled || busy}>
       <legend className="sr-only">AI source and consent</legend>
       <label>Synthetic RFQ email or plain text<textarea maxLength={12000} rows={9} value={source} onChange={event=>editSource(event.target.value)} placeholder="Paste a synthetic RFQ. Explicit labels and Part: headers help the server verify evidence."/></label>
-      <p className="muted">{source.length}/12000 characters. The full pasted source and extraction evidence are not persisted. Reviewed business fields use the existing RFQ save and recovery storage. Verified automatic mapping currently requires labeled lines and explicit Part: / Part number: / Item: sections; other prose stays a suggestion for manual resolution.</p>
+      <p className="muted">{source.length}/12000 characters. The full pasted source and extraction evidence are not persisted. Reviewed business fields use the existing RFQ save and recovery storage. Verified automatic mapping requires labeled fields within explicit numbered headings (Part 1:, Part 2:) or Part: / Part number: / Item: sections. Unmatched model proposals appear as warnings and never create extra parts.</p>
       <label className="review-confirm"><input type="checkbox" checked={synthetic} onChange={event=>setSynthetic(event.target.checked)}/>I confirm this text is entirely synthetic, nonconfidential and contains no real personal data.</label>
       <label className="review-confirm"><input type="checkbox" checked={consent} onChange={event=>setConsent(event.target.checked)}/>I consent to sending this text to Google Gemini under the disclosed unpaid-service terms.</label>
     </fieldset>

@@ -7,6 +7,7 @@ import { createApp } from '../src/app.js';
 import { fixtureId } from '../src/seed.js';
 import { testDatabase } from '../../../tests/helpers/database.js';
 import { syntheticSource, syntheticSuggestion, fakeGeminiResponse } from './fixtures/synthetic-rfq.js';
+import { numberedBrowserSource,numberedSuggestion } from './fixtures/numbered-rfq.js';
 
 test('AI extraction HTTP review/save boundary with disposable PostgreSQL (provider mocked)',async t=>{
   const db=await testDatabase(),logs=[];
@@ -15,6 +16,7 @@ test('AI extraction HTTP review/save boundary with disposable PostgreSQL (provid
   const aiConfig={apiKey:'test-only-not-a-real-key',model:'gemini-3.5-flash-lite',timeoutMs:1000,unavailableCode:null};
   const app=createApp(db.runtime,config,{sessionSchema:db.schema,aiConfig,aiLimit:100,logWriter:line=>logs.push(line),aiGenerateContent:async payload=>{
     calls++;lastSignal=payload.config.abortSignal;
+    if(mode==='numbered') {const data=numberedSuggestion({headers:true}),extra=structuredClone(data.parts[0]);extra.anchor='Unmatched synthetic proposal';extra.fields.partNumber={status:'present',rawValue:'UNKNOWN',evidence:['Part Number: UNKNOWN']};data.parts.push(extra);return fakeGeminiResponse(data);}
     if(mode==='quota') throw {status:429,message:'secret-key and private document text'};
     const providerErrors={request:[400,'INVALID_ARGUMENT'],model:[404,'NOT_FOUND'],access:[403,'PERMISSION_DENIED'],unauthorized:[401,'UNAUTHENTICATED'],billing:[403,'PERMISSION_DENIED'],precondition:[400,'FAILED_PRECONDITION']};
     if(providerErrors[mode]) {
@@ -77,6 +79,11 @@ test('AI extraction HTTP review/save boundary with disposable PostgreSQL (provid
       assert.equal(detail.data.parts.find(part=>part.partNumber==='ARM-B').routes[0].setupHoursPerBatch,'24.000000');
       assert.ok((await estimator.request('/api/rfqs')).data.rfqs.some(rfq=>rfq.id===response.data.rfqId));
       assert.deepEqual(await counts(),{rfqs:'2',receipts:'1',quotes:'0'});
+    });
+    await t.test('numbered two-part QA input returns two verified components plus unmatched warning without writes',async()=>{
+      mode='numbered';const before=await counts(),response=await extract({...body(),sourceText:numberedBrowserSource});
+      assert.equal(response.status,200);assert.deepEqual(response.data.parts.map(p=>[p.sourcePartIndex,p.fields.partNumber.normalizedValue,p.fields.grossWeightKg.normalizedValue]),[[0,'SP-101','0.61'],[1,'BR-202','1.25']]);
+      assert.ok(response.data.warnings.some(w=>w.includes('Unmatched synthetic proposal')));assert.deepEqual(await counts(),before);mode='success';
     });
     await t.test('provider quota, transient failure, invalid schema and timeout are explicit/redacted and never save',async()=>{
       const before=await counts();

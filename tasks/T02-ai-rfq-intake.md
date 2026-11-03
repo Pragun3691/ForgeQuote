@@ -31,6 +31,10 @@ PDF assessment only: Node engine compatible, actual canvas-free runtime unverifi
 
 Recovery verification after shutdown reran all listed suites. The only unfinished code fix was a test-only absolute URL for example download; application code survived intact. Separate owner-reported Gemini manual QA (SP-101/BR-202 yielded four unsupported suggestions) remains unresolved and outside this Excel correction. See handoff recovery section.
 
-## After T02.3 - STOP pending review
+## Separate T02 Gemini association correction - owner approved 2026-11-03; verified
+
+From f08264cc04b3d462cf240af9722831fa40eabaf6, recognize numbered boundaries/identifier metadata and reconcile one source-ordered component per section. Unknown proposals warn; duplicate/conflicting associations never merge/verify. Exact evidence/numeric rules, model/provider schema, Excel and save service unchanged. Exact manual-QA block, adversarial/legacy/API tests, checked-in real Gemini fixtures and real Chrome provider workflow passed. 78 unit/config/costing, 81 reported PostgreSQL, six standard Chrome suites plus real-provider Chrome, build/startup/syntax passed (existing manual RFQ timing assertion required isolated rerun). Full handoff: docs/t02-part-association-handoff.md; ADR-0009. The prior recovery note's unresolved finding is now superseded by this correction.
+
+## After association correction - STOP pending review
 
 Excel is complete for its narrow template. Do not start text-PDF support or other features until owner review. No approval, quotation PDF, rate-master editor, deployment, billing activation or service purchase. Never commit/expose credentials.

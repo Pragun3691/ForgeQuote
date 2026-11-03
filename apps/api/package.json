@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "test": "node --test test/config.test.js test/app.test.js test/passwords.test.js test/costing.test.js test/deployment.test.js test/tls.test.js test/ai-extraction.test.js test/xlsx.test.js",
+    "test": "node --test test/config.test.js test/app.test.js test/passwords.test.js test/costing.test.js test/deployment.test.js test/tls.test.js test/ai-extraction.test.js test/xlsx.test.js test/ai-association.test.js",
     "test:db": "node --test test/database.test.js test/auth.test.js test/quotations.test.js test/quotation-api.test.js test/cloud-database.test.js test/rfq-intake.test.js test/ai-api.test.js test/xlsx-api.test.js",
     "test:ai:live": "node scripts/test-ai-live.js",
     "db:migrate": "node scripts/migrate.js",

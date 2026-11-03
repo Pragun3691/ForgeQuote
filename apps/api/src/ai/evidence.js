@@ -20,9 +20,29 @@ export function sourceSections(source) {
     const line={text:text.replace(/\r$/,''),start:offset,end:offset+text.replace(/\r$/,'').length,number:index+1};
     offset+=text.length+1;return line;
   });
-  const starts=lines.filter(line=>parseLine('partNumber',line));
-  const sections=starts.map((line,index)=>({anchor:line.text.trim(),index,start:line.start,end:starts[index+1]?.start ?? source.length,
-    lines:lines.filter(candidate=>candidate.start>=line.start && candidate.start<(starts[index+1]?.start ?? source.length))}));
+  const starts=[];
+  for(const line of lines) {
+    const numbered=/^\s*Part\s+([1-9]\d{0,2})\s*:\s*$/i.exec(line.text);
+    const legacy=/^\s*(?:Part|Item)\s*:\s*\S/i.test(line.text);
+    // Within an explicit heading, Part Number is metadata, never another component.
+    if(numbered || legacy || (parseLine('partNumber',line) && (!starts.length || starts.at(-1).kind==='identifier'))) {
+      starts.push({...line,kind:numbered?'numbered':legacy?'legacy':'identifier',ordinal:numbered?.[1]});
+    }
+  }
+  const sections=starts.map((line,index)=>{
+    const scopeLines=lines.filter(candidate=>candidate.start>=line.start && candidate.start<(starts[index+1]?.start ?? source.length));
+    const identifiers=scopeLines.map(candidate=>parseLine('partNumber',candidate)).filter(Boolean);
+    const values=[...new Set(identifiers.map(candidate=>candidate.raw))];
+    const metadata=line.kind==='legacy'?identifiers.slice(1):identifiers;
+    return {anchor:line.text.trim(),index,start:line.start,end:starts[index+1]?.start ?? source.length,lines:scopeLines,
+      aliases:[line.text.trim(),...identifiers.map(candidate=>candidate.line.text.trim())],
+      identifier:values.length===1?values[0]:null,ordinal:line.ordinal,
+      ambiguous:values.length>1 || metadata.length>1};
+  });
+  for(const section of sections) {
+    if((section.identifier && sections.filter(s=>s.identifier===section.identifier).length>1) ||
+      (section.ordinal && sections.filter(s=>s.ordinal===section.ordinal).length>1))section.ambiguous=true;
+  }
   return {header:{start:0,end:starts[0]?.start ?? source.length,lines:lines.filter(line=>line.start<(starts[0]?.start ?? source.length))},sections,lines};
 }
 const issue = (reason,status='unsupported') => ({value:null,reason,status});
@@ -100,18 +120,32 @@ export function verifyExtraction(source,untrusted) {
   const parsed=extractionSchema.safeParse(untrusted);
   if(!parsed.success) throw Object.assign(Error('Gemini returned an invalid structured response. Continue manually or try extraction again.'),{code:'AI_INVALID_RESPONSE'});
   const data=parsed.data,{header,sections,lines}=sourceSections(source);
-  const parts=data.parts.map(part=>{
-    const matching=sections.filter(section=>section.anchor===part.anchor);
-    const association=matching.length===1 && data.parts.filter(candidate=>candidate.anchor===part.anchor).length===1;
-    const scope=association ? matching[0] : {start:0,end:source.length,lines};
-    return {anchor:part.anchor,sourcePartIndex:association?scope.index:null,
-      fields:Object.fromEntries(partFields.map(name=>[name,verifyField(source,name,part.fields[name],scope,lines,association)]))};
+  const warnings=[],proposals=sections.map(()=>[]);
+  data.parts.forEach((part,index)=>{
+    const anchors=sections.filter(section=>section.aliases.includes(part.anchor));
+    // A fallback requires complete part-number value + unique verbatim evidence in its section.
+    const identifiers=sections.filter(section=>section.identifier && verifyField(source,'partNumber',part.fields.partNumber,section,lines).status==='verified');
+    const section=anchors.length===1?anchors[0]:anchors.length===0&&identifiers.length===1?identifiers[0]:null;
+    if(!section){warnings.push(`Unmatched model proposal ${index+1} (anchor: ${part.anchor}; part number: ${part.fields.partNumber.rawValue ?? 'missing'}) was not applied. Review the source manually.`);return;}
+    const conflict=identifiers.some(s=>s.index!==section.index) || (section.identifier && part.fields.partNumber.status==='present' && part.fields.partNumber.rawValue!==section.identifier);
+    proposals[section.index].push({part,conflict});
+    if(conflict)warnings.push(`Model proposal ${index+1} conflicts with the identifier of source part ${section.index+1}. Its fields require manual review.`);
   });
-  for(const section of sections) if(!parts.some(part=>part.sourcePartIndex===section.index)) parts.push({anchor:section.anchor,sourcePartIndex:section.index,
-    fields:Object.fromEntries(partFields.map(name=>[name,{...verifyField(source,name,missingField(),section,lines),issues:['Model omitted this source part; fill its fields manually.']}]))});
+  // Source sections own cardinality/order. Model proposals cannot manufacture form rows.
+  const parts=sections.map(section=>{
+    const candidates=proposals[section.index],duplicate=candidates.length>1;
+    const association=!section.ambiguous&&!duplicate&&!candidates[0]?.conflict;
+    const reason=section.ambiguous?'Source section has ambiguous or duplicate part identifiers/headings; resolve manually.':duplicate?'Multiple model proposals target this source part; no values were merged or selected. Review manually.':candidates[0]?.conflict?'Model part identifier conflicts with its source section; resolve manually.':null;
+    if(reason)warnings.push(`Source part ${section.index+1}: ${reason}`);
+    return {anchor:section.anchor,sourcePartIndex:section.index,fields:Object.fromEntries(partFields.map(name=>{
+      const field=candidates.length===1?candidates[0].part.fields[name]:missingField();
+      const verified=verifyField(source,name,field,section,lines,association);
+      return [name,reason?{...verified,status:'ambiguous',normalizedValue:null,issues:[reason]}:!candidates.length?{...verified,issues:['Model omitted this source part; fill its fields manually.']}:verified];
+    }))};
+  });
   if(parts.length>20) throw Object.assign(Error('Part associations could not be reconciled within the 20-part limit. Continue manually.'),{code:'AI_INVALID_RESPONSE'});
   return {rfq:Object.fromEntries(headerFields.map(name=>[name,verifyField(source,name,data.rfq[name],header,lines)])),parts,
-    warnings:[...(!sections.length?['No explicit Part: or Part number: sections found. Part suggestions cannot be verified automatically.']:[]),
+    warnings:[...warnings,...(!sections.length?['No supported numbered Part, Part:, Part number: or Item: sections found. Enter parts manually.']:[]),
       'Verified means literal support under the documented label/unit rules, not approval or proof the customer facts are correct.',
       'Internal rate keys, missing manufacturing inputs and prices are never inferred. Review every field before saving.']};
 }

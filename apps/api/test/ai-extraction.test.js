@@ -90,7 +90,10 @@ test('missing fields, omitted source parts and unknown anchors remain visible fo
   const result=verify(data);assert.equal(result.parts.length,2);assert.equal(result.parts[1].fields.partNumber.status,'missing');
   assert.match(result.parts[1].fields.partNumber.issues[0],/omitted/);
   const wrong=syntheticSuggestion();wrong.parts[0].anchor='invented part';
-  const unverified=verify(wrong).parts[0];assert.equal(unverified.sourcePartIndex,null);assert.ok(Object.values(unverified.fields).every(field=>field.status==='unsupported'));
+  // Unique literal part-number evidence is a supported fallback, not fuzzy anchor matching.
+  assert.equal(verify(wrong).parts[0].fields.partNumber.normalizedValue,'SPINDLE-A');
+  wrong.parts[0].fields.partNumber={status:'present',rawValue:'invented',evidence:['Part: invented']};
+  const unverified=verify(wrong);assert.equal(unverified.parts.length,2);assert.equal(unverified.parts[0].fields.partNumber.status,'missing');assert.ok(unverified.warnings.some(w=>w.includes('Unmatched model proposal')));
   const missing=syntheticSuggestion();missing.rfq.customerName={status:'missing',rawValue:null,evidence:[]};
   assert.match(verify(missing).rfq.customerName.issues[0],/omitted/);
 });
