@@ -12,7 +12,7 @@ if(!config.apiKey && config.unavailableCode==='AI_NOT_CONFIGURED') {
       console.log('LIVE PROVIDER CALL SUCCEEDED; extraction expectation checks FAILED.');process.exitCode=1;
     } else console.log(`LIVE PROVIDER TEST PASSED: Google Gemini, ${config.model}, structured multi-part response and verified evidence. Synthetic input only.`);
   } catch(error) {
-    const codes=['AI_CONFIGURATION_INVALID','AI_TIMEOUT','AI_QUOTA_EXCEEDED','AI_MODEL_UNAVAILABLE','AI_PROVIDER_ACCESS','AI_PROVIDER_UNAVAILABLE','AI_INVALID_RESPONSE'];
+    const codes=['AI_CONFIGURATION_INVALID','AI_TIMEOUT','AI_QUOTA_EXCEEDED','AI_MODEL_UNAVAILABLE','AI_PROVIDER_REQUEST','AI_PROVIDER_BILLING','AI_PROVIDER_PRECONDITION','AI_PROVIDER_ACCESS','AI_PROVIDER_UNAVAILABLE','AI_INVALID_RESPONSE'];
     console.log(`LIVE PROVIDER TEST FAILED: ${codes.includes(error.code)?error.code:'AI_ERROR'}. No source or credentials logged.`);process.exitCode=1;
   }
 }

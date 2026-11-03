@@ -3,12 +3,23 @@ import assert from 'node:assert/strict';
 import { GoogleGenAI } from '@google/genai';
 import { verifyExtraction } from '../src/ai/evidence.js';
 import { createGeminiExtractor, readAiConfig, validateSource } from '../src/ai/gemini.js';
-import { extractionSchema } from '../src/ai/schema.js';
+import { extractionSchema, responseJsonSchema } from '../src/ai/schema.js';
+import { z } from 'zod';
 import { syntheticSource, syntheticSuggestion, fakeGeminiResponse } from './fixtures/synthetic-rfq.js';
 
 const config={apiKey:'test-only-not-a-real-key',model:'gemini-3.5-flash-lite',timeoutMs:1000,unavailableCode:null};
 const request=()=>({sourceText:syntheticSource,consent:true,syntheticOnly:true});
 const verify=(data=syntheticSuggestion(),source=syntheticSource)=>verifyExtraction(source,data);
+
+test('provider omits only parts.maxItems while server rejects over 20 returned parts',async()=>{
+  const expected=z.toJSONSchema(extractionSchema);delete expected.$schema;delete expected.properties.parts.maxItems;
+  assert.deepEqual(responseJsonSchema,expected);
+  assert.equal(Object.hasOwn(responseJsonSchema.properties.parts,'maxItems'),false);
+  assert.equal(responseJsonSchema.properties.parts.items.properties.fields.properties.material.properties.evidence.maxItems,3);
+  const data=syntheticSuggestion();data.parts=Array.from({length:21},()=>structuredClone(data.parts[0]));
+  assert.equal(extractionSchema.safeParse(data).success,false);
+  await assert.rejects(createGeminiExtractor(config,{generateContent:async()=>fakeGeminiResponse(data)})(request()),{code:'AI_INVALID_RESPONSE'});
+});
 
 test('strict structured schema rejects extra keys, confidence, prices, wrong types and unbounded fields',()=>{
   for(const change of [data=>{data.cost='100';},data=>{data.rfq.reference.confidence=0.99;},data=>{data.parts[0].rateKeys={material:'invented'};},
@@ -106,7 +117,7 @@ test('official SDK serializes structured request against a mocked transport (no 
   let calls=0;
   const client=new GoogleGenAI({apiKey:config.apiKey,vertexai:false,httpOptions:{retryOptions:{attempts:1},fetch:async(url,options)=>{
     calls++;assert.match(String(url),/generativelanguage\.googleapis\.com/);
-    const body=JSON.parse(options.body);assert.equal(body.generationConfig.responseMimeType,'application/json');assert.ok(body.generationConfig.responseJsonSchema);
+    const body=JSON.parse(options.body);assert.equal(body.generationConfig.responseMimeType,'application/json');assert.deepEqual(body.generationConfig.responseJsonSchema,responseJsonSchema);
     return new Response(JSON.stringify({candidates:[{finishReason:'STOP',content:{role:'model',parts:[{text:JSON.stringify(syntheticSuggestion())}]}}]}),{status:200,headers:{'Content-Type':'application/json'}});
   }}});
   const result=await createGeminiExtractor(config,{generateContent:payload=>client.models.generateContent(payload)})(request());
@@ -120,13 +131,28 @@ test('one transient retry succeeds; persistent failures stop at two attempts',as
   await assert.rejects(failing(request()),error=>error.code==='AI_PROVIDER_UNAVAILABLE' && !error.message.includes('secret'));assert.equal(calls,2);
 });
 test('quota, access, invalid model, incomplete and malformed responses never retry or leak provider messages',async()=>{
-  for(const [status,code] of [[429,'AI_QUOTA_EXCEEDED'],[401,'AI_PROVIDER_ACCESS'],[403,'AI_PROVIDER_ACCESS'],[400,'AI_MODEL_UNAVAILABLE'],[404,'AI_MODEL_UNAVAILABLE']]) {
+  for(const [status,code] of [[429,'AI_QUOTA_EXCEEDED'],[401,'AI_PROVIDER_ACCESS'],[403,'AI_PROVIDER_ACCESS'],[400,'AI_PROVIDER_REQUEST'],[404,'AI_MODEL_UNAVAILABLE']]) {
     let calls=0;const extract=createGeminiExtractor(config,{generateContent:async()=>{calls++;throw {status,message:'private source and key'};}});
     await assert.rejects(extract(request()),error=>error.code===code && !error.message.includes('private'));assert.equal(calls,1);
   }
   for(const response of [{text:'{}',candidates:[{finishReason:'MAX_TOKENS'}]},fakeGeminiResponse({unexpected:'field'}),{...fakeGeminiResponse({}),text:'not JSON'},
     {...fakeGeminiResponse({}),text:'x'.repeat(65537)},{...fakeGeminiResponse({}),promptFeedback:{blockReason:'SAFETY'}}]) {
     let calls=0;await assert.rejects(createGeminiExtractor(config,{generateContent:async()=>{calls++;return response;}})(request()),{code:'AI_INVALID_RESPONSE'});assert.equal(calls,1);
+  }
+});
+test('SDK billing and precondition errors have distinct redacted codes without retries',async()=>{
+  for(const [status,payload,code] of [
+    [400,{status:'INVALID_ARGUMENT'},'AI_PROVIDER_REQUEST'],
+    [400,{status:'FAILED_PRECONDITION'},'AI_PROVIDER_PRECONDITION'],
+    [403,{status:'PERMISSION_DENIED',details:[{reason:'BILLING_DISABLED'}]},'AI_PROVIDER_BILLING'],
+    [400,{status:'FAILED_PRECONDITION',message:'Billing must be enabled. private source'},'AI_PROVIDER_BILLING'],
+    [402,{},'AI_PROVIDER_BILLING'],
+    [403,{status:'PERMISSION_DENIED',details:[{reason:'SERVICE_DISABLED'}]},'AI_PROVIDER_ACCESS']
+  ]) {
+    let calls=0;
+    const extract=createGeminiExtractor(config,{generateContent:async()=>{calls++;throw {status,message:JSON.stringify({error:{message:'private source and secret-key',...payload}})};}});
+    await assert.rejects(extract(request()),error=>error.code===code && !/private|secret-key/.test(error.message));
+    assert.equal(calls,1);
   }
 });
 test('total deadline and client abort bound even a provider that ignores its signal',async()=>{

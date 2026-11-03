@@ -1,5 +1,17 @@
 # Current status - 2026-11-03
 
+## T02.2 - live Gemini correction verified; STOP
+
+- Owner approved the minimal correction from clean feature/T02-ai-rfq-intake at 7f8a58f. Gemini returned HTTP 400 INVALID_ARGUMENT for the generated provider schema; the adapter incorrectly labeled it AI_MODEL_UNAVAILABLE. Official SDK model listing and minimal plain/structured inference proved the existing gemini-3.5-flash-lite key/model/API access worked.
+- Removed only provider-facing properties.parts.maxItems. Zod still enforces max(20), evidence arrays remain bounded at three, and all input/response/evidence/part/security checks remain unchanged. Added exact schema-difference, SDK serialization and over-20 provider-response regressions.
+- Controlled error codes now distinguish request/schema (AI_PROVIDER_REQUEST, HTTP 502 to app client), model/resource 404, access 401/403, quota 429, explicit billing (AI_PROVIDER_BILLING) and failed project prerequisites (AI_PROVIDER_PRECONDITION). Billing/precondition codes return app HTTP 503. Provider JSON is inspected privately, never returned or logged. No automatic retries added.
+- Actual verification: npm.cmd test 63/63; npm.cmd run test:db 75/75 reported results; npm.cmd run check:api 37 modules. All nine financial goldens passed in unit and persisted snapshot tests with no changes to expectations.
+- **Checked-in npm.cmd run test:ai:live PASSED** with existing configured key and unchanged gemini-3.5-flash-lite: real structured two-part synthetic extraction, complete server validation, reference/count/weight expectations and verified evidence. No diagnostic request override. This verifies this fixture at this time, not general extraction accuracy or future quota.
+- Chrome: AI review/manual fallback, authentication, quotation and manual RFQ suites all exited 0. The first manual RFQ run failed its immediate field-enabled assertion at tests/browser-rfq.smoke.js:27 during concurrent browser runs; the isolated rerun passed without code changes. Root cause of that timing-sensitive failure was not established. Browser provider calls were mocked and disposable local PostgreSQL fixtures were cleaned up.
+- No migrations, grants, formulas, ownership, model, RFQ behavior, credentials, billing settings or deployment changes. Browser results and complete manifest: docs/t02-2-handoff.md. STOP before T02.3, Excel/PDF import and deployment.
+
+## Original T02.2 checkpoint (before live diagnosis)
+
 ## T02.2 - SDK/review implemented; live provider verification pending; STOP
 
 - Owner authorized T02.2 only from verified clean feature/T02-ai-rfq-intake at expected 63ada4513758d9798782f0ecac15696166148e8d. Commits: 04ad325 backend/schema/evidence/API/policy/tests; 5d98784 review UI/browser workflow; documentation handoff follows. No push/rebase/deployment or other features.

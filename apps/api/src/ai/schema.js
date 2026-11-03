@@ -14,6 +14,8 @@ export const extractionSchema = z.strictObject({
 });
 export const responseJsonSchema = z.toJSONSchema(extractionSchema);
 delete responseJsonSchema.$schema;
+// Gemini rejects this nested array bound; the authoritative Zod limit stays above.
+delete responseJsonSchema.properties.parts.maxItems;
 
 export const sourceSchema = z.strictObject({
   sourceText:z.string().min(1).max(12000),

@@ -33,8 +33,16 @@ material is customer material text only, NOT a rate key. Machine selection/routi
 
 function providerFailure(error) {
   const status=Number(error?.status);
+  // SDK ApiError.message contains JSON. Inspect privately; never return/log its text.
+  let detail;
+  try {detail=JSON.parse(error?.message)?.error;} catch { /* Non-JSON/network errors use HTTP classification. */ }
+  const billingReasons=['BILLING_DISABLED','BILLING_NOT_ACTIVE','BILLING_NOT_ENABLED','BILLING_ACCOUNT_DISABLED','BILLING_ACCOUNT_CLOSED'];
+  const billing=Array.isArray(detail?.details) && detail.details.some(item=>billingReasons.includes(item?.reason));
   if(status===429) return aiError('AI_QUOTA_EXCEEDED','Gemini quota or rate limit reached. Wait before explicitly extracting again, or continue manually.');
-  if(status===400 || status===404) return aiError('AI_MODEL_UNAVAILABLE','Gemini rejected the configured model or request. Check server AI_MODEL configuration; continue manually.');
+  if(status===402 || ([400,403].includes(status) && (billing || /\bbilling\b/i.test(detail?.message || '')))) return aiError('AI_PROVIDER_BILLING','Gemini reported a billing restriction. Check project eligibility without enabling billing, or continue manually.');
+  if(status===400 && detail?.status==='FAILED_PRECONDITION') return aiError('AI_PROVIDER_PRECONDITION','Gemini project prerequisites are not satisfied. Check project eligibility and region; continue manually.');
+  if(status===400) return aiError('AI_PROVIDER_REQUEST','Gemini rejected the extraction request or schema. Check the server integration; continue manually.');
+  if(status===404) return aiError('AI_MODEL_UNAVAILABLE','Gemini model or resource was not found. Check server AI_MODEL configuration; continue manually.');
   if(status===401 || status===403) return aiError('AI_PROVIDER_ACCESS','Gemini access was rejected. Check the server API key and project access; continue manually.');
   return aiError('AI_PROVIDER_UNAVAILABLE','Gemini is unavailable or the network failed. Continue manually or explicitly try again.');
 }

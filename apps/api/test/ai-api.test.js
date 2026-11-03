@@ -16,6 +16,11 @@ test('AI extraction HTTP review/save boundary with disposable PostgreSQL (provid
   const app=createApp(db.runtime,config,{sessionSchema:db.schema,aiConfig,aiLimit:100,logWriter:line=>logs.push(line),aiGenerateContent:async payload=>{
     calls++;lastSignal=payload.config.abortSignal;
     if(mode==='quota') throw {status:429,message:'secret-key and private document text'};
+    const providerErrors={request:[400,'INVALID_ARGUMENT'],model:[404,'NOT_FOUND'],access:[403,'PERMISSION_DENIED'],unauthorized:[401,'UNAUTHENTICATED'],billing:[403,'PERMISSION_DENIED'],precondition:[400,'FAILED_PRECONDITION']};
+    if(providerErrors[mode]) {
+      const [status,code]=providerErrors[mode];
+      throw {status,message:JSON.stringify({error:{status:code,message:'secret-key and private document text',...(mode==='billing'?{details:[{reason:'BILLING_DISABLED'}]}:{})}})};
+    }
     if(mode==='failure') throw {status:503,message:'secret-key and private document text'};
     if(mode==='invalid') return fakeGeminiResponse({price:'invented'});
     if(mode==='timeout') return new Promise(()=>{});
@@ -75,7 +80,7 @@ test('AI extraction HTTP review/save boundary with disposable PostgreSQL (provid
     });
     await t.test('provider quota, transient failure, invalid schema and timeout are explicit/redacted and never save',async()=>{
       const before=await counts();
-      for(const [nextMode,status,code,attempts] of [['quota',429,'AI_QUOTA_EXCEEDED',1],['failure',503,'AI_PROVIDER_UNAVAILABLE',2],['invalid',502,'AI_INVALID_RESPONSE',1],['timeout',504,'AI_TIMEOUT',1]]) {
+      for(const [nextMode,status,code,attempts] of [['quota',429,'AI_QUOTA_EXCEEDED',1],['request',502,'AI_PROVIDER_REQUEST',1],['model',503,'AI_MODEL_UNAVAILABLE',1],['access',503,'AI_PROVIDER_ACCESS',1],['unauthorized',503,'AI_PROVIDER_ACCESS',1],['billing',503,'AI_PROVIDER_BILLING',1],['precondition',503,'AI_PROVIDER_PRECONDITION',1],['failure',503,'AI_PROVIDER_UNAVAILABLE',2],['invalid',502,'AI_INVALID_RESPONSE',1],['timeout',504,'AI_TIMEOUT',1]]) {
         mode=nextMode;const previous=calls,response=await extract();assert.equal(response.status,status);assert.equal(response.data.error.code,code);assert.equal(calls-previous,attempts);
         assert.ok(!JSON.stringify(response.data).includes('secret-key'));assert.deepEqual(await counts(),before);
       }
