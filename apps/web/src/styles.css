@@ -74,10 +74,10 @@ textarea:disabled {background:#f3f6f5;color:#5c7069;}
 .ai-content {padding:0 1rem 1rem;}
 .ai-content h3 {margin-top:1rem;}
 .ai-content .review-confirm {margin-top:1rem;}
-.extraction-fields {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:1rem;}
-.extraction-field {border:1px solid var(--border);border-radius:5px;padding:1rem;min-width:0;overflow-wrap:anywhere;}
+.extraction-fields,.evidence-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:1rem;min-width:0;}
+.extraction-field,.evidence-field {border:1px solid var(--border);border-radius:5px;padding:1rem;min-width:0;overflow-wrap:anywhere;}
 .extraction-field h4 {margin:0;font-size:.85rem;}
-.extraction-field p {font-size:.85rem;}
+.extraction-field p,.evidence-field p {font-size:.85rem;}
 .extraction-field blockquote {margin:.6rem 0;padding-left:.7rem;border-left:3px solid var(--border);}
 .extraction-field pre {white-space:pre-wrap;overflow-wrap:anywhere;font-size:.8rem;}
 .verification {font-size:.7rem;font-weight:600;border-radius:4px;padding:.3rem .5rem;background:#f4eeee;color:#824a40;flex-shrink:0;white-space:nowrap;}

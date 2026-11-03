@@ -41,6 +41,13 @@ try {
   assert.equal((await db.owner.query('SELECT count(*) FROM rfq_submissions')).rows[0].count,'1');assert.ok(Object.keys(pendingBefore).length===1);
   const facts=(await db.owner.query("SELECT p.gross_weight_kg,p.requested_annual_qty FROM rfq_parts p JOIN rfqs r ON r.id=p.rfq_id WHERE r.reference='SYNTH-XLSX-BROWSER'")).rows[0];assert.deepEqual(facts,{gross_weight_kg:'0.610000',requested_annual_qty:'24000'});
   await page.getByRole('button',{name:'New RFQ',exact:true}).click();await page.getByRole('button',{name:'Create another RFQ',exact:true}).click();await page.getByText('Import Excel part list (optional)',{exact:true}).click();
+  // Legal maximum-length unbroken values must remain readable, not merely avoid page overflow.
+  await file.setInputFiles({name:'synthetic.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:syntheticWorkbook({rows:`<row r="2">${inline('A2','S'.repeat(80))}${inline('B2','D'.repeat(500))}${numeric('C2','0.61')}${numeric('D2','1')}</row>`})});
+  await attest.check();await reviewImport.click();await page.getByRole('region',{name:'Excel import review'}).waitFor();
+  const overflowing=()=>page.locator('.evidence-field').evaluateAll(cards=>cards.some(card=>card.scrollWidth>card.clientWidth+1 || [...card.querySelectorAll('p')].some(p=>p.scrollWidth>p.clientWidth+1)));
+  for(const width of [390,320,1280]) {await page.setViewportSize({width,height:844});assert.equal(await overflowing(),false,`Excel evidence clips at ${width}px`);}
+  await page.setViewportSize({width:390,height:844});await page.screenshot({path:'.tmp/t02-xlsx-long-mobile.png',fullPage:true});
+  assert.equal((await db.owner.query('SELECT count(*) FROM rfq_submissions')).rows[0].count,'1');
   await file.setInputFiles({name:'synthetic.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:syntheticWorkbook({rows:`<row r="2">${inline('A2','A')}${inline('B2','Synthetic')}<c r="C2"><f>1/2</f><v>0.5</v></c>${numeric('D2','1')}</row>`})});
   await attest.check();await reviewImport.click();await page.getByRole('alert').filter({hasText:'Unsupported or invalid XLSX'}).waitFor();
   await page.getByRole('button',{name:'Continue manually',exact:true}).first().click();await reference.fill('SYNTH-MANUAL-AFTER-FAILURE');

@@ -24,6 +24,11 @@ try {
   await page.getByText('Extract from text with AI (optional)',{exact:true}).click();
   await page.getByRole('status').filter({hasText:'AI extraction is not configured'}).waitFor();
   assert.equal(await page.getByRole('button',{name:'Extract with AI',exact:true}).isDisabled(),true);
+  // AI availability and rate keys load independently; wait for the actual form gate.
+  await page.waitForFunction(()=>{
+    const input=[...document.querySelectorAll('label')].find(label=>label.textContent.trim()==='RFQ reference')?.querySelector('input');
+    return input && !input.matches(':disabled');
+  });
   assert.equal(await page.getByLabel('RFQ reference',{exact:true}).isEnabled(),true);
   await page.getByText('Extract from text with AI (optional)',{exact:true}).click();
   async function fillPart(index,number) {
