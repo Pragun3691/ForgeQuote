@@ -23,6 +23,14 @@ Mock-provider unit/HTTP/SDK-transport and real PostgreSQL/Chrome workflows passe
 
 Starting HEAD 7f8a58f. Provider schema omits only parts.maxItems; Zod max(20), evidence/numeric/association/security checks and model remain unchanged. Request/schema, model/resource, access, quota, billing and precondition errors now have separate controlled classifications. Regression tests cover exact provider schema and server rejection of 21 parts. Checked-in npm.cmd run test:ai:live passed with the existing key, real synthetic multi-part response and complete server validation. Unit/config/costing 63/63 and PostgreSQL 75/75 passed with all nine unchanged goldens. See docs/t02-2-handoff.md for final browser results and manifest. No deployment/billing/schema/financial changes.
 
-## T02.3 and later - STOP pending review
+## T02.3 - owner approved Excel first, 2026-11-03; implemented
 
-Do not start deterministic Excel import, optional text-PDF support or other features until owner review. No approval, quotation PDF, rate-master editor, deployment, billing activation or service purchase. Never commit/expose credentials.
+Clean starting HEAD fad3d79. Deterministic bounded .xlsx template, exact string inputs, shared strings/sparse row/cell references, worksheet/cell evidence, explicit whole-import rejection and human correction/confirmation through unchanged RFQ save/idempotency. No Gemini call for Excel. Disposable security/API/Chrome fixtures and unchanged financial goldens. Final checks: 70 unit/config/costing; 80 reported PostgreSQL; all five Chrome suites; 40 syntax modules; production build/startup and audit passed. Contract/manifest/limits: docs/t02-3-handoff.md; ADR-0010.
+
+PDF assessment only: Node engine compatible, actual canvas-free runtime unverified, no package installed or PDF code. Recommend defer pending separate approval. Quotation PDF generation remains a separate future requirement.
+
+Recovery verification after shutdown reran all listed suites. The only unfinished code fix was a test-only absolute URL for example download; application code survived intact. Separate owner-reported Gemini manual QA (SP-101/BR-202 yielded four unsupported suggestions) remains unresolved and outside this Excel correction. See handoff recovery section.
+
+## After T02.3 - STOP pending review
+
+Excel is complete for its narrow template. Do not start text-PDF support or other features until owner review. No approval, quotation PDF, rate-master editor, deployment, billing activation or service purchase. Never commit/expose credentials.

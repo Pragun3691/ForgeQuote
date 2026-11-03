@@ -31,7 +31,8 @@
     "db:check-cloud-permissions": "npm run db:check-cloud-permissions --workspace apps/api",
     "check:api": "npm run check --workspace apps/api",
     "test:production": "npm run test:production --workspace apps/api",
-    "test:costing": "npm run test:costing --workspace apps/api"
+    "test:costing": "npm run test:costing --workspace apps/api",
+    "test:browser:xlsx": "node tests/browser-xlsx.smoke.js"
   },
   "devDependencies": {
     "playwright": "^1.64.1"

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from './api.js';
 import RfqExtraction from './RfqExtraction.jsx';
+import RfqDocumentImport from './RfqDocumentImport.jsx';
 
 const categories = ['material','machine','scrap','overhead','packaging','freight'];
 const newPart = () => ({partNumber:'',description:'',grossWeightKg:'',requestedAnnualQty:'',cycleTimeMin:'',setupHoursPerBatch:'',rateKeys:Object.fromEntries(categories.map(category=>[category,'']))});
@@ -23,6 +24,7 @@ export default function RfqCreate({ session, onExpired, onCreated, onCancel }) {
   const [form,setForm] = useState(emptyForm), [pending,setPending] = useState(null), [keys,setKeys] = useState(null);
   const [error,setError] = useState(''), [storageError,setStorageError] = useState(''), [saving,setSaving] = useState(false), [reviewed,setReviewed] = useState(false), [reload,setReload] = useState(0);
   const [extracting,setExtracting] = useState(false), [aiCycle,setAiCycle] = useState(0);
+  const [importing,setImporting] = useState(false);
   const frozen = saving || !!(pending && pending.phase !== 'rejected');
   useEffect(()=>{
     try { const record=readPending(key); if(record) {setPending(record);setForm(record.body);setReviewed(true);} }
@@ -60,13 +62,17 @@ export default function RfqCreate({ session, onExpired, onCreated, onCancel }) {
       if(error.status===401) onExpired();
     } finally {setSaving(false);}
   }
+  function applyImport(result) {
+    setForm(current=>({...current,parts:result.parts.map(part=>({...newPart(),...Object.fromEntries(['partNumber','description','grossWeightKg','requestedAnnualQty','cycleTimeMin','setupHoursPerBatch'].map(name=>[name,part.fields[name]?.normalizedValue||'']))}))}));
+    setReviewed(false);setError('');
+  }
   function startAnother() {
     try {sessionStorage.removeItem(key);setPending(null);setForm(emptyForm());setReviewed(false);setError('');setAiCycle(value=>value+1);} catch {setStorageError('Browser storage is unavailable. Reload to recover the saved RFQ.');}
   }
   return <section className="panel costing-form" aria-labelledby="create-rfq-title">
     <h2 id="create-rfq-title">Create manual RFQ</h2>
     <p className="muted">Synthetic, nonconfidential demonstration data only. Owner: {session.user.username}. Status: open. Enter and review every part before saving.</p>
-    {pending?.phase!=='saved' && <RfqExtraction key={aiCycle} session={session} onExpired={onExpired} disabled={!!frozen || !!storageError} onApply={applyExtraction} onBusyChange={setExtracting}/>}
+    {pending?.phase!=='saved' && <><RfqDocumentImport key={`excel-${aiCycle}`} session={session} onExpired={onExpired} disabled={!!frozen || !!storageError || extracting} onApply={applyImport} onBusyChange={setImporting}/><RfqExtraction key={aiCycle} session={session} onExpired={onExpired} disabled={!!frozen || !!storageError || importing} onApply={applyExtraction} onBusyChange={setExtracting}/></>}
     {error && <div role="alert" className="error">{error}{!keys && <button type="button" onClick={()=>{setError('');setReload(value=>value+1);}}>Reload rate keys</button>}</div>}
     {storageError && <div role="alert" className="error">{storageError}</div>}
     {!keys && !error && <p role="status">Loading internal rate keys...</p>}
@@ -74,7 +80,7 @@ export default function RfqCreate({ session, onExpired, onCreated, onCancel }) {
     {pending && ['saving','uncertain'].includes(pending.phase) && <div role="status" className="notice">The previous save outcome may be unknown. Inputs are locked. Retry the same submission to recover it without creating a duplicate.</div>}
     {pending?.phase==='saved' ? <><div role="status" className="success">RFQ saved. <a href={`#rfq=${pending.rfqId}`}>Open saved RFQ</a></div><div className="actions"><button onClick={startAnother} disabled={!!storageError}>Create another RFQ</button><button className="secondary" onClick={onCancel}>Back to register</button></div></> :
     <form onSubmit={save}>
-      <fieldset disabled={frozen || extracting || !!storageError || !keys}>
+      <fieldset disabled={frozen || extracting || importing || !!storageError || !keys}>
         <legend className="sr-only">RFQ details</legend>
         <div className="input-grid">
           <label>RFQ reference<input required maxLength={80} value={form.reference} onChange={event=>change('reference',event.target.value)}/></label>
@@ -97,7 +103,7 @@ export default function RfqCreate({ session, onExpired, onCreated, onCancel }) {
         <p className="muted">Maximum 20 parts. Gross weight and cycle time must be positive; setup hours may be zero. Quantities: 1–1,000,000,000. Decimals: up to six places. Rate values are resolved later at the quotation pricing date; a missing historical rate will be an error.</p>
         <label className="review-confirm"><input type="checkbox" required checked={reviewed} onChange={event=>setReviewed(event.target.checked)}/>I reviewed the RFQ and all {form.parts.length} part(s), including quantities and internal rate keys.</label>
       </fieldset>
-      <div className="actions"><button type="submit" disabled={saving || extracting || !!storageError || !keys || (!frozen && !reviewed)}>{saving?'Saving RFQ...':frozen?'Retry same RFQ submission':'Save RFQ'}</button><button type="button" className="secondary" onClick={onCancel} disabled={saving || extracting}>Back to register</button></div>
+      <div className="actions"><button type="submit" disabled={saving || extracting || importing || !!storageError || !keys || (!frozen && !reviewed)}>{saving?'Saving RFQ...':frozen?'Retry same RFQ submission':'Save RFQ'}</button><button type="button" className="secondary" onClick={onCancel} disabled={saving || extracting || importing}>Back to register</button></div>
     </form>}
   </section>;
 }

@@ -130,3 +130,9 @@ For a future approved fresh Neon database only: db:prepare-cloud and db:check-cl
 ## Definition of complete
 
 See `docs/requirements.md` and `tasks/T01-thin-slice.md`. This repo should progress through small reviewable commits, tests, and real deployed slices. Keep a working build throughout.
+
+## Excel RFQ intake (T02.3)
+
+In New RFQ, open Import Excel part list and download the synthetic example. Use the documented headers and plain General-format .xlsx cells, attest synthetic data, inspect worksheet/cell evidence, deliberately copy parts, fill gaps/select internal rate keys and confirm before saving. Excel never calls Gemini or saves automatically. Limits, precise supported template, numeric handling, security and known gaps: [T02.3 handoff](docs/t02-3-handoff.md). No migrations or deployment changes.
+
+Run `npm.cmd test`, `npm.cmd run test:db` and `npm.cmd run test:browser:xlsx`. The new browser/API import fixtures create and clean up disposable local databases, preserving existing development data. PDF intake is not implemented; final quotation PDF generation is separate and remains pending.

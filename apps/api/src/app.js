@@ -8,6 +8,7 @@ import { installQuotationRoutes } from './quotation-routes.js';
 import { requestLogging } from './request-logging.js';
 import { installRfqIntakeRoutes } from './rfq-routes.js';
 import { installAiRoutes } from './ai/routes.js';
+import { installImportRoutes } from './imports/routes.js';
 
 export function createApp(pool, config = readAuthConfig(), authOptions = {}) {
   const app = express();
@@ -24,6 +25,7 @@ export function createApp(pool, config = readAuthConfig(), authOptions = {}) {
   });
   installAuth(app, pool, config, authOptions);
   installAiRoutes(app, config, authOptions);
+  installImportRoutes(app, config, authOptions);
   installRfqIntakeRoutes(app, pool, config, authOptions);
   installQuotationRoutes(app, pool, config, authOptions);
   app.use('/api', (_req, res) => res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Endpoint not available' } }));

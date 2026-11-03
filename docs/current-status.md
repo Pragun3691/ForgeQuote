@@ -1,5 +1,17 @@
 # Current status - 2026-11-03
 
+## T02.3 - Excel import implemented/verified; STOP before PDF
+
+- Shutdown recovery: all 23 intended files survived uncommitted at fad3d79; no final T02.3 commit existed. Fresh 70/70 unit/config/costing, 80/80 reported PostgreSQL, all five Chrome suites, 40-module syntax, production build/1 startup and zero-vulnerability audit passed. Fixed only a browser-test absolute URL after its first recovery run failed; no application redesign. Standard synthetic live Gemini test also passed. Exact file manifest/recovery evidence: docs/t02-3-handoff.md.
+- **Unresolved separate T02.2 manual QA:** SP-101/BR-202 two-part synthetic RFQ reportedly produced four suggested parts with unsupported associations. Not reproduced/fixed in this scope; standard fixture success does not clear this finding. Gemini remains subject to estimator review.
+
+- Owner approved Excel first from clean feature/T02-ai-rfq-intake at fad3d79. Bounded deterministic .xlsx reader with exact stored decimal strings, shared/inline strings, sparse references, worksheet/cell/header evidence and whole-import rejection of invalid records. No Gemini calls or database writes during import.
+- Estimator-only POST /api/rfq-import/xlsx: current role/auth, exact Origin/CSRF before raw body buffering, synthetic attestation, 2 MiB upload, 20 MiB actual ZIP expansion/100 entries, bounded XML/worker heap/three-second parser deadline, 15-second route deadline, process-local attempt/concurrency limits. No document storage/raw-parser logging.
+- New review panel/downloadable synthetic example; deliberate apply preserves RFQ header, clears rate keys/confirmation and reuses unchanged manual form, atomic save and same-key recovery. Formula caches, unsupported headers/formats, hidden data and invalid records fail visibly; manual/Gemini text paths remain.
+- Passed: 70/70 unit/config/costing; 80/80 reported PostgreSQL; all five Chrome suites; 40 API syntax modules; frontend production build (normal-access rerun after sandbox Vite denial); 1/1 actual production startup; dependency audit zero known vulnerabilities. All nine financial goldens and persisted expectations unchanged. Excel Chrome verifies evidence/review/correction/save/lost-response recovery/formula fallback/zero Gemini calls/mobile; screenshots inspected.
+- Read-only PDF assessment only: pdfjs-dist 6.5.438 Node engine fits Node 24 but ~37.6 MB unpacked plus optional native canvas; no runtime compatibility claim, installation or PDF implementation. Existing Gemini pipeline can accept extracted text, but page mapping/layout/consent/rejection/security need a separately approved feature. Recommend deferral. Final quotation PDF is separate and still pending.
+- No formulas, rates/history, quotation persistence, migrations 001-005, ownership, grants, deployment or purchases changed. Contract, limitations, manifest, evidence and three owner questions: docs/t02-3-handoff.md; ADR-0010. STOP for approval before PDF/additional milestones.
+
 ## T02.2 - live Gemini correction verified; STOP
 
 - Owner approved the minimal correction from clean feature/T02-ai-rfq-intake at 7f8a58f. Gemini returned HTTP 400 INVALID_ARGUMENT for the generated provider schema; the adapter incorrectly labeled it AI_MODEL_UNAVAILABLE. Official SDK model listing and minimal plain/structured inference proved the existing gemini-3.5-flash-lite key/model/API access worked.

@@ -27,7 +27,11 @@ export function installAuth(app, pool, config, { sessionSchema = 'public', login
   app.use('/api/auth/login', limiter);
   const ordinaryJson = json({ limit: '4kb', strict: true });
   const intakeJson = json({ limit: '64kb', strict: true });
-  app.use('/api', (req,res,next) => (req.method === 'POST' && ['/rfqs','/rfq-extraction'].includes(req.path) ? intakeJson : ordinaryJson)(req,res,next));
+  app.use('/api', (req,res,next) => {
+    // Binary imports authenticate and check CSRF/type before their route reads bytes.
+    if(req.method==='POST' && req.path==='/rfq-import/xlsx')return next();
+    return (req.method === 'POST' && ['/rfqs','/rfq-extraction'].includes(req.path) ? intakeJson : ordinaryJson)(req,res,next);
+  });
   app.use('/api', session({
     name: cookieName, secret: config.sessionSecret, store, resave: false, saveUninitialized: false, rolling: false,
     cookie: { ...cookieOptions, maxAge: SESSION_MAX_AGE_MS }

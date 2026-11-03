@@ -1,4 +1,5 @@
 const statuses = {
+  XLSX_INVALID:422, XLSX_LIMIT:413, XLSX_TIMEOUT:504, XLSX_CANCELLED:408,
   AUTH_REQUIRED: 401, ROLE_FORBIDDEN: 403, INVALID_QUOTATION_INPUT: 400, INVALID_COSTING_INPUT: 400,
   RFQ_NOT_FOUND: 404, ROUTING_NOT_FOUND: 404, QUOTATION_NOT_FOUND: 404,
   SUBMISSION_CONFLICT: 409, RATE_NOT_FOUND: 422, UNSUPPORTED_RFQ: 422,
@@ -15,6 +16,11 @@ export function apiErrorHandler(error, req, res, next) {
     code: error.code, message: error.message, ...(error.field ? { field: error.field } : {})
   } });}
   const status = error.type === 'entity.too.large' ? 413 : error.type === 'entity.parse.failed' ? 400 : 503;
+  if(req.path==='/api/rfq-import/xlsx') {
+    const uploadStatus=status===413?413:503;
+    res.locals.errorCode=uploadStatus===413?'XLSX_LIMIT':'XLSX_UNAVAILABLE';
+    return res.status(uploadStatus).json({error:{code:res.locals.errorCode,message:uploadStatus===413?'Workbook exceeds the 2 MiB upload limit.':'Workbook import is unavailable. No RFQ was saved. Continue manually.'}});
+  }
   const ai = req.path === '/api/rfq-extraction';
   const intake = req.path === '/api/rfq-rate-keys' || (req.path === '/api/rfqs' && req.method === 'POST');
   const business = /^\/api\/(rfqs|quote-versions)(\/|$)/.test(req.path);
