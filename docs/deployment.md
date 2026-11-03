@@ -79,6 +79,8 @@ For the explicitly approved local stabilization only, verify both connections re
 
 Local verification on 2026-11-03: 005 and reviewed grants applied successfully; readiness and login returned 200. RFQ creation returned 503 with SQLSTATE 42501 on users; reopening a newly created RFQ could not be verified. The runtime still owns users/sessions; users has SELECT but lacks UPDATE, and EXPLAIN SELECT ... FOR KEY SHARE on users fails 42501. The receipt foreign-key check is therefore blocked by the existing ownership/privilege combination. No partial RFQ/receipt was saved, no existing ownership changed, and existing non-session data was preserved. Further development writes stopped; resolving permissions requires a separately approved correction. A passing grant checker alone does not prove the application save path works.
 
+Subsequent owner-approved correction resolved that local blocker: runtime-grants.sql now grants UPDATE(id) on users **only when runtime already owns that table**. No password/role/activation writes or table-wide UPDATE/DELETE are granted. Maintenance-owned users retains SELECT-only runtime access; strict cloud isolation remains unchanged. The exact local checker accepts this single column only under the ownership condition. Actual development create/reopen/retry/conflict/authorization checks passed; existing data/ownership were preserved. This ACL also permits direct SQL updates of users.id and is a local compatibility exception, not a locking-only privilege or a substitute for safe ownership. See ADR-0011 and docs/dev-rfq-permission-handoff.md. No cloud grant operation or deployment occurred.
+
 ## Render environment
 
 | Name | Intended value/source |

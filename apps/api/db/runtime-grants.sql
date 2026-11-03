@@ -9,6 +9,16 @@ REVOKE ALL PRIVILEGES ON TABLE public.rate_keys, public.rate_versions, public.rf
 GRANT SELECT ON TABLE public.rate_keys, public.rate_versions, public.rfqs,
   public.rfq_parts, public.routing_revisions, public.schema_migrations,
   public.rate_periods, public.users TO forgequote_app;
+-- PostgreSQL's FK check locks the referenced users row as that table's owner.
+-- Preserved local ownership makes that owner the runtime role; FOR KEY SHARE
+-- requires UPDATE on at least one column, even though the FK performs no UPDATE.
+-- Never grant auth-field writes or this exception on maintenance-owned users.
+REVOKE UPDATE (id) ON public.users FROM forgequote_app;
+DO $$ BEGIN
+  IF (SELECT pg_get_userbyid(relowner) FROM pg_class WHERE oid='public.users'::regclass) = 'forgequote_app' THEN
+    GRANT UPDATE (id) ON public.users TO forgequote_app;
+  END IF;
+END $$;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.sessions TO forgequote_app;
 GRANT SELECT, INSERT ON TABLE public.quotation_parts,
   public.quotation_rates, public.quotation_part_tiers, public.quotation_totals TO forgequote_app;

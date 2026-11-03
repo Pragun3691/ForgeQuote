@@ -8,7 +8,7 @@ import { seed } from '../../apps/api/src/seed.js';
 import { seedUsers } from '../../apps/api/src/auth/seed-users.js';
 
 // Isolated real database fixture shared by HTTP/browser tests. Never reset dev data.
-export async function testDatabase({ seedBusiness = true, dedicatedDatabase = false } = {}) {
+export async function testDatabase({ seedBusiness = true, dedicatedDatabase = false, runtimeOwnsUsers = false } = {}) {
   const target = new URL(process.env.TEST_DATABASE_URL);
   assert.match(target.pathname, /_test$/);
   const maintenance = new URL(process.env.MIGRATION_DATABASE_URL);
@@ -52,6 +52,8 @@ export async function testDatabase({ seedBusiness = true, dedicatedDatabase = fa
     if (seedBusiness) await seed(owner);
     await seedUsers(owner, passwords);
     await admin.query(`GRANT USAGE ON SCHEMA ${schema} TO ${role}`);
+    // Reproduce the preserved local auth-table ownership only inside this disposable schema.
+    if (runtimeOwnsUsers) await admin.query(`ALTER TABLE ${schema}.users OWNER TO ${role}`);
     const grants = (await readFile(new URL('../../apps/api/db/runtime-grants.sql', import.meta.url), 'utf8')).replaceAll('public.', `${schema}.`).replaceAll('forgequote_app', role);
     await owner.query(grants);
     const runtimeOptions = `-c search_path=${schema} -c role=${role}`;

@@ -1,5 +1,13 @@
 # Current status - 2026-11-03
 
+## Development RFQ permission correction - verified; STOP
+
+- Owner authorized focused correction from clean feature/T03-multipart-quotations at 3b27c7f. Traced receipt INSERT failure to PostgreSQL's internal users foreign-key FOR KEY SHARE check, not an application row-locking query. Development users is runtime-owned with self-revoked UPDATE; normal disposable fixtures are maintenance-owned and therefore concealed this configuration difference.
+- runtime-grants.sql conditionally grants only users UPDATE(id) when runtime already owns users. Maintenance-owned users stays SELECT-only for runtime. Exact column checker and complete RFQ HTTP tests now cover both layouts, including denial of password/role/activation UPDATE and users DELETE. No ownership, migration, application transaction, authentication or financial changes. ADR-0011 records the narrow local compatibility exception and direct-SQL limitation.
+- Applied corrected grants to verified local forgequote_dev only (postgres maintenance, forgequote_app runtime). Actual API: create 201, reopen 200 with two parts, same-key retry 200/original ID, changed payload 409, anonymous 401 and sales-head 403. Existing non-session rows and all public object ownership preserved. One authorized synthetic verification RFQ remains: SYNTH-PERM-e0d112bb; no development cleanup/reset performed.
+- Fresh passes: unit/config/costing 78/78, dedicated costing 33/33, PostgreSQL 94/94 (was 81; RFQ HTTP suite now runs for both ownership layouts), all six Chrome suites, 40 API syntax modules, frontend build and production startup 1/1. All nine financial goldens unchanged. New runtime-owned regression reproduced 503 before the grant and passed afterward (focused suite 26/26). Disposable test parent/fixtures removed; existing forgequote_test/other databases untouched. Initial sandbox build access denial resolved by normal-access rerun.
+- Development save blocker resolved. Existing runtime ownership/DDL powers on users/sessions remain a public-deployment limitation; this does not approve deployment or ownership changes. No T03 feature, push or deployment. Handoff: docs/dev-rfq-permission-handoff.md. STOP.
+
 ## Approved stabilization before T03 - complete with development save blocker; STOP
 
 - T02 is accepted/merged. Verified clean main, T02 and existing feature/T03-multipart-quotations at d83323b; switched to that existing T03 branch without reset/recreation. No multipart quotation feature work started.

@@ -22,10 +22,11 @@ try {
     assert.equal(row.trunc, false, `${name}: runtime TRUNCATE forbidden`);
   }
   const columns = (await pool.query(`SELECT table_name,column_name,privilege_type FROM information_schema.column_privileges
-    WHERE grantee=current_user AND table_schema='public' AND table_name IN ('quotations','quotation_versions','draft_submissions','rfq_submissions','rfqs','rfq_parts','routing_revisions')
+    WHERE grantee=current_user AND table_schema='public' AND table_name IN ('users','quotations','quotation_versions','draft_submissions','rfq_submissions','rfqs','rfq_parts','routing_revisions')
       AND privilege_type IN ('INSERT','UPDATE')`)).rows;
   const versionInsert = ['id','quotation_id','version_number','pricing_date','formula_version','currency','gst_percent','created_by','rfq_snapshot','annual_value_ex_gst'];
   const expected = [
+    ...(checks.rows.find(row=>row.tablename==='users').tableowner === new URL(readConfig().databaseUrl).username ? ['users.id.UPDATE'] : []),
     ...['id','rfq_id'].map(column => `quotations.${column}.INSERT`), 'quotations.next_version.UPDATE',
     ...versionInsert.map(column => `quotation_versions.${column}.INSERT`),
     ...['actor_user_id','submission_key','request_fingerprint','rfq_id','version_id'].map(column => `draft_submissions.${column}.INSERT`),
@@ -38,7 +39,7 @@ try {
   for (const name of ['quotations','quotation_versions','draft_submissions','rfq_submissions', ...appendTables]) {
     assert.notEqual(checks.rows.find(row => row.tablename === name).tableowner, new URL(readConfig().databaseUrl).username, `${name}: runtime must not own snapshot tables`);
   }
-  console.log('PASS: read/session access, exact intake/snapshot INSERT columns and quotation counter UPDATE verified; no history/input UPDATE/DELETE or TRUNCATE; receipt/snapshot tables maintenance-owned.');
+  console.log('PASS: exact read/session/intake/snapshot grants verified; users UPDATE(id) only when runtime-owned for FK locking, no auth-field writes or users DELETE; no history/input UPDATE/DELETE or TRUNCATE; receipt/snapshot tables maintenance-owned.');
   const owned = checks.rows.filter(row => row.tableowner === new URL(readConfig().databaseUrl).username).map(row => row.tablename);
   if (owned.length) console.log(`Limitation: runtime still owns ${owned.join(', ')}; ordinary grants cannot remove owner DDL powers. No ownership changed.`);
 } finally { await pool.end(); }

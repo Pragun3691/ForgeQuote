@@ -11,8 +11,8 @@ const body = (reference = 'RFQ-MANUAL-001', count = 2) => ({ reference, customer
   parts:Array.from({length:count},(_,i)=>({ partNumber:`MANUAL-${i+1}`,description:'Synthetic spindle',grossWeightKg:'0.610000',requestedAnnualQty:'180000',cycleTimeMin:'3.200000',setupHoursPerBatch:'12',
     rateKeys:{material:fixtureId(1),machine:fixtureId(2),scrap:fixtureId(3),overhead:fixtureId(4),packaging:fixtureId(5),freight:fixtureId(6)} })) });
 
-test('manual RFQ HTTP vertical slice with real PostgreSQL and restricted runtime', async t => {
-  const db=await testDatabase();
+for (const runtimeOwnsUsers of [false,true]) test(`manual RFQ HTTP vertical slice with restricted runtime; runtime owns users: ${runtimeOwnsUsers}`, async t => {
+  const db=await testDatabase({runtimeOwnsUsers});
   const config={nodeEnv:'test',gstPercent:'18',sessionSecret:randomBytes(32).toString('hex'),appOrigin:'http://localhost:3000',trustProxyHops:0};
   const app=createApp(db.runtime,config,{sessionSchema:db.schema,rfqLimit:100});
   const server=app.listen(0,'127.0.0.1');await once(server,'listening');
@@ -127,6 +127,11 @@ test('manual RFQ HTTP vertical slice with real PostgreSQL and restricted runtime
       assert.equal(snapshot.parts[0].result.tiers[1].costPerUnit,'119.76');assert.equal(snapshot.parts[0].result.tiers[1].sellingPricePerUnitExGst,'149.70');
     });
     await t.test('receipt immutable; runtime cannot edit inputs, rates or create receipt timestamps',async()=>{
+      const userColumns=(await db.runtime.query("SELECT column_name,has_column_privilege(current_user,'users',column_name,'UPDATE') allowed FROM information_schema.columns WHERE table_schema=$1 AND table_name='users' ORDER BY column_name",[db.schema])).rows;
+      assert.deepEqual(userColumns.filter(column=>column.allowed).map(column=>column.column_name),runtimeOwnsUsers?['id']:[]);
+      assert.equal((await db.runtime.query("SELECT has_table_privilege(current_user,'users','UPDATE') upd,has_table_privilege(current_user,'users','DELETE') del")).rows[0].upd,false);
+      assert.equal((await db.runtime.query("SELECT has_table_privilege(current_user,'users','DELETE') del")).rows[0].del,false);
+      for(const sql of ["UPDATE users SET role='sales_head'","UPDATE users SET active=false","UPDATE users SET password_hash='forged'",'DELETE FROM users']) await assert.rejects(db.runtime.query(sql),{code:'42501'});
       for(const sql of ['UPDATE rfq_submissions SET rfq_id=rfq_id','DELETE FROM rfq_submissions','TRUNCATE rfq_submissions']) {
         await assert.rejects(db.runtime.query(sql),{code:'42501'});await assert.rejects(db.owner.query(sql),{code:'55000'});
       }
