@@ -4,17 +4,27 @@ import { listRfqs, getRfq } from './rfqs.js';
 import { createQuotationService } from './quotations.js';
 import { createSubmissionService } from './draft-submissions.js';
 import { createLifecycleService } from './quotation-lifecycle.js';
+import { createCustomerQuotationService } from './customer-quotation.js';
 
 export function installQuotationRoutes(app, pool, config, {quoteLimit=30,quoteWindowMs=15*60*1000} = {}) {
   const quotes = createQuotationService(pool, config);
   const submit = createSubmissionService(pool, config);
   const lifecycle = createLifecycleService(pool);
+  const customerPdf = createCustomerQuotationService(pool,config);
   const limiter=rateLimit({windowMs:quoteWindowMs,limit:quoteLimit,keyGenerator:req=>req.user.id,
     standardHeaders:'draft-8',legacyHeaders:false,
     handler:(_req,res)=>failure(res,429,'QUOTE_RATE_LIMIT','Too many quotation save attempts. Wait, then retry the same submission key and inputs.')});
   app.use(['/api/rfqs','/api/quote-versions'], requireUser);
   app.get('/api/quote-versions/pending', requireRole('sales_head'), async (req,res)=>res.json({versions:await lifecycle.pending(req.user.id)}));
   app.get('/api/quote-versions/:id/lifecycle', async (req,res)=>res.json(await lifecycle.status(req.user.id,req.params.id)));
+  const pdfLimiter=rateLimit({windowMs:15*60*1000,limit:20,keyGenerator:req=>req.user.id,
+    standardHeaders:'draft-8',legacyHeaders:false,
+    handler:(_req,res)=>failure(res,429,'PDF_RATE_LIMIT','Too many PDF downloads. Please wait and retry.')});
+  app.get('/api/quote-versions/:id/pdf',pdfLimiter,async(req,res)=>{
+    const result=await customerPdf(req.user.id,req.params.id);
+    res.set({'Content-Type':'application/pdf','Content-Disposition':`attachment; filename="${result.filename}"`,
+      'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}).send(result.buffer);
+  });
   for(const action of ['submit','approve','reject','issue']) {
     app.post(`/api/quote-versions/:id/${action}`, requireRole(['approve','reject'].includes(action)?'sales_head':'estimator'),
       csrfProtection(config.appOrigin),limiter,async(req,res)=>{

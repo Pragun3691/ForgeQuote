@@ -1,4 +1,12 @@
-# Current status - 2026-11-04
+# Current status - 2026-11-05
+
+## T05 - Customer quotation PDF; complete locally; STOP
+
+- Confirmed clean main and fetched origin/main both at accepted T04 47e226e; created feature/T05-quotation-pdf. Authenticated final PDF download for both active demo roles uses only an allowlisted saved customer snapshot and the exact issued event/number/date/version. Current issued versions only; unissued/rejected/superseded versions are denied. No optional draft preview.
+- PDFKit A4 output includes all components and three saved annual scenarios, selling prices/line totals, subtotal, illustrative GST and total; exact decimal-string/rupee formatting, bundled OFL Noto Sans, measured wrapping/repeated headers/page footers. Internal costs/rates/margins/provenance/actors/reasons never reach the customer renderer/metadata. Same header lock/shared read transaction protects eligibility during assembly. Runtime writes no PDFs/snapshots/events.
+- Existing lifecycle panel offers Download customer PDF with loading/error/retry states. Tests cover real both-role attachment download, correct saved totals, all denied states, immutable historical data/output, embedded currency fonts and long pagination; independent raster QA completed. Passed 82/82 unit, 122/122 disposable PostgreSQL, 33/33 costing, all eight Chrome suites, 43 source syntax modules, build and production startup 1/1. All nine goldens unchanged.
+- No migration/grants/formula/snapshot-write/lifecycle-write or cloud change. Existing 006 prerequisite retained. Pure Node runtime dependencies and fonts are committed; broader scripts return a visible unsupported-text error. No Neon/Render access/change, push, merge or deployment. ADR-0015, tasks/T05-quotation-pdf.md and docs/t05-handoff.md record contracts, results, limits and owner questions. STOP after T05 commit.
+
 
 ## T04 - Approval and controlled issuance; complete locally; STOP
 

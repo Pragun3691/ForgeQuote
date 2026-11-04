@@ -140,9 +140,9 @@ export function createQuotationService(pool, { gstPercent }) {
       // their caller. No extra post-COMMIT lookup can obscure a successful write.
       return { versionId };
     },
-    async getDraftVersion(actorId, versionId) {
+    async getDraftVersion(actorId, versionId, { client: sharedClient } = {}) {
       id(versionId);
-      return transaction(pool, async client => {
+      const read = async client => {
         await authorize(client, actorId, false);
         const version = (await client.query('SELECT *,pricing_date::text FROM quotation_versions WHERE id=$1', [versionId])).rows[0];
         if (!version) fail('QUOTATION_NOT_FOUND', 'Quotation version not found');
@@ -175,7 +175,8 @@ export function createQuotationService(pool, { gstPercent }) {
           })),
           totals: totals.map(total => ({ scenario: total.scenario, ...totalsFromRow(total) }))
         };
-      });
+      };
+      return sharedClient ? read(sharedClient) : transaction(pool, read);
     }
   };
 }

@@ -20,9 +20,9 @@ function describe(version, history, latest) {
 }
 export function createLifecycleService(pool) {
   return {
-    async status(actorId, versionId) {
+    async status(actorId, versionId, { client: sharedClient } = {}) {
       validateId(versionId);
-      return transaction(pool,async client=>{
+      const read=async client=>{
         await actor(client,actorId);
         // One statement snapshot keeps status/history and latest-version detection consistent.
         const row=(await client.query(`SELECT v.*,q.next_version-1 AS latest,
@@ -32,7 +32,8 @@ export function createLifecycleService(pool) {
           FROM quotation_versions v JOIN quotations q ON q.id=v.quotation_id WHERE v.id=$1`,[versionId])).rows[0];
         if(!row) fail('Quotation version not found.','QUOTATION_NOT_FOUND');
         return describe(row,row.history,row.latest);
-      });
+      };
+      return sharedClient ? read(sharedClient) : transaction(pool,read);
     },
     async pending(actorId) {
       return transaction(pool,async client=>{

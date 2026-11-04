@@ -35,9 +35,11 @@
     "test:browser:xlsx": "node tests/browser-xlsx.smoke.js",
     "test:browser:ai:association": "node tests/browser-ai-association.smoke.js",
     "test:browser:ai:live": "node tests/browser-ai-association.smoke.js --live",
-    "test:browser:lifecycle": "node tests/browser-lifecycle.smoke.js"
+    "test:browser:lifecycle": "node tests/browser-lifecycle.smoke.js",
+    "test:browser:pdf": "node tests/browser-pdf.smoke.js"
   },
   "devDependencies": {
+    "pdfjs-dist": "6.5.438",
     "playwright": "^1.64.1"
   }
 }
