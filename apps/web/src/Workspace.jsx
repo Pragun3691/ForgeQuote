@@ -3,6 +3,7 @@ import { api } from './api.js';
 import QuoteResults, { grouped } from './QuoteResults.jsx';
 import RfqCreate from './RfqCreate.jsx';
 import QuoteLifecycle, { PendingApprovals } from './QuoteLifecycle.jsx';
+import RateCatalogue from './RateCatalogue.jsx';
 
 function useRoute() {
   const [route,setRoute] = useState(() => new URLSearchParams(window.location.hash.slice(1)));
@@ -42,8 +43,10 @@ export default function Workspace({ session, onExpired }) {
     });
     return () => controller.abort();
   },[refresh]);
+  if (route.get('view')==='rates') return <RateCatalogue onExpired={onExpired}/>;
   if (rfqId) return <RfqWorkspace key={rfqId} rfqId={rfqId} versionId={route.get('version')} session={session} onExpired={onExpired}/>;
   return <main className="workspace"><div className="section-heading"><div><p className="eyebrow">Estimator workspace</p><h1>RFQ register</h1></div><span className="badge">Synthetic demo</span></div><p className="muted">Open an RFQ to prepare a costed, versioned quotation.</p>
+    <p><a href="#view=rates" target={creating?'_blank':undefined} rel="noreferrer">View rate catalogue</a></p>
     {session.user.role === 'sales_head' && <PendingApprovals onExpired={onExpired}/>}
     {session.user.role === 'estimator' && !creating && <button onClick={()=>{setNotice('');setCreating(true);}}>New RFQ</button>}
     {creating && <RfqCreate session={session} onExpired={onExpired} onCancel={()=>setCreating(false)} onCreated={()=>{setCreating(false);setNotice('RFQ saved successfully. Open it from the register below.');setRefresh(value=>value+1);}}/>}

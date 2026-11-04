@@ -1,5 +1,13 @@
 # Current status - 2026-11-05
 
+## T06 - Read-only rate management and intake UX; complete locally; STOP
+
+- Owner reports T01-T05 implemented/merged/deployed and live approval -> issuance -> customer PDF manual checks passed. Verified clean main and fetched origin/main at 1f4f038, created feature/T06-rate-management-ux. No cloud access/verification in T06.
+- Authenticated both-role rate catalogue: six categories, exact values/units, selectable as-of date, start-inclusive/end-exclusive history, key/version IDs and record timestamps. Missing history remains visible. Existing SELECT-only runtime grants and rate immutability are unchanged; both demo roles are explicitly denied rate writes. No writer privilege was invented. New-version authoring remains pending an approved writer/validated maintenance policy, as permitted by scope.
+- Compact Gemini/Excel component summaries and collapsible unchanged evidence; required/missing-field lists, keyboard component navigation, explicit sole-available-key suggestions and common-key copying from part 1. No automatic financial key selection; apply/change resets estimator review. History opens separately during editing, preserving unsaved fields. Manual/Excel/verified Gemini and exact pending key/body recovery remain.
+- Passed: 82/82 unit/config/parser/PDF, 128/128 disposable PostgreSQL, 33/33 costing, existing eight Chrome suites plus focused rate/UX Chrome, 44-module syntax, production build and startup 1/1. All nine goldens unchanged. No schema/grants/dependencies/finance/snapshot/lifecycle/provider change; no Neon/Render, deployment, push/merge or C1 audit. ADR-0016, tasks/T06-rate-management-ux.md and docs/t06-handoff.md contain results, limits and owner questions.
+
+
 ## T05 - Customer quotation PDF; complete locally; STOP
 
 - Confirmed clean main and fetched origin/main both at accepted T04 47e226e; created feature/T05-quotation-pdf. Authenticated final PDF download for both active demo roles uses only an allowlisted saved customer snapshot and the exact issued event/number/date/version. Current issued versions only; unissued/rejected/superseded versions are denied. No optional draft preview.

@@ -18,6 +18,10 @@ export function apiErrorHandler(error, req, res, next) {
     code: error.code, message: error.message, ...(error.field ? { field: error.field } : {})
   } });}
   const status = error.type === 'entity.too.large' ? 413 : error.type === 'entity.parse.failed' ? 400 : 503;
+  if(req.path.startsWith('/api/rates') && status===503) {
+    res.locals.errorCode='RATE_SERVICE_UNAVAILABLE';
+    return res.status(503).json({error:{code:res.locals.errorCode,message:'Rate history is unavailable. Please retry; no rates were changed.'}});
+  }
   if(req.path==='/api/rfq-import/xlsx') {
     const uploadStatus=status===413?413:503;
     res.locals.errorCode=uploadStatus===413?'XLSX_LIMIT':'XLSX_UNAVAILABLE';

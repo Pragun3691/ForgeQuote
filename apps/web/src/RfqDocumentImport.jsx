@@ -35,9 +35,10 @@ export default function RfqDocumentImport({session,onExpired,disabled,onBusyChan
     {busy&&<p role="status">Reading workbook and validating cells...</p>}
     {error&&<p role="alert" className="error">{error}</p>}{notice&&<p role="status" className="notice">{notice}</p>}
     {result&&<section aria-label="Excel import review"><h3>Worksheet: {result.worksheet}</h3><p>Verified means the stored cell passed template validation. Check every value against the document before confirming.</p>
-      {result.parts.map((part,index)=><section key={part.row} aria-label={`Imported part ${index+1}`}><h4>Part {index+1} · worksheet row {part.row}</h4><div className="evidence-grid">
+      <section className="component-summary" aria-label="Imported component summary"><h3>Imported components ({result.parts.length})</h3><ul>{result.parts.map((part,index)=><li key={part.row}><strong>Part {index+1}: {part.fields.partNumber?.normalizedValue || 'Identifier missing'}</strong> - {part.fields.requestedAnnualQty?.normalizedValue || 'Quantity missing'} units/year - {Object.values(part.fields).filter(f=>f.status==='missing').length} fields missing</li>)}</ul></section>
+      {result.parts.map((part,index)=><section key={part.row} aria-label={`Imported part ${index+1}`}><h4>Part {index+1} · worksheet row {part.row}</h4><details className="evidence-section"><summary>Cell evidence for imported part {index+1}</summary><div className="evidence-grid">
         {Object.entries(part.fields).map(([name,field])=><article className="evidence-field" key={name}><strong>{labels[name]}</strong><p>{field.status==='missing'?'Missing — complete manually':`${field.rawValue} → ${field.normalizedValue}`}</p>{field.cell&&<p className="muted">{result.worksheet}!{field.cell} · header {field.headerCell}: {field.header}</p>}</article>)}
-      </div></section>)}
+      </div></details></section>)}
       <p className="notice">Use imported parts replaces current parts and clears internal rate selections. Header fields stay unchanged. Fill missing fields, choose internal rate keys and confirm review before saving.</p>
       <button type="button" disabled={disabled||busy} onClick={()=>{onApply(result);setNotice('Imported parts copied. Review and complete the manual form, select rate keys and confirm before saving.');}}>Use imported parts</button>
     </section>}

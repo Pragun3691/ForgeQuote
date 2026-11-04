@@ -9,6 +9,7 @@ import { requestLogging } from './request-logging.js';
 import { installRfqIntakeRoutes } from './rfq-routes.js';
 import { installAiRoutes } from './ai/routes.js';
 import { installImportRoutes } from './imports/routes.js';
+import { installRateRoutes } from './rate-catalogue.js';
 
 export function createApp(pool, config = readAuthConfig(), authOptions = {}) {
   const app = express();
@@ -24,6 +25,7 @@ export function createApp(pool, config = readAuthConfig(), authOptions = {}) {
     } catch { res.status(503).json({ status: 'not_ready' }); }
   });
   installAuth(app, pool, config, authOptions);
+  installRateRoutes(app,pool,config);
   installAiRoutes(app, config, authOptions);
   installImportRoutes(app, config, authOptions);
   installRfqIntakeRoutes(app, pool, config, authOptions);

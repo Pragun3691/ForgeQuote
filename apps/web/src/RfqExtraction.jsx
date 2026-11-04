@@ -60,8 +60,11 @@ export default function RfqExtraction({session,onExpired,disabled,onApply,onBusy
     {result && <section aria-label="Extraction review">
       <h3>Review suggestions and source evidence</h3><p className="muted">Compare every suggestion with its source quote. Only verified normalized fields are copied; ambiguous, unsupported and missing fields remain empty.</p>
       {result.warnings.map((warning,index)=><p className="notice" key={index}>{warning}</p>)}
-      <h3>RFQ fields</h3><EvidenceFields fields={result.rfq}/>
-      {result.parts.map((part,index)=><section key={index} aria-label={`Suggested part ${index+1}`}><h3>Suggested part {index+1}: {part.anchor}</h3><p className="muted">{part.sourcePartIndex===null?'Part association unsupported':`Source part ${part.sourcePartIndex+1}`}</p><EvidenceFields fields={part.fields}/></section>)}
+      <section className="component-summary" aria-label="Extracted component summary"><h3>Extracted components ({result.parts.length})</h3>
+        <ul>{result.parts.map((part,index)=><li key={index}><strong>Part {index+1}: {part.fields.partNumber?.status==='verified'?part.fields.partNumber.normalizedValue:'Identifier needs review'}</strong> - {part.fields.requestedAnnualQty?.status==='verified'?`${part.fields.requestedAnnualQty.normalizedValue} units/year`:'Quantity needs review'} - {Object.values(part.fields).filter(f=>f.status!=='verified').length} fields need review</li>)}</ul>
+      </section>
+      <details className="evidence-section"><summary>RFQ field evidence</summary><EvidenceFields fields={result.rfq}/></details>
+      {result.parts.map((part,index)=><section key={index} aria-label={`Suggested part ${index+1}`}><h3>Suggested part {index+1}: {part.anchor}</h3><p className="muted">{part.sourcePartIndex===null?'Part association unsupported':`Source part ${part.sourcePartIndex+1}`}</p><details className="evidence-section"><summary>Evidence for suggested part {index+1}</summary><EvidenceFields fields={part.fields}/></details></section>)}
       <p className="notice">Use verified suggestions replaces the current form's RFQ fields and parts. Internal rate keys remain unselected. Resolve all other fields manually and confirm review before saving.</p>
       <button type="button" onClick={apply} disabled={disabled || busy || !hasVerified}>Use verified suggestions</button>
     </section>}

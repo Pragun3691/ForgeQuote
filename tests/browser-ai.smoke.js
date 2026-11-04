@@ -43,6 +43,9 @@ try {
   await consent();await extract().click();await page.getByRole('status').filter({hasText:'Extracting with Gemini'}).waitFor();
   await page.getByRole('region',{name:'Extraction review'}).waitFor();assert.equal(calls,1);
   assert.equal((await db.owner.query('SELECT count(*) FROM rfq_submissions')).rows[0].count,'0');
+  await page.getByRole('region',{name:'Extracted component summary',exact:true}).waitFor();
+  assert.equal(await page.locator('.evidence-section[open]').count(),0);
+  for(const summary of await page.locator('.evidence-section > summary').all())await summary.click();
   const second=page.getByRole('region',{name:'Suggested part 2',exact:true});await second.getByText('missing',{exact:true}).waitFor();
   await second.getByText('ambiguous',{exact:true}).waitFor();await second.getByText('unsupported',{exact:true}).waitFor();
   await page.getByText('Gross weight: 610 g',{exact:true}).waitFor();

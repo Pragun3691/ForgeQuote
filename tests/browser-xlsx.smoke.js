@@ -23,6 +23,9 @@ try {
   const file=page.getByLabel('Synthetic Excel RFQ',{exact:true}),attest=page.getByRole('checkbox',{name:/I confirm this workbook/}),reviewImport=page.getByRole('button',{name:'Review Excel import',exact:true});
   await file.setInputFiles({name:'synthetic.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:syntheticWorkbook()});assert.equal(await reviewImport.isDisabled(),true);
   await attest.check();await reviewImport.click();await page.getByRole('region',{name:'Excel import review'}).waitFor();
+  await page.getByRole('region',{name:'Imported component summary',exact:true}).waitFor();
+  assert.equal(await page.locator('.evidence-section[open]').count(),0);
+  await page.getByText('Cell evidence for imported part 1',{exact:true}).click();
   await page.getByText('Synthetic Parts!C2 · header C1: Gross weight (kg)',{exact:true}).waitFor();
   assert.equal((await db.owner.query('SELECT count(*) FROM rfq_submissions')).rows[0].count,'0');assert.equal(providerCalls,0);
   await mkdir('.tmp',{recursive:true});await page.screenshot({path:'.tmp/t02-xlsx-desktop.png',fullPage:true});
@@ -44,6 +47,7 @@ try {
   // Legal maximum-length unbroken values must remain readable, not merely avoid page overflow.
   await file.setInputFiles({name:'synthetic.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:syntheticWorkbook({rows:`<row r="2">${inline('A2','S'.repeat(80))}${inline('B2','D'.repeat(500))}${numeric('C2','0.61')}${numeric('D2','1')}</row>`})});
   await attest.check();await reviewImport.click();await page.getByRole('region',{name:'Excel import review'}).waitFor();
+  await page.getByText('Cell evidence for imported part 1',{exact:true}).click();
   const overflowing=()=>page.locator('.evidence-field').evaluateAll(cards=>cards.some(card=>card.scrollWidth>card.clientWidth+1 || [...card.querySelectorAll('p')].some(p=>p.scrollWidth>p.clientWidth+1)));
   for(const width of [390,320,1280]) {await page.setViewportSize({width,height:844});assert.equal(await overflowing(),false,`Excel evidence clips at ${width}px`);}
   await page.setViewportSize({width:390,height:844});await page.screenshot({path:'.tmp/t02-xlsx-long-mobile.png',fullPage:true});
