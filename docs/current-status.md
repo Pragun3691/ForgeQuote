@@ -1,4 +1,13 @@
-# Current status - 2026-11-03
+# Current status - 2026-11-04
+
+## T04 - Approval and controlled issuance; complete locally; STOP
+
+- Owner reports T01-T03 accepted and Render + Neon live. This task made no cloud verification or configuration change. Fetched origin/main and clean main both verified at edc7295; created feature/T04-approval-issuance without overwriting work.
+- Migration 006 adds append-only version-scoped submitted/auto_approved/approved/rejected/issued events. Exact stored baseline > INR 25,00,000 excluding GST requires Sales Head; equality clears automatically. Header locking serializes lifecycle actions with new versions; current role, CSRF/Origin and immutable idempotency receipts protect all writes. Stable unique FQ-<version UUID> issuance number; stale versions cannot receive new actions or inherit approvals.
+- Estimator submit/status/issue; Sales Head pending list/exact snapshot review/approve/reject with mandatory reason. Browser refresh and lost-response same-key issuance recovery verified. A real spindle 500/1000/1500 scenario fixture costs INR 3,01,850.00 baseline excluding GST and clears automatically.
+- Passed: 78/78 unit/config/costing, 33/33 dedicated costing, 115/115 disposable PostgreSQL, all seven Chrome suites, 41-module syntax, production build/startup 1/1. All nine goldens unchanged.
+- Unchanged costing/GST/rates/snapshot persistence and all nine goldens. No migrations to existing development/test databases or Neon; no Render settings, deployment, push/merge, PDFs or rate management. Migration 006 plus reviewed grants/function access are a separate controlled cloud step before release. ADR-0014, tasks/T04-approval-issuance.md and docs/t04-handoff.md record details.
+
 
 ## T07 - Local deployment configuration and handoff; STOP
 

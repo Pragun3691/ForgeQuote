@@ -83,7 +83,7 @@ A previous owner-connection-string exposure was reported during provisioning. Ow
 
 No public URL, Render authentication, HTTPS proxy or production Gemini success is claimed. In the next authorized deployment window verify:
 
-1. /api/health/live returns 200 without DB/session work; /api/health/ready returns 200 only with reachable DB and migration 005.
+1. /api/health/live returns 200 without DB/session work; /api/health/ready returns 200 only with reachable DB and migration 006 (for the T04 release).
 2. React and its assets load from the same public origin; built assets contain no source secrets.
 3. Both demo identities sign in; cookie is __Host-forgequote.sid with Secure, HttpOnly, SameSite=Lax and Path=/.
 4. Missing/wrong Origin or CSRF returns 403; anonymous writes return 401; sales-head quotation writes return 403.
@@ -95,3 +95,12 @@ A separate Gemini check must use explicit consent and synthetic text, verify pro
 ## Verification evidence
 
 Full local regressions passed: 78 unit/config/costing, 33 dedicated costing, 104 PostgreSQL, all six Chrome suites, 40 API syntax modules and production startup 1/1. All nine goldens remain unchanged. Disposable fixtures and their parent database were removed. Final local build/unit/syntax/startup results are recorded in docs/t07-handoff.md. No approval/PDF or unrelated feature work.
+
+
+## T04 release gate - not executed against cloud
+
+Owner reports the existing Render + Neon deployment live as of 2026-11-04. T04 was implemented/tested locally only and is not deployed. Do not deploy this branch against an 001-005 database: readiness now requires 006_quotation_events.sql and lifecycle queries require its table.
+
+A separate controlled maintenance step must apply only pending migration 006 with the existing checksum runner, apply the reviewed runtime column grants and grant guard_quotation_event() EXECUTE (existing prepare-cloud tooling performs these explicit steps after target/ownership checks). Review the diff and target privately before that future operation. Existing snapshots/migrations 001-005 remain untouched; no reset, owner transfer or seed-password reset is needed. Updated strict inventory: 17 tables, five guard functions, 30 enabled triggers. Runtime still never migrates or seeds automatically.
+
+After that separately authorized migration/grant step and release, verify readiness, both-role login, below/equal clearance and above-threshold review, rejection reason, issue/replay/stable number and stale-version denial. PDF remains unimplemented. An application rollback can leave the additive event schema intact; retain event history and never reverse by dropping historical events. Any cloud backup/migration/deployment procedure remains outside the completed local T04 action.

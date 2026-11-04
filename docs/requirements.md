@@ -4,16 +4,16 @@
 
 | ID | CORE requirement | How to prove it | Status |
 |---|---|---|---|
-| R1 | Estimator & sales-head roles | Demo sign-in + server authZ tests | Implemented/tested for demo roles; sales head read-only in T01 |
+| R1 | Estimator & sales-head roles | Demo sign-in + server authZ tests | Implemented/tested for demo roles; Sales Head approval/rejection in T04; costing remains estimator-only |
 | R2 | RFQ register with customer, due date, owner, status | Create/list/update RFQ and persistence test | T02.1 manual 1-20 part create/list/detail tested; server-owned owner/status; RFQ update pending |
 | R3 | RFQ intake AI extraction | Upload synthetic PDF/text, inspect evidence, confirm/correct | T02.2 pasted-text SDK/review/evidence path implemented and mock-provider/real-DB/Chrome tested; real synthetic Gemini extraction verified; deterministic Excel part-list import/review/save verified; numbered SP-101/BR-202 association finding corrected and real-provider/Chrome verified (part-association handoff); RFQ PDF intake pending |
-| R4 | Part costing, 2–3 volume prices | Golden tests for 3 parts × 3 tiers | T03 complete 1-20-part HTTP/React quotation integration; real two/three-part workflows, combined scenario totals and nine unchanged goldens verified; approval/PDF pending |
+| R4 | Part costing, 2–3 volume prices | Golden tests for 3 parts × 3 tiers | T03 complete 1-20-part HTTP/React quotation integration; real two/three-part workflows, combined scenario totals and nine unchanged goldens verified; T04 approval/issuance verified locally; PDF pending |
 | R5 | Effective-dated rate masters | Boundary tests, no overlapping rates, missing rate failure | Backend history/resolution tested; management UI pending |
-| R6 | Old quotes preserve historical rates | Issued quote unchanged after rate update | Immutable draft snapshots verified; issuance pending |
-| R7 | Sales-head approval for annual value > ₹25,00,000 | Threshold tests; unauthorized bypass rejected | Planned |
+| R6 | Old quotes preserve historical rates | Issued quote unchanged after rate update | Immutable snapshots plus T04 issuance/event history verified locally |
+| R7 | Sales-head approval for annual value > ₹25,00,000 | Threshold tests; unauthorized bypass rejected | T04 strict stored-baseline threshold, roles, concurrency/stale versions and Chrome workflow verified locally; cloud migration pending |
 | R8 | Quote PDF with costs & GST separately | Download and compare PDF to saved snapshot | Planned |
 | R9 | Professional responsive UI | No dead actions; loading/empty/error states | Essential RFQ/costing states verified in Chrome desktop/mobile; dedicated polish pending |
-| R10 | Tests, demo data, documentation & deployment | Fresh setup, public repo, TDD link, demo credentials | Local tests/fixtures/docs complete through M7; deployment/submission pending |
+| R10 | Tests, demo data, documentation & deployment | Fresh setup, public repo, TDD link, demo credentials | Local tests/fixtures/docs through T04; owner reports Render + Neon live; T04 cloud migration/release and submission pending |
 
 **Optional depth, ONLY after full core:** historical Excel quotation import (~1,400 rows), historical search, similar-part route suggestions.
 

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from './api.js';
 import QuoteResults, { grouped } from './QuoteResults.jsx';
 import RfqCreate from './RfqCreate.jsx';
+import QuoteLifecycle, { PendingApprovals } from './QuoteLifecycle.jsx';
 
 function useRoute() {
   const [route,setRoute] = useState(() => new URLSearchParams(window.location.hash.slice(1)));
@@ -43,6 +44,7 @@ export default function Workspace({ session, onExpired }) {
   },[refresh]);
   if (rfqId) return <RfqWorkspace key={rfqId} rfqId={rfqId} versionId={route.get('version')} session={session} onExpired={onExpired}/>;
   return <main className="workspace"><div className="section-heading"><div><p className="eyebrow">Estimator workspace</p><h1>RFQ register</h1></div><span className="badge">Synthetic demo</span></div><p className="muted">Open an RFQ to prepare a costed, versioned quotation.</p>
+    {session.user.role === 'sales_head' && <PendingApprovals onExpired={onExpired}/>}
     {session.user.role === 'estimator' && !creating && <button onClick={()=>{setNotice('');setCreating(true);}}>New RFQ</button>}
     {creating && <RfqCreate session={session} onExpired={onExpired} onCancel={()=>setCreating(false)} onCreated={()=>{setCreating(false);setNotice('RFQ saved successfully. Open it from the register below.');setRefresh(value=>value+1);}}/>}
     {notice && <div role="status" className="success">{notice}</div>}
@@ -122,7 +124,7 @@ function RfqWorkspace({ rfqId, versionId, session, onExpired }) {
   return <main className="workspace"><a className="back-link" href="#">← RFQ register</a>
     {error && <p role="alert" className="error">{error}</p>}{storageError && <p role="alert" className="error">{storageError}</p>}
     {!rfq && !error && <p role="status">Loading RFQ...</p>}
-    {rfq && <><div className="section-heading"><div><p className="eyebrow">{rfq.customerName}</p><h1>{rfq.reference}</h1></div><span className="badge">{canWrite?'Estimator':'Sales head · read only'}</span></div><p className="muted">Due {rfq.dueDate} · {rfq.ownerLabel} · {rfq.status}</p>
+    {rfq && <><div className="section-heading"><div><p className="eyebrow">{rfq.customerName}</p><h1>{rfq.reference}</h1></div><span className="badge">{canWrite?'Estimator':'Sales head'}</span></div><p className="muted">Due {rfq.dueDate} · {rfq.ownerLabel} · {rfq.status}</p>
       {!supported && <p role="alert" className="error">Costing requires 1–20 RFQ parts, each with a supported routing revision. No partial quotation can be saved.</p>}
       {rfq.parts.map(part => <section className="panel part-facts" key={part.id}><div><p className="eyebrow">Part</p><h2>{part.partNumber}</h2><p>{part.description}</p></div><div><p className="eyebrow">Gross weight</p><strong>{part.grossWeightKg} kg</strong></div><div><p className="eyebrow">RFQ annual quantity</p><strong>{grouped(part.requestedAnnualQty)}</strong></div></section>)}
       {supported && form && <form className="panel costing-form" onSubmit={submit}><div className="section-heading"><div><h2>Costing inputs</h2><p className="muted">Choose annual production quantities. The 100% scenario is the headline price.</p></div></div>
@@ -134,14 +136,14 @@ function RfqWorkspace({ rfqId, versionId, session, onExpired }) {
               <div className="input-grid quantities">{['50','100','150'].map(scenario=><label key={scenario}>{scenario}% annual quantity<input required inputMode="numeric" pattern="[1-9][0-9]{0,9}" title="Enter a whole number from 1 to 1000000000." value={input.tierQuantities[scenario]} onChange={e=>changePart(input.partId,{tierQuantities:{...input.tierQuantities,[scenario]:e.target.value}})}/></label>)}</div>
             </fieldset>;
           })}</fieldset>
-        {!canWrite ? <p className="notice">Sales head access is read only in T01. Select a saved version below.</p> : <div className="actions"><button type="submit" disabled={saving || !!storageError}>{saving?'Saving draft...':pending?.phase === 'saved'?'Retrieve same submission':frozen?'Retry same submission':'Calculate & save draft'}</button>{pending && <button type="button" className="secondary" disabled={saving || !!storageError} onClick={startNew}>Start new calculation</button>}</div>}
+        {!canWrite ? <p className="notice">Sales head cannot create quotations. Select a saved version below to review.</p> : <div className="actions"><button type="submit" disabled={saving || !!storageError}>{saving?'Saving draft...':pending?.phase === 'saved'?'Retrieve same submission':frozen?'Retry same submission':'Calculate & save draft'}</button>{pending && <button type="button" className="secondary" disabled={saving || !!storageError} onClick={startNew}>Start new calculation</button>}</div>}
         {pending && <p className="muted submission-note">Submission key: <span className="identifier">{pending.submissionKey}</span>{['saving','uncertain'].includes(pending.phase) && ' · Outcome may be uncertain. Retry this submission before starting a new calculation.'}</p>}
       </form>}
       {notice && <p role="status" className="success">{notice}</p>}
-      {rfq.versions.length>0 && <nav className="version-nav" aria-label="Saved versions"><strong>Saved versions</strong>{rfq.versions.map(version=><a key={version.id} aria-current={targetVersion===version.id?'page':undefined} href={link(rfqId,version.id)}>Draft v{version.versionNumber} · {version.pricingDate}</a>)}</nav>}
+      {rfq.versions.length>0 && <nav className="version-nav" aria-label="Saved versions"><strong>Saved versions</strong>{rfq.versions.map(version=><a key={version.id} aria-current={targetVersion===version.id?'page':undefined} href={link(rfqId,version.id)}>Version {version.versionNumber} · {version.pricingDate}</a>)}</nav>}
     </>}
     {loadingQuote && <p role="status">Loading saved quotation...</p>}
     {targetVersion && !loadingQuote && !snapshot && <button onClick={()=>{setError('');setReload(value=>value+1);}}>Reload saved quotation</button>}
-    {snapshot && <QuoteResults snapshot={snapshot}/>}
+    {snapshot && <><QuoteResults snapshot={snapshot}/><QuoteLifecycle key={snapshot.versionId} snapshot={snapshot} session={session} onExpired={onExpired}/></>}
   </main>;
 }

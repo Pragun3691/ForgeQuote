@@ -131,7 +131,7 @@ try {
   assert.equal((await recovered).status(),200);await saved();
   assert.deepEqual(await counts(),{versions:'2',submissions:'2'});
   assert.equal((await record()).submissionKey,uncertain.submissionKey);
-  assert.equal(await page.locator('.results .badge').innerText(),'Draft v2');
+  assert.equal(await page.locator('.results .badge').innerText(),'Version 2');
   console.log('PASS: a deliberate new calculation used a fresh key; lost successful POST response retained the exact pending key/body across refresh; same-key recovery returned HTTP 200 and no duplicate version.');
 
   await db.owner.query("UPDATE sessions SET expire=now()-interval '1 minute'");
@@ -145,7 +145,7 @@ try {
   assert.deepEqual(await counts(),{versions:'2',submissions:'2'});
   await page.getByRole('button',{name:'Sign out',exact:true}).click();
   await login('sales_head',db.passwords.DEMO_SALES_HEAD_PASSWORD);await saved();
-  await page.getByText('Sales head access is read only in T01.',{exact:false}).waitFor();
+  await page.getByText('Sales head cannot create quotations.',{exact:false}).waitFor();
   assert.equal(await page.getByRole('button',{name:'Calculate & save draft',exact:true}).count(),0);
   const denied=await page.evaluate(async ({rfqId,body})=>{
     const session=await (await fetch('/api/auth/session')).json();

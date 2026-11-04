@@ -34,7 +34,8 @@
     "test:costing": "npm run test:costing --workspace apps/api",
     "test:browser:xlsx": "node tests/browser-xlsx.smoke.js",
     "test:browser:ai:association": "node tests/browser-ai-association.smoke.js",
-    "test:browser:ai:live": "node tests/browser-ai-association.smoke.js --live"
+    "test:browser:ai:live": "node tests/browser-ai-association.smoke.js --live",
+    "test:browser:lifecycle": "node tests/browser-lifecycle.smoke.js"
   },
   "devDependencies": {
     "playwright": "^1.64.1"

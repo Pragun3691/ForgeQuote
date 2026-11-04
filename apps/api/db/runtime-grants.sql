@@ -1,6 +1,10 @@
 -- Explicit local maintenance operation, not an automatic schema migration.
 -- No ownership change and no grants on ALL TABLES. Re-run when reviewing runtime scope.
 BEGIN;
+REVOKE ALL PRIVILEGES ON public.quotation_events FROM forgequote_app;
+GRANT SELECT ON public.quotation_events TO forgequote_app;
+GRANT INSERT (version_id,position,event_type,actor_user_id,reason,submission_key,quotation_number)
+  ON public.quotation_events TO forgequote_app;
 REVOKE ALL PRIVILEGES ON TABLE public.rate_keys, public.rate_versions, public.rfqs,
   public.rfq_parts, public.routing_revisions, public.schema_migrations,
   public.rate_periods, public.users, public.sessions, public.quotations,

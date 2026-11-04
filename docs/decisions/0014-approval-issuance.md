@@ -1,0 +1,25 @@
+﻿# ADR-0014 - Version-scoped append-only approval and issuance
+
+Status: ACCEPTED under explicit owner T04 implementation authorization, 2026-11-04. Financial policies ADR-0002 and costing-spec v0.2 unchanged; snapshot/receipt policies ADR-0005/0006/0012 preserved.
+
+## Events and transitions
+
+Migration 006 adds only quotation_events, its indexes, immutable/transition triggers and guard_quotation_event(). A version has positions 1 submitted, 2 exactly one auto_approved/approved/rejected decision, 3 issued when eligible. Primary key (version_id,position), unique version/event, partial unique decision/version, unique actor/request key and unique quotation number constrain concurrency. Database-generated timestamps cannot be supplied by runtime. reason is required only for rejection (trimmed 1-1000 characters); other events have NULL reason. UPDATE/DELETE/TRUNCATE are rejected, including by ordinary maintenance SQL. Existing snapshots and their draft status column are untouched: that column describes the original snapshot, while lifecycle status is derived exclusively from events through the lifecycle endpoint.
+
+No events => draft; submitted => pending; auto_approved/approved => approved; rejected => rejected; issued => issued. Staleness is separate: version_number differs from the header's next_version-1. Old issued history stays issued even after another calculation. New actions on stale versions are denied. New versions have no events/approvals; historical evidence remains attached to its exact version.
+
+Submission and issuance read annual_value_ex_gst from the immutable version and validate equality to its stored 100% quotation total. Decimal.js compares this amount to decimal string 2500000.00; no client financial fields accepted. Below/equal threshold submission atomically appends submitted + auto_approved, exposing approvalBasis=below_threshold. Strictly above requires active Sales Head decision. Rejection is terminal for the version; correcting/resubmitting means a new version. Estimator alone submits/issues; Sales Head alone approves/rejects. Neither role inherits the other's costing privileges.
+
+## Serialization and recovery
+
+One database transaction rechecks current active role, takes a lifecycle-specific actor/key advisory lock, checks an existing request receipt in events, locks the same quotation header used by the unchanged draft allocator, validates latest version/state and appends event(s). The SQL event trigger also locks that header, checks latest version/current actor role and validates transition/threshold. Header serialization prevents approval/issue of a version superseded before lock acquisition. An action committed before a later version creation remains valid historical evidence. Actor/key locking prevents concurrent reuse across versions; constraints independently block duplicate decisions/issuance.
+
+Each user action's event is also its immutable idempotency receipt. The automatic clearance event has no separate request key because it is part of submission. Match actor/key/version/event/normalized reason => original receipt, HTTP 200; conflicting intent => 409. Replay precedes stale/state validation and never performs another action, so recovery still works after subsequent history changes. New action => 201. No automatic retries after an uncertain COMMIT. Browser stores the exact action/body/key by actor/version before POST, freezes other actions after an uncertain outcome, and offers explicit same-key retry across refresh/login.
+
+Issued event alone contains FQ-<full immutable version UUID>. This is deterministic allocation at issuance, unique by constraint and version, without a mutable counter, sequence permissions, legal invoice semantics or invented financial-year policy. It is deliberately a long demo quotation identifier. A future shorter/sequential customer numbering policy needs a separate decision; do not renumber historical issued events.
+
+## Deployment and limits
+
+006, specific event column INSERT/SELECT grants and function EXECUTE must be applied by the maintenance identity before release; readiness now requires 006. Strict tooling inventory becomes 17 tables, five functions, 30 triggers. Existing migration files/checksums are unchanged. Only disposable local databases were migrated/tested. No cloud migration, Render change, push/merge or PDF implementation.
+
+Same two-role synthetic demo read scope remains. Compromised runtime SQL can claim another user's actor ID; SQL guards are defense in depth, not session authentication or a replacement for server authorization. Owners/superusers remain trusted DDL operators. There is no realtime subscription, email notification, resubmission of rejected versions, approval delegation, PDF, tenant isolation or sequential invoice numbering. sessionStorage loss loses the browser retry key; persisted history remains available, and new attempts still cannot duplicate a decision/issuance. The UI keeps immutable saved totals separate from editable inputs and explicitly labels the inspected version.

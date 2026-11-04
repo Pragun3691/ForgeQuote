@@ -30,7 +30,7 @@ test('real PostgreSQL quotation snapshot contract with restricted runtime role',
     owner = new pg.Pool({ connectionString: maintenance.href, options: `-c search_path=${schema}` });
     runtime = new pg.Pool({ connectionString: maintenance.href, options: `-c search_path=${schema} -c role=${role}`, max: 4 });
     await t.test('migration 003 and repeat migration; apply exact maintenance grants', async () => {
-      assert.deepEqual(await migrate(owner), ['001_initial.sql', '002_authentication.sql', '003_quotation_snapshots.sql', '004_draft_submissions.sql', '005_rfq_intake.sql']);
+      assert.deepEqual(await migrate(owner), ['001_initial.sql', '002_authentication.sql', '003_quotation_snapshots.sql', '004_draft_submissions.sql', '005_rfq_intake.sql','006_quotation_events.sql']);
       assert.deepEqual(await migrate(owner), []);
       await seed(owner);
       await owner.query("INSERT INTO users(id,username,password_hash,role) VALUES ($1,'estimator','scrypt$test-only','estimator'),($2,'sales_head','scrypt$test-only','sales_head')", [estimator, sales]);

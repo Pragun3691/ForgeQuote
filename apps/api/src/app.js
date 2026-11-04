@@ -18,7 +18,7 @@ export function createApp(pool, config = readAuthConfig(), authOptions = {}) {
   app.get('/api/health/live', (_req,res) => res.json({status:'alive'}));
   app.get('/api/health/ready', async (_req, res) => {
     try {
-      const schema = await pool.query("SELECT name FROM schema_migrations WHERE name='005_rfq_intake.sql'");
+      const schema = await pool.query("SELECT name FROM schema_migrations WHERE name='006_quotation_events.sql'");
       if (schema.rowCount !== 1) throw Error('Schema migration missing');
       res.json({ status: 'ready', database: 'reachable', schema: 'current' });
     } catch { res.status(503).json({ status: 'not_ready' }); }

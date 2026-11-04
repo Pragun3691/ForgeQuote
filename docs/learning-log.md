@@ -192,3 +192,13 @@ The owner changed database ownership and configured forgequote_app credentials i
 - Latest owner instruction prohibited further cloud access. Completed Neon provisioning was not repeated or reverified remotely. No Render/Neon session, database connection, provider request, push, merge or deployment was performed on resume.
 - Completed regression evidence: 78 unit/config/costing, 33 dedicated costing, 104 PostgreSQL, all six Chrome suites, 40 API syntax modules and production startup 1/1; disposable fixtures/parent removed. Final local build, unit 78/78, syntax/startup rerun passed; nine financial goldens unchanged.
 - Temporary credential handoffs/helpers were removed, preserving the sole unexposed runtime/demo/session handoff in ignored Windows-DPAPI .env.cloud-secrets.dpapi without a maintenance URL. Session-memory credentials/cached dashboard states cleared. Prior owner exposure cannot be undone by local cleanup; private reset confirmation remains outside this no-cloud task. Handoff: docs/t07-handoff.md. STOP after local commit.
+
+
+## 2026-11-04 - T04 approval and controlled issuance
+
+- Stored immutable financial facts and append-only lifecycle decisions serve different purposes. Leave the snapshot untouched; derive status from its events, and mark stale history separately.
+- Reuse the existing version allocator header lock. A separate event-only lock would serialize decisions but miss a concurrent new costing version. Row locking plus unique event/decision/key/number constraints give independent protections.
+- Exactly INR 25,00,000 is below-or-equal clearance; one paisa above requires Sales Head. Test both using explicit stored numeric strings, not engine-generated expectations. A real low-volume spindle fixture independently expects INR 3,01,850.00.
+- Replay an already committed receipt before current-state/stale checks; replay is recovery of history, not permission to repeat a transition. Persist exact action/body/key before browser POST. Chrome deliberately loses a successful issuance response and recovers across refresh with one issued event.
+- PostgreSQL CHECK accepts unknown/NULL: explicit IS NOT NULL and COALESCE(...,false) prevent missing reasons/numbers and NULL transition conditions bypassing guards. Initial local migration CASE parsing and test-only user-role-constraint errors were corrected; no applied migration was edited. Existing local user identity contract was preserved by testing deactivation instead.
+- Local disposable integration and browser checks only. No Neon/Render changes. Complete manifest/results/owner questions: docs/t04-handoff.md.
