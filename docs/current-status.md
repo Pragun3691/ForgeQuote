@@ -1,5 +1,12 @@
 # Current status - 2026-11-05
 
+## Final requirements - complete locally; STOP after commit
+
+- Resumed owner-approved feature/final-requirements from fd3e7c2, preserving all 11 tracked/four untracked interrupted files. Finished Sales Head effective-dated rate authoring, derived RFQ estimating/sent/won/lost with assigned estimator and terminal actor/reason history, and both-role confidential saved internal costing PDF including historical versions.
+- Migration 007 adds rate provenance/raw validation and immutable RFQ outcomes; narrow column INSERT grants exclude money/timestamp injection. Forward-only Asia/Kolkata dates, active role/CSRF/Origin checks, advisory locks and immutable request replay protect changes. Runtime/cloud permission checkers updated to 18 tables/seven functions/34 triggers; readiness requires 007. No new dependency or formula change; customer PDF projection/renderer/eligibility unchanged.
+- Passed 82/82 unit, 33/33 costing/all nine goldens, 137/137 PostgreSQL/API, ten Chrome suites, 46 API module syntax checks, production build/startup 1/1. Final internal-PDF rerun 9/9; PDF.js geometry/content/20-component checks and four-page raster inspection. All writable DB checks used disposable local databases; fixtures/parents cleaned up.
+- No Neon/Render access, migration to an existing database, deployment, push, merge or existing history rewrite. Legacy unknown authors, trusted runtime attribution, two-role demo reads, finite font/report limits and no outcome reopening remain explicit. ADR-0017, tasks/final-requirements.md and docs/final-requirements-handoff.md contain contracts, changed files, deployment steps and three owner questions.
+
 ## T06 - Read-only rate management and intake UX; complete locally; STOP
 
 - Owner reports T01-T05 implemented/merged/deployed and live approval -> issuance -> customer PDF manual checks passed. Verified clean main and fetched origin/main at 1f4f038, created feature/T06-rate-management-ux. No cloud access/verification in T06.

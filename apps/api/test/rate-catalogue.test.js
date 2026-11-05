@@ -9,7 +9,7 @@ import {createQuotationService} from '../src/quotations.js';
 import {resolveRate} from '../src/rates.js';
 import {fixtureId} from '../src/seed.js';
 
-test('T06 read-only rate catalogue with history, strict roles/ACL and immutable quote facts',async t=>{
+test('rate catalogue with history, role capabilities, strict ACL and immutable quote facts',async t=>{
  const db=await testDatabase();
  const users=(await db.owner.query('SELECT id,role FROM users')).rows,e=users.find(u=>u.role==='estimator').id,s=users.find(u=>u.role==='sales_head').id;
  const quotes=createQuotationService(db.runtime,{gstPercent:'18'});
@@ -19,7 +19,7 @@ test('T06 read-only rate catalogue with history, strict roles/ACL and immutable 
  try {
   await t.test('both roles see all six categories, exact values, units, recorded time and version IDs',async()=>{
    for(const actor of [e,s]) {
-    const result=await rateCatalogue(db.runtime,actor,'2026-11-04');assert.equal(result.canWrite,false);assert.equal(result.asOf,'2026-11-04');assert.equal(result.rateKeys.length,6);
+    const result=await rateCatalogue(db.runtime,actor,'2026-11-04');assert.equal(result.canWrite,actor===s);assert.equal(result.asOf,'2026-11-04');assert.equal(result.rateKeys.length,6);
     assert.deepEqual(result.rateKeys.map(k=>k.category).sort(),['freight','machine','material','overhead','packaging','scrap']);
     const material=result.rateKeys.find(k=>k.id===fixtureId(1));assert.equal(material.currentVersion.value,'100.000000');assert.equal(material.unit,'INR/kg');assert.equal(material.currentVersion.id,fixtureId(11));
     assert.equal(material.currentVersion.effectiveFrom,'2026-11-02');assert.equal(material.currentVersion.effectiveTo,null);assert.ok(material.currentVersion.createdAt);
@@ -35,7 +35,7 @@ test('T06 read-only rate catalogue with history, strict roles/ACL and immutable 
    const noHistory=randomUUID();await db.owner.query("INSERT INTO rate_keys(id,code,category,unit) VALUES ($1,'NO-HISTORY','material','INR/kg')",[noHistory]);
    const key=(await rateCatalogue(db.runtime,e)).rateKeys.find(k=>k.id===noHistory);assert.equal(key.currentVersion,null);assert.deepEqual(key.versions,[]);
   });
-  await t.test('database rejects duplicate starts and mutations; runtime cannot write any rate precision or own masters',async()=>{
+  await t.test('database rejects duplicate starts and mutations; runtime cannot insert values directly or own masters',async()=>{
    await assert.rejects(db.owner.query("INSERT INTO rate_versions(id,rate_key_id,effective_from,value) VALUES ($1,$2,'2026-11-03','0')",[randomUUID(),fixtureId(1)]),{code:'23505'});
    for(const statement of ['UPDATE rate_versions SET value=0','DELETE FROM rate_versions','TRUNCATE rate_versions CASCADE'])await assert.rejects(db.owner.query(statement),{code:'55000'});
    await assert.rejects(db.runtime.query("INSERT INTO rate_versions(id,rate_key_id,effective_from,value) VALUES ($1,$2,'2027-01-01','100.1234567')",[randomUUID(),fixtureId(1)]),{code:'42501'});
@@ -46,7 +46,7 @@ test('T06 read-only rate catalogue with history, strict roles/ACL and immutable 
    const after=await quotes.getDraftVersion(e,quote.versionId);assert.deepEqual(after,saved);assert.equal(after.parts[0].result.tiers[1].sellingPricePerUnitExGst,'149.70');
    assert.equal(after.parts[0].rates.materialInrPerKg.value,'100.000000');assert.equal((await resolveRate(db.runtime,fixtureId(1),'2026-11-04')).value,'140.123456');
   });
-  await t.test('HTTP authentication, date validation and explicit write denials for both roles preserve every row',async()=>{
+  await t.test('HTTP authentication, date validation and unsupported or malformed rate writes preserve every row',async()=>{
    const config={nodeEnv:'test',gstPercent:'18',sessionSecret:randomBytes(32).toString('hex'),appOrigin:'http://localhost:5173',trustProxyHops:0};
    app=createApp(db.runtime,config,{sessionSchema:db.schema});server=app.listen(0,'127.0.0.1');await once(server,'listening');const base=`http://127.0.0.1:${server.address().port}`;
    function agent(){return {cookie:'',token:'',async request(path,method='GET',body,headers={}){const r=await fetch(base+path,{method,headers:{Cookie:this.cookie,Origin:config.appOrigin,'X-CSRF-Token':this.token,'Content-Type':'application/json',...headers},...(body?{body:JSON.stringify(body)}:{})});for(const c of r.headers.getSetCookie())this.cookie=c.split(';')[0];const data=await r.json();if(data.csrfToken)this.token=data.csrfToken;return {status:r.status,data};},async login(username,password){await this.request('/api/auth/session');assert.equal((await this.request('/api/auth/login','POST',{username,password})).status,200);}};}
@@ -56,7 +56,7 @@ test('T06 read-only rate catalogue with history, strict roles/ACL and immutable 
     const client=agent();await client.login(role,password);assert.equal((await client.request('/api/rates?asOf=2026-11-02')).status,200);
     for(const query of ['asOf=2026-02-30','asOf=2026-11-02&asOf=2026-11-03','role=maintenance'])assert.equal((await client.request(`/api/rates?${query}`)).status,400);
     for(const method of ['POST','PUT','PATCH','DELETE'])for(const path of ['/api/rates',`/api/rates/${fixtureId(1)}/versions`]) {
-     const r=await client.request(path,method,{value:'100.1234567',effectiveFrom:'2027-01-01'});assert.equal(r.status,403);assert.equal(r.data.error.code,'RATE_WRITE_FORBIDDEN');
+     const r=await client.request(path,method,{value:'100.1234567',effectiveFrom:'2027-01-01'});assert.equal(r.status,role==='sales_head' && method==='POST' && path.endsWith('/versions')?400:403);
     }
     assert.equal((await client.request('/api/rates','POST',{}, {'X-CSRF-Token':'bad'})).data.error.code,'CSRF_INVALID');
    }

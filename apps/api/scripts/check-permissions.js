@@ -13,7 +13,7 @@ try {
       has_table_privilege(current_user, quote_ident(schemaname)||'.'||quote_ident(tablename),'TRUNCATE') AS trunc
     FROM pg_tables WHERE schemaname='public' ORDER BY tablename`);
   const appendTables = ['quotation_parts','quotation_rates','quotation_part_tiers','quotation_totals'];
-  const names = ['rate_keys','rate_versions','rfq_parts','rfqs','routing_revisions','schema_migrations','sessions','users', 'quotations','quotation_versions','draft_submissions','rfq_submissions','quotation_events', ...appendTables];
+  const names = ['rate_keys','rate_versions','rfq_parts','rfqs','routing_revisions','schema_migrations','sessions','users', 'quotations','quotation_versions','draft_submissions','rfq_submissions','quotation_events','rfq_outcomes', ...appendTables];
   for (const name of names) {
     const row = checks.rows.find(row => row.tablename === name);
     assert.ok(row, `Required table missing: ${name}`);
@@ -22,10 +22,12 @@ try {
     assert.equal(row.trunc, false, `${name}: runtime TRUNCATE forbidden`);
   }
   const columns = (await pool.query(`SELECT table_name,column_name,privilege_type FROM information_schema.column_privileges
-    WHERE grantee=current_user AND table_schema='public' AND table_name IN ('users','quotations','quotation_versions','draft_submissions','rfq_submissions','rfqs','rfq_parts','routing_revisions','quotation_events')
+    WHERE grantee=current_user AND table_schema='public' AND table_name IN ('users','quotations','quotation_versions','draft_submissions','rfq_submissions','rfqs','rfq_parts','routing_revisions','quotation_events','rate_versions','rfq_outcomes')
       AND privilege_type IN ('INSERT','UPDATE')`)).rows;
   const versionInsert = ['id','quotation_id','version_number','pricing_date','formula_version','currency','gst_percent','created_by','rfq_snapshot','annual_value_ex_gst'];
   const expected = [
+    ...['id','rate_key_id','effective_from','raw_value','actor_user_id','reason','submission_key'].map(column=>`rate_versions.${column}.INSERT`),
+    ...['rfq_id','outcome','actor_user_id','reason','submission_key'].map(column=>`rfq_outcomes.${column}.INSERT`),
     ...['version_id','position','event_type','actor_user_id','reason','submission_key','quotation_number'].map(column=>`quotation_events.${column}.INSERT`),
     ...(checks.rows.find(row=>row.tablename==='users').tableowner === new URL(readConfig().databaseUrl).username ? ['users.id.UPDATE'] : []),
     ...['id','rfq_id'].map(column => `quotations.${column}.INSERT`), 'quotations.next_version.UPDATE',
@@ -37,7 +39,7 @@ try {
     ...['id','part_id','revision_number','machine_rate_key_id','cycle_time_min','setup_hours_per_batch'].map(column => `routing_revisions.${column}.INSERT`)
   ].sort();
   assert.deepEqual(columns.map(row => `${row.table_name}.${row.column_name}.${row.privilege_type}`).sort(), expected);
-  for (const name of ['quotations','quotation_versions','draft_submissions','rfq_submissions','quotation_events', ...appendTables]) {
+  for (const name of ['quotations','quotation_versions','draft_submissions','rfq_submissions','quotation_events','rfq_outcomes', ...appendTables]) {
     assert.notEqual(checks.rows.find(row => row.tablename === name).tableowner, new URL(readConfig().databaseUrl).username, `${name}: runtime must not own snapshot tables`);
   }
   console.log('PASS: exact read/session/intake/snapshot grants verified; users UPDATE(id) only when runtime-owned for FK locking, no auth-field writes or users DELETE; no history/input UPDATE/DELETE or TRUNCATE; receipt/snapshot tables maintenance-owned.');

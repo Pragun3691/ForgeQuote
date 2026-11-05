@@ -19,7 +19,7 @@ test('real PostgreSQL migration, seed and history contract', async t => {
     await admin.query(`CREATE SCHEMA ${schema}`);
     pool = new pg.Pool({ connectionString: url, options: `-c search_path=${schema}`, max: 3 });
     await t.test('fresh migration and repeat migration', async () => {
-      assert.deepEqual(await migrate(pool), ['001_initial.sql', '002_authentication.sql', '003_quotation_snapshots.sql', '004_draft_submissions.sql', '005_rfq_intake.sql','006_quotation_events.sql']);
+      assert.deepEqual(await migrate(pool), ['001_initial.sql', '002_authentication.sql', '003_quotation_snapshots.sql', '004_draft_submissions.sql', '005_rfq_intake.sql','006_quotation_events.sql','007_final_requirements.sql']);
       assert.deepEqual(await migrate(pool), []);
     });
     await t.test('synthetic seed repeats without duplicates or money numbers', async () => {

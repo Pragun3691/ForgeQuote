@@ -222,3 +222,13 @@ The owner changed database ownership and configured forgequote_app credentials i
 - Collapsible evidence can reduce form size without weakening verification: preserve raw values, quotes/offsets and worksheet/cell references; test the collapsed default and deliberately expand details before checking evidence. Component focus targets plus Tab are easier to verify than scroll-only controls.
 - History navigation from an unsaved form must not discard edits; open it separately and test that the original fields survive. Focused Chrome tests cover the complete two-part copy/confirm/save path, correct persisted IDs/quantities and 320/390px layouts.
 - Initial focused tests exposed a selector without an explicit accessible label and a test expecting the immutability trigger before PostgreSQL's FK TRUNCATE guard. Added the select label and used disposable-only TRUNCATE ... CASCADE to exercise the existing trigger. Final gates/limits/three owner questions: docs/t06-handoff.md. No cloud action or C1 audit.
+
+
+## 2026-11-05 - Resumed final requirements
+
+- Recover the whole diff before resuming: the interrupted work included API/grants/UI beyond the reported three files. Preserving it exposed a JSX boundary error, a button in the wrong component and a role middleware called with an unsupported array. Focused end-to-end checks caught all three.
+- NUMERIC(18,6) coerces before ordinary row checks; runtime submits raw text to a trigger and cannot INSERT(value). Check six-place precision before conversion, attribute the author, and serialize forward-only starts per key. Replay committed intent before rejecting its now-occupied effective date.
+- A sent RFQ is a fact from actual issuance, not an editable UI flag. Terminal won/lost history is append-only and actor-attributed; advisory locks plus unique constraints prevent two terminal outcomes. Keep original ownership and quotation events intact.
+- A confidential report needs a separate endpoint and snapshot renderer. Preserve the customer allowlist and avoid master lookups/recalculation for historical reports. Fix metadata dates to the saved creation timestamp; test byte-identical saved rendering after rate changes.
+- PDF footer text can create extra pages when the body bottom margin still applies. Disable bottom flow for footers, measure wrapped rows and keep quotation totals together. Independent PDF.js content/geometry plus raster review found defects that a successful PDF buffer alone would miss.
+- Completed local unit/golden/PostgreSQL/Chrome/build/startup checks with disposable parents only; no cloud action or existing-history rewrite. Contracts, limitations and owner questions: docs/final-requirements-handoff.md.
