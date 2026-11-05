@@ -41,4 +41,8 @@ GRANT INSERT (id,rfq_id,part_number,description,gross_weight_kg,requested_annual
 GRANT INSERT (id,part_id,revision_number,machine_rate_key_id,cycle_time_min,setup_hours_per_batch) ON public.routing_revisions TO forgequote_app;
 GRANT SELECT ON public.rfq_submissions TO forgequote_app;
 GRANT INSERT (actor_user_id,submission_key,request_fingerprint,rfq_id) ON public.rfq_submissions TO forgequote_app;
+REVOKE ALL PRIVILEGES ON public.rfq_outcomes FROM forgequote_app;
+GRANT SELECT ON public.rfq_outcomes TO forgequote_app;
+GRANT INSERT (rfq_id,outcome,actor_user_id,reason,submission_key) ON public.rfq_outcomes TO forgequote_app;
+GRANT INSERT (id,rate_key_id,effective_from,raw_value,actor_user_id,reason,submission_key) ON public.rate_versions TO forgequote_app;
 COMMIT;

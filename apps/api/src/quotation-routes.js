@@ -1,3 +1,5 @@
+import { createInternalCostingService } from './internal-costing-pdf.js';
+import { recordOutcome } from './final-workflows.js';
 import { requireUser, requireRole, csrfProtection, failure } from './auth/middleware.js';
 import { rateLimit } from 'express-rate-limit';
 import { listRfqs, getRfq } from './rfqs.js';
@@ -10,6 +12,7 @@ export function installQuotationRoutes(app, pool, config, {quoteLimit=30,quoteWi
   const quotes = createQuotationService(pool, config);
   const submit = createSubmissionService(pool, config);
   const lifecycle = createLifecycleService(pool);
+  const internalPdf=createInternalCostingService(pool,config);
   const customerPdf = createCustomerQuotationService(pool,config);
   const limiter=rateLimit({windowMs:quoteWindowMs,limit:quoteLimit,keyGenerator:req=>req.user.id,
     standardHeaders:'draft-8',legacyHeaders:false,
@@ -20,7 +23,12 @@ export function installQuotationRoutes(app, pool, config, {quoteLimit=30,quoteWi
   const pdfLimiter=rateLimit({windowMs:15*60*1000,limit:20,keyGenerator:req=>req.user.id,
     standardHeaders:'draft-8',legacyHeaders:false,
     handler:(_req,res)=>failure(res,429,'PDF_RATE_LIMIT','Too many PDF downloads. Please wait and retry.')});
-  app.get('/api/quote-versions/:id/pdf',pdfLimiter,async(req,res)=>{
+  app.get('/api/quote-versions/:id/internal-pdf',pdfLimiter,async(req,res)=>{
+    const result=await internalPdf(req.user.id,req.params.id);
+    res.set({'Content-Type':'application/pdf','Content-Disposition':`attachment; filename="${result.filename}"`,
+      'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}).send(result.buffer);
+  });
+  app.get('/api/quote-versions/:id/pdf' ,pdfLimiter,async(req,res)=>{
     const result=await customerPdf(req.user.id,req.params.id);
     res.set({'Content-Type':'application/pdf','Content-Disposition':`attachment; filename="${result.filename}"`,
       'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}).send(result.buffer);
@@ -32,6 +40,10 @@ export function installQuotationRoutes(app, pool, config, {quoteLimit=30,quoteWi
         res.status(receipt.replayed?200:201).json(receipt);
       });
   }
+  app.post('/api/rfqs/:id/outcomes',requireRole('sales_head'),csrfProtection(config.appOrigin),limiter,async(req,res)=>{
+    const result=await recordOutcome(pool,req.user.id,req.params.id,req.get('Idempotency-Key'),req.body);
+    res.status(result.replayed?200:201).json(result);
+  });
   app.get('/api/rfqs', async (_req, res) => res.json({ rfqs: await listRfqs(pool) }));
   app.get('/api/rfqs/:id', async (req, res) => res.json(await getRfq(pool, req.params.id)));
   app.post('/api/rfqs/:id/quote-versions', requireRole('estimator'), csrfProtection(config.appOrigin), limiter, async (req, res) => {

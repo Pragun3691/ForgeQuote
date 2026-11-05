@@ -53,10 +53,10 @@ export default function QuoteLifecycle({snapshot,session,onExpired}) {
       }
     } finally {setBusy(false);}
   }
-  async function downloadPdf() {
+  async function downloadPdf(internal=false) {
     setDownloading(true);setError('');
     try {
-      const response=await fetch(`/api/quote-versions/${snapshot.versionId}/pdf`,{credentials:'same-origin'});
+      const response=await fetch(`/api/quote-versions/${snapshot.versionId}/${internal?'internal-pdf':'pdf'}`,{credentials:'same-origin'});
       if(!response.ok) {
         const result=await response.json();
         if(response.status===401) onExpired();
@@ -64,7 +64,7 @@ export default function QuoteLifecycle({snapshot,session,onExpired}) {
       }
       if(!response.headers.get('content-type')?.startsWith('application/pdf')) throw Error('The server did not return a PDF. Please retry.');
       const blob=await response.blob(),url=URL.createObjectURL(blob),anchor=document.createElement('a');
-      anchor.href=url;anchor.download=`${state.quotationNumber}.pdf`;document.body.append(anchor);anchor.click();anchor.remove();
+      anchor.href=url;anchor.download=internal?`INTERNAL-${snapshot.versionId}.pdf`:`${state.quotationNumber}.pdf`;document.body.append(anchor);anchor.click();anchor.remove();
       setTimeout(()=>URL.revokeObjectURL(url),1000);
     } catch(e) {setError(e.message || 'PDF download failed. Please retry.');}
     finally {setDownloading(false);}
@@ -77,7 +77,8 @@ export default function QuoteLifecycle({snapshot,session,onExpired}) {
     {state && <><p role="status">Quotation status: <strong>{state.status}</strong>{state.stale?' · Superseded by a newer version':''}</p>
       <p>{state.approvalRequired?'Sales Head approval required: saved annual value is above INR 25,00,000 excluding GST.':'Automatic clearance: saved annual value is at or below INR 25,00,000 excluding GST.'}</p>
       {state.quotationNumber && <p>Quotation number: <strong>{state.quotationNumber}</strong></p>}
-      {state.status==='issued' && !state.stale && <p><button disabled={downloading} onClick={downloadPdf}>{downloading?'Preparing PDF...':'Download customer PDF'}</button></p>}
+      <p><button className="secondary" disabled={downloading} onClick={()=>downloadPdf(true)}>Download INTERNAL costing PDF</button></p>
+      {state.status==='issued' && !state.stale && <p><button disabled={downloading} onClick={()=>downloadPdf()}>{downloading?'Preparing PDF...':'Download customer PDF'}</button></p>}
       <fieldset disabled={busy || blocked}>
         {pending ? <><p>Previous {pending.action} outcome may be uncertain. Retry the same request before another action.</p><button onClick={()=>act(pending.action)}>Retry same lifecycle action</button></> : !state.stale && <>
           {estimator && state.status==='draft' && <button onClick={()=>act('submit')}>Submit for clearance</button>}

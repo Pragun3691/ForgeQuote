@@ -1,4 +1,5 @@
 const statuses = {
+  RATE_KEY_NOT_FOUND:404, RATE_DATE_CONFLICT:409, RFQ_OUTCOME_CONFLICT:409,
   PDF_NOT_ISSUED:409, PDF_INVALID_SNAPSHOT:422, PDF_UNSUPPORTED_TEXT:422,
   LIFECYCLE_CONFLICT:409, STALE_QUOTATION:409,
   XLSX_INVALID:422, XLSX_LIMIT:413, XLSX_TIMEOUT:504, XLSX_CANCELLED:408,
@@ -20,7 +21,7 @@ export function apiErrorHandler(error, req, res, next) {
   const status = error.type === 'entity.too.large' ? 413 : error.type === 'entity.parse.failed' ? 400 : 503;
   if(req.path.startsWith('/api/rates') && status===503) {
     res.locals.errorCode='RATE_SERVICE_UNAVAILABLE';
-    return res.status(503).json({error:{code:res.locals.errorCode,message:'Rate history is unavailable. Please retry; no rates were changed.'}});
+    return res.status(503).json({error:{code:res.locals.errorCode,message:'Rate service unavailable. If saving, retry the same request key and inputs to check the outcome.'}});
   }
   if(req.path==='/api/rfq-import/xlsx') {
     const uploadStatus=status===413?413:503;

@@ -116,3 +116,12 @@ Before a separately authorized release, retain the T04 migration/grant/readiness
 ## T06 rate catalogue and UX - no cloud action performed
 
 Owner reports T01-T05 merged/deployed and live approval/issuance/PDF manual testing passed. T06 adds authenticated rate reads and frontend intake improvements only. No migration, new environment variable, dependency or runtime permission is required; the existing 006 schema and exact SELECT-only rate grants remain. Do not grant rate INSERT or substitute maintenance credentials to enable an editor: new-version authoring requires a separately approved writer and validated maintenance contract. T06 did not access or change Neon/Render, push/merge or deploy. Before a future authorized release, run the standard build/startup and both-role catalogue/intake smoke checks. Details: docs/t06-handoff.md and ADR-0016.
+
+
+## Final requirements - migration 007 required; local only
+
+The resumed approved branch adds 007_final_requirements.sql: preserved legacy rates plus raw-value/author/reason/request provenance and guarded append-only RFQ outcomes. Application readiness now requires 007. Before a future separately authorized release, apply only pending migrations with the checksum runner, reapply reviewed runtime-grants.sql and function permissions using maintenance credentials, then run the strict direct-runtime LOGIN checker. Do not deploy the new app against a 006-only schema.
+
+Expected strict inventory: 18 tables, seven guard functions, 34 enabled triggers. Runtime receives rate INSERT only for id/key/start/raw text/actor/reason/request and outcome INSERT only for RFQ/outcome/actor/reason/request; no rate value/timestamp or outcome timestamp insertion, UPDATE/DELETE/TRUNCATE, new ownership or elevated login. New functions guard_rate_authoring() and guard_rfq_outcome() need the same explicit function ACL handling as existing guards. No new dependency, environment variable, hosting configuration or automatic runtime migration. Internal PDFs use the existing bundled Node renderer/fonts.
+
+Only disposable local databases were migrated, granted and checked. No Neon/Render operation, deployment, push or merge was performed. Handoff/limits: docs/final-requirements-handoff.md and ADR-0017. Earlier T06 SELECT-only guidance is superseded solely by this approved narrow version-authoring contract.

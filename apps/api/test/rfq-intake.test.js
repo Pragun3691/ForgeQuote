@@ -69,7 +69,7 @@ for (const runtimeOwnsUsers of [false,true]) test(`manual RFQ HTTP vertical slic
       key=randomUUID();const result=await save(body(),key);assert.equal(result.status,201);saved=result.data.rfqId;
       assert.equal(result.response.headers.get('location'),`/api/rfqs/${saved}`);
       const entry=(await estimator.request('/api/rfqs')).data.rfqs.find(row=>row.id===saved);
-      assert.deepEqual(entry,{id:saved,reference:'RFQ-MANUAL-001',customerName:'Synthetic Manufacturing',dueDate:'2026-11-06',ownerLabel:'estimator',status:'open',partCount:'2'});
+      assert.deepEqual(entry,{id:saved,reference:'RFQ-MANUAL-001',customerName:'Synthetic Manufacturing',dueDate:'2026-11-06',ownerLabel:'estimator',assignedEstimator:'estimator',status:'estimating',partCount:'2'});
       const detail=(await estimator.request(`/api/rfqs/${saved}`)).data;
       assert.equal(detail.parts.length,2);assert.equal(detail.versions.length,0);
       for(const part of detail.parts) {

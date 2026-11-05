@@ -37,7 +37,8 @@
     "test:browser:ai:live": "node tests/browser-ai-association.smoke.js --live",
     "test:browser:lifecycle": "node tests/browser-lifecycle.smoke.js",
     "test:browser:pdf": "node tests/browser-pdf.smoke.js",
-    "test:browser:rates-ux": "node tests/browser-rates-ux.smoke.js"
+    "test:browser:rates-ux": "node tests/browser-rates-ux.smoke.js",
+    "test:browser:final": "node tests/browser-final-workflows.smoke.js"
   },
   "devDependencies": {
     "pdfjs-dist": "6.5.438",

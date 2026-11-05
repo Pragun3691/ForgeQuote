@@ -1,3 +1,4 @@
+import {RfqOutcome} from './FinalWorkflows.jsx';
 import React, { useEffect, useState } from 'react';
 import { api } from './api.js';
 import QuoteResults, { grouped } from './QuoteResults.jsx';
@@ -43,7 +44,7 @@ export default function Workspace({ session, onExpired }) {
     });
     return () => controller.abort();
   },[refresh]);
-  if (route.get('view')==='rates') return <RateCatalogue onExpired={onExpired}/>;
+  if (route.get('view')==='rates') return <RateCatalogue session={session} onExpired={onExpired}/>;
   if (rfqId) return <RfqWorkspace key={rfqId} rfqId={rfqId} versionId={route.get('version')} session={session} onExpired={onExpired}/>;
   return <main className="workspace"><div className="section-heading"><div><p className="eyebrow">Estimator workspace</p><h1>RFQ register</h1></div><span className="badge">Synthetic demo</span></div><p className="muted">Open an RFQ to prepare a costed, versioned quotation.</p>
     <p><a href="#view=rates" target={creating?'_blank':undefined} rel="noreferrer">View rate catalogue</a></p>
@@ -54,7 +55,7 @@ export default function Workspace({ session, onExpired }) {
     {error && <div role="alert" className="error">{error}<br/><button onClick={() => setRefresh(value => value+1)}>Reload RFQs</button></div>}
     {!rfqs && !error && <p role="status">Loading RFQs...</p>}
     {rfqs?.length === 0 && <section className="panel empty"><h2>No RFQs yet</h2><p>{session.user.role === 'estimator' ? 'Create an RFQ using New RFQ above.' : 'An estimator can create an RFQ for this register.'}</p></section>}
-    {!!rfqs?.length && <div className="table-scroll panel"><table aria-label="RFQ register"><thead><tr><th>RFQ / customer</th><th>Due date</th><th>Owner</th><th>Status</th><th>Action</th></tr></thead><tbody>{rfqs.map(rfq => <tr key={rfq.id}><th scope="row">{rfq.reference}<span className="subtext">{rfq.customerName}</span></th><td>{rfq.dueDate}</td><td>{rfq.ownerLabel}</td><td><span className="badge">{rfq.status}</span></td><td><a href={link(rfq.id)}>Open RFQ</a></td></tr>)}</tbody></table></div>}
+    {!!rfqs?.length && <div className="table-scroll panel"><table aria-label="RFQ register"><thead><tr><th>RFQ / customer</th><th>Due date</th><th>Assigned estimator</th><th>Status</th><th>Action</th></tr></thead><tbody>{rfqs.map(rfq => <tr key={rfq.id}><th scope="row">{rfq.reference}<span className="subtext">{rfq.customerName}</span></th><td>{rfq.dueDate}</td><td>{rfq.assignedEstimator}</td><td><span className="badge">{rfq.status}</span></td><td><a href={link(rfq.id)}>Open RFQ</a></td></tr>)}</tbody></table></div>}
   </main>;
 }
 
@@ -63,6 +64,7 @@ function RfqWorkspace({ rfqId, versionId, session, onExpired }) {
   const [rfq,setRfq] = useState(null), [form,setForm] = useState(null), [pending,setPending] = useState(null);
   const [snapshot,setSnapshot] = useState(null), [error,setError] = useState(''), [storageError,setStorageError] = useState('');
   const [saving,setSaving] = useState(false), [loadingQuote,setLoadingQuote] = useState(false), [notice,setNotice] = useState(''), [reload,setReload] = useState(0);
+  const refreshRfq=()=>api(`/rfqs/${rfqId}`).then(setRfq).catch(handleError);
   const canWrite = session.user.role === 'estimator';
   const targetVersion = versionId || pending?.versionId;
   const frozen = saving || (pending && pending.phase !== 'rejected');
@@ -130,6 +132,7 @@ function RfqWorkspace({ rfqId, versionId, session, onExpired }) {
     {rfq && <><div className="section-heading"><div><p className="eyebrow">{rfq.customerName}</p><h1>{rfq.reference}</h1></div><span className="badge">{canWrite?'Estimator':'Sales head'}</span></div><p className="muted">Due {rfq.dueDate} · {rfq.ownerLabel} · {rfq.status}</p>
       {!supported && <p role="alert" className="error">Costing requires 1–20 RFQ parts, each with a supported routing revision. No partial quotation can be saved.</p>}
       {rfq.parts.map(part => <section className="panel part-facts" key={part.id}><div><p className="eyebrow">Part</p><h2>{part.partNumber}</h2><p>{part.description}</p></div><div><p className="eyebrow">Gross weight</p><strong>{part.grossWeightKg} kg</strong></div><div><p className="eyebrow">RFQ annual quantity</p><strong>{grouped(part.requestedAnnualQty)}</strong></div></section>)}
+      <RfqOutcome rfq={rfq} session={session} onExpired={onExpired} onSaved={refreshRfq}/>
       {supported && form && <form className="panel costing-form" onSubmit={submit}><div className="section-heading"><div><h2>Costing inputs</h2><p className="muted">Choose annual production quantities. The 100% scenario is the headline price.</p></div></div>
         <fieldset disabled={!canWrite || !!frozen || !!storageError}><label>Pricing date<input required type="date" value={form.pricingDate} onChange={e=>setForm({...form,pricingDate:e.target.value})}/></label>
           {requestParts(form).map(input=>{
