@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { providerAttemptEvent } from './ai/diagnostics.js';
 
 // Allowlist-only logging: never serialize req/res/error objects, raw URLs,
 // headers, IPs, actor names, bodies, query strings, tokens or database messages.
@@ -7,6 +8,9 @@ export function requestLogging({enabled = false, write = line => console.log(lin
     if(!enabled) return next();
     const requestId=randomUUID(), started=performance.now();
     res.set('X-Request-Id',requestId);
+    res.locals.logAiAttempt=data=>{
+      try {write(JSON.stringify({...providerAttemptEvent(data),requestId}));} catch { /* Diagnostics must not affect extraction. */ }
+    };
     res.on('finish',()=>{
       if(req.route?.path === '/api/health/live' && res.statusCode === 200) return;
       const event={event:'http_request',requestId,

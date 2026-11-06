@@ -2,6 +2,7 @@ import { GoogleGenAI } from '@google/genai';
 import { setTimeout as delay } from 'node:timers/promises';
 import { sourceSchema, responseJsonSchema } from './schema.js';
 import { sourceSections, verifyExtraction } from './evidence.js';
+import { providerFacts, providerCategory, providerAttemptEvent } from './diagnostics.js';
 
 export const aiError = (code,message) => Object.assign(Error(message),{code});
 export function readAiConfig(env=process.env) {
@@ -39,6 +40,7 @@ function providerFailure(error) {
   const billingReasons=['BILLING_DISABLED','BILLING_NOT_ACTIVE','BILLING_NOT_ENABLED','BILLING_ACCOUNT_DISABLED','BILLING_ACCOUNT_CLOSED'];
   const billing=Array.isArray(detail?.details) && detail.details.some(item=>billingReasons.includes(item?.reason));
   if(status===429) return aiError('AI_QUOTA_EXCEEDED','Gemini quota or rate limit reached. Wait before explicitly extracting again, or continue manually.');
+  if(status===400 && providerFacts(error).invalidKey) return aiError('AI_PROVIDER_ACCESS','Gemini access was rejected. Check the server API key and project access; continue manually.');
   if(status===402 || ([400,403].includes(status) && (billing || /\bbilling\b/i.test(detail?.message || '')))) return aiError('AI_PROVIDER_BILLING','Gemini reported a billing restriction. Check project eligibility without enabling billing, or continue manually.');
   if(status===400 && detail?.status==='FAILED_PRECONDITION') return aiError('AI_PROVIDER_PRECONDITION','Gemini project prerequisites are not satisfied. Check project eligibility and region; continue manually.');
   if(status===400) return aiError('AI_PROVIDER_REQUEST','Gemini rejected the extraction request or schema. Check the server integration; continue manually.');
@@ -51,21 +53,33 @@ export function createGeminiExtractor(config=readAiConfig(),{generateContent,ret
   const client=!generateContent && config.apiKey ? new GoogleGenAI({apiKey:config.apiKey,vertexai:false,
     httpOptions:{timeout:config.timeoutMs,retryOptions:{attempts:1}}}) : null;
   const generate=generateContent || (request=>client.models.generateContent(request));
-  return async (body,{signal:incomingSignal}={}) => {
+  return async (body,{signal:incomingSignal,onAttempt}={}) => {
     const source=validateSource(body);
     if(config.unavailableCode || !config.apiKey) throw aiError(config.unavailableCode || 'AI_NOT_CONFIGURED','AI extraction is not configured on this server. Manual RFQ creation remains available.');
     const controller=new AbortController();
     const signal=incomingSignal ? AbortSignal.any([controller.signal,incomingSignal]) : controller.signal;
     const timeout=setTimeout(()=>controller.abort(aiError('AI_TIMEOUT','Gemini extraction timed out. Continue manually or explicitly try again.')),config.timeoutMs);
-    let abortHandler;
+    const interruption=()=>controller.signal.aborted ? controller.signal.reason : aiError('AI_CANCELLED','Extraction was interrupted. Continue manually or explicitly try again.');
+    let abortHandler,activeAttempt;
+    const finishAttempt=(category,facts={})=>{
+      if(!activeAttempt) return;
+      const current=activeAttempt;activeAttempt=null;
+      const event=providerAttemptEvent({attempt:current.number,durationMs:performance.now()-current.started,
+        ...facts,category,deadlineExpired:controller.signal.aborted,cancelled:signal.aborted});
+      try {onAttempt?.(event);} catch { /* Logging cannot change outcomes or retry decisions. */ }
+    };
     try {
       const cancelled=new Promise((_,reject)=>{
-        abortHandler=()=>reject(signal.reason?.code==='AI_TIMEOUT' ? signal.reason : aiError('AI_CANCELLED','Extraction was interrupted. Continue manually or explicitly try again.'));
+        abortHandler=()=>{
+          finishAttempt(controller.signal.aborted?'APPLICATION_DEADLINE':'CLIENT_CANCELLATION');
+          reject(interruption());
+        };
         signal.addEventListener('abort',abortHandler,{once:true});if(signal.aborted) abortHandler();
       });
       const run=async()=>{
         for(let attempt=0;attempt<2;attempt++) {
-          signal.throwIfAborted();
+          if(signal.aborted) throw interruption();
+          activeAttempt={number:attempt+1,started:performance.now()};
           let response;
           try {
             response=await generate({model:config.model,contents:[{role:'user',parts:[{text:JSON.stringify({untrustedRfqText:source})}]}],config:{
@@ -74,20 +88,32 @@ export function createGeminiExtractor(config=readAiConfig(),{generateContent,ret
               httpOptions:{timeout:config.timeoutMs,retryOptions:{attempts:1}}
             }});
           } catch(error) {
-            if(signal.aborted) throw signal.reason;
+            if(signal.aborted) throw interruption();
+            const facts=providerFacts(error);
+            finishAttempt(providerCategory(error,facts),facts);
             const transient=[500,502,503,504].includes(Number(error?.status)) || error instanceof TypeError;
             if(attempt===0 && transient) {await delay(retryDelayMs,undefined,{signal});continue;}
             throw providerFailure(error);
           }
-          if(signal.aborted) throw signal.reason;
-          if(response.promptFeedback?.blockReason || response.candidates?.[0]?.finishReason!=='STOP') throw aiError('AI_INVALID_RESPONSE','Gemini blocked or did not finish a structured response. Continue manually.');
-          const text=response.text;
-          if(typeof text!=='string' || Buffer.byteLength(text,'utf8')>65536) throw aiError('AI_INVALID_RESPONSE','Gemini returned an empty or oversized response. Continue manually.');
-          let data;try {data=JSON.parse(text);} catch {throw aiError('AI_INVALID_RESPONSE','Gemini returned invalid JSON. Continue manually or explicitly try again.');}
-          return {provider:'Google Gemini',model:config.model,...verifyExtraction(source,data)};
+          if(signal.aborted) throw interruption();
+          try {
+            if(response.promptFeedback?.blockReason || response.candidates?.[0]?.finishReason!=='STOP') throw aiError('AI_INVALID_RESPONSE','Gemini blocked or did not finish a structured response. Continue manually.');
+            const text=response.text;
+            if(typeof text!=='string' || Buffer.byteLength(text,'utf8')>65536) throw aiError('AI_INVALID_RESPONSE','Gemini returned an empty or oversized response. Continue manually.');
+            let data;try {data=JSON.parse(text);} catch {throw aiError('AI_INVALID_RESPONSE','Gemini returned invalid JSON. Continue manually or explicitly try again.');}
+            const result={provider:'Google Gemini',model:config.model,...verifyExtraction(source,data)};
+            finishAttempt('SUCCESS');return result;
+          } catch(error) {
+            finishAttempt(error?.code==='AI_INVALID_RESPONSE'?'INVALID_RESPONSE':'INTERNAL_EXCEPTION');
+            throw error;
+          }
         }
       };
       return await Promise.race([run(),cancelled]);
+    } catch(error) {
+      finishAttempt('INTERNAL_EXCEPTION');
+      if(signal.aborted) throw interruption();
+      throw error;
     } finally {clearTimeout(timeout);if(abortHandler) signal.removeEventListener('abort',abortHandler);}
   };
 }

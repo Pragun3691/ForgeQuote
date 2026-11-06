@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { GoogleGenAI } from '@google/genai';
+import { providerAttemptEvent } from '../src/ai/diagnostics.js';
+import { requestLogging } from '../src/request-logging.js';
+import { EventEmitter } from 'node:events';
 import { verifyExtraction } from '../src/ai/evidence.js';
 import { createGeminiExtractor, readAiConfig, validateSource } from '../src/ai/gemini.js';
 import { extractionSchema, responseJsonSchema } from '../src/ai/schema.js';
@@ -164,4 +167,108 @@ test('total deadline and client abort bound even a provider that ignores its sig
   const started=Date.now();await assert.rejects(extract(request()),{code:'AI_TIMEOUT'});assert.equal(calls,1);assert.equal(signal.aborted,true);assert.ok(Date.now()-started<1000);
   const controller=new AbortController();const pending=createGeminiExtractor(config,{generateContent:()=>new Promise(()=>{})})(request(),{signal:controller.signal});controller.abort();
   await assert.rejects(pending,{code:'AI_CANCELLED'});
+});
+
+test('provider attempt events distinguish HTTP, transport and internal failures using only allowlisted metadata',async()=>{
+  const marker='SECRET-RFQ-key-cookie-query-stack';
+  const cases=[
+    [{status:400,message:JSON.stringify({error:{status:'INVALID_ARGUMENT',message:marker,details:[{reason:'API_KEY_INVALID',metadata:{secret:marker}}]}})},'PROVIDER_HTTP','API_KEY_INVALID','OTHER','AI_PROVIDER_ACCESS',1],
+    [{status:429,message:JSON.stringify({error:{status:'RESOURCE_EXHAUSTED',details:[{reason:marker}]}})},'PROVIDER_HTTP','OTHER','OTHER','AI_QUOTA_EXCEEDED',1],
+    [{status:504,message:marker},'PROVIDER_HTTP','OTHER','OTHER','AI_PROVIDER_UNAVAILABLE',2],
+    [Object.assign(new TypeError(marker),{cause:{code:'ECONNRESET',message:marker}}),'NETWORK_TRANSPORT','OTHER','ECONNRESET','AI_PROVIDER_UNAVAILABLE',2],
+    [Object.assign(new TypeError(marker),{cause:{code:marker}}),'NETWORK_TRANSPORT','OTHER','OTHER','AI_PROVIDER_UNAVAILABLE',2],
+    [Object.assign(new Error(marker),{code:marker,stack:marker}),'INTERNAL_EXCEPTION','OTHER','OTHER','AI_PROVIDER_UNAVAILABLE',1]
+  ];
+  for(const [error,category,reason,transport,code,count] of cases) {
+    const events=[];let calls=0;
+    const extract=createGeminiExtractor(config,{retryDelayMs:0,generateContent:async()=>{calls++;throw error;}});
+    await assert.rejects(extract(request(),{onAttempt:event=>events.push(event)}),{code});
+    assert.equal(calls,count);assert.equal(events.length,count);
+    for(const [index,event] of events.entries()) {
+      assert.equal(event.attempt,index+1);assert.equal(event.category,category);
+      assert.equal(event.providerReason,reason);assert.equal(event.transportCode,transport);
+      assert.equal(event.upstreamStatus,error.status ?? null);
+      assert.equal(event.deadlineExpired,false);assert.equal(event.cancelled,false);
+      assert.ok(Number.isInteger(event.durationMs)&&event.durationMs>=0);
+    }
+    assert.ok(!JSON.stringify(events).includes(marker));
+  }
+});
+
+test('attempt success and retry recovery preserve verified extraction; logger exceptions are harmless',async()=>{
+  let calls=0;const events=[];
+  const extract=createGeminiExtractor(config,{retryDelayMs:0,generateContent:async()=>{
+    if(++calls===1) throw {status:503};return fakeGeminiResponse(syntheticSuggestion());
+  }});
+  const result=await extract(request(),{onAttempt:event=>events.push(event)});
+  assert.equal(result.parts.length,2);assert.equal(result.parts[0].fields.grossWeightKg.normalizedValue,'0.61');
+  assert.deepEqual(events.map(event=>[event.attempt,event.category,event.upstreamStatus]),[[1,'PROVIDER_HTTP',503],[2,'SUCCESS',null]]);
+  const normal=createGeminiExtractor(config,{generateContent:async()=>fakeGeminiResponse(syntheticSuggestion())});
+  assert.equal((await normal(request(),{onAttempt:()=>{throw Error('broken log sink');}})).parts.length,2);
+});
+
+test('deadline and client cancellation log once immediately even if provider ignores abort and settles late',async()=>{
+  for(const deadline of [true,false]) {
+    const events=[],incoming=new AbortController();let settle;
+    const extract=createGeminiExtractor({...config,timeoutMs:deadline?25:1000},{generateContent:()=>new Promise(resolve=>{settle=resolve;})});
+    const pending=extract(request(),{signal:incoming.signal,onAttempt:event=>events.push(event)});
+    if(!deadline) incoming.abort(new Error('private cancellation reason'));
+    await assert.rejects(pending,{code:deadline?'AI_TIMEOUT':'AI_CANCELLED'});
+    assert.equal(events.length,1);assert.equal(events[0].category,deadline?'APPLICATION_DEADLINE':'CLIENT_CANCELLATION');
+    assert.equal(events[0].deadlineExpired,deadline);assert.equal(events[0].cancelled,true);
+    settle(fakeGeminiResponse(syntheticSuggestion()));await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(events.length,1);
+  }
+});
+
+test('invalid output and unexpected response processing errors have separate attempt categories',async()=>{
+  for(const [response,category] of [[fakeGeminiResponse({unexpected:'field'}),'INVALID_RESPONSE'],[{get promptFeedback(){throw Error('private internal detail');}},'INTERNAL_EXCEPTION']]) {
+    const events=[];
+    await assert.rejects(createGeminiExtractor(config,{generateContent:async()=>response})(request(),{onAttempt:event=>events.push(event)}));
+    assert.equal(events.length,1);assert.equal(events[0].category,category);
+    assert.ok(!JSON.stringify(events).includes('private'));
+  }
+});
+
+test('production attempt logger re-allowlists fields and correlates only the server-generated request ID',()=>{
+  const lines=[],headers={};const res=Object.assign(new EventEmitter(),{locals:{},set:(key,value)=>{headers[key]=value;}});
+  requestLogging({enabled:true,write:line=>lines.push(line)})({},res,()=>{});
+  res.locals.logAiAttempt({attempt:1,durationMs:4,upstreamStatus:503,category:'PROVIDER_HTTP',providerReason:'private reason',providerStatus:'private status',transportCode:'private transport',requestId:'private injected id',message:'private message',headers:{Authorization:'private key'},sourceText:syntheticSource});
+  const event=JSON.parse(lines[0]);
+  assert.deepEqual(event,{event:'ai_provider_attempt',attempt:1,durationMs:4,upstreamStatus:503,category:'PROVIDER_HTTP',providerReason:'OTHER',providerStatus:'OTHER',transportCode:'OTHER',deadlineExpired:false,cancelled:false,requestId:headers['X-Request-Id']});
+  assert.match(event.requestId,/^[a-f0-9-]{36}$/);assert.ok(!lines[0].includes('private'));
+  assert.equal(providerAttemptEvent({category:'private',upstreamStatus:'secret',durationMs:NaN}).category,'OTHER');
+  assert.doesNotThrow(()=>{requestLogging({enabled:true,write:()=>{throw Error('sink');}})({},res,()=>{});res.locals.logAiAttempt({});});
+  const disabled={locals:{}};requestLogging()({},disabled,()=>{});assert.equal(disabled.locals.logAiAttempt,undefined);
+});
+
+test('validation and pre-aborted requests never fabricate a provider attempt',async()=>{
+  const events=[];let calls=0;
+  const extract=createGeminiExtractor(config,{generateContent:async()=>{calls++;return fakeGeminiResponse(syntheticSuggestion());}});
+  await assert.rejects(extract({...request(),consent:false},{onAttempt:event=>events.push(event)}),{code:'AI_INVALID_INPUT'});
+  const controller=new AbortController();controller.abort();
+  await assert.rejects(extract(request(),{signal:controller.signal,onAttempt:event=>events.push(event)}),{code:'AI_CANCELLED'});
+  assert.equal(calls,0);assert.equal(events.length,0);
+});
+
+test('deadline bounds the second attempt and retry backoff without adding attempts',async()=>{
+  for(const backoff of [0,100]) {
+    const events=[];let calls=0;
+    const extract=createGeminiExtractor({...config,timeoutMs:35},{retryDelayMs:backoff,generateContent:async()=>{
+      if(++calls===1) throw {status:503};return new Promise(()=>{});
+    }});
+    await assert.rejects(extract(request(),{onAttempt:event=>events.push(event)}),{code:'AI_TIMEOUT'});
+    assert.equal(calls,backoff?1:2);
+    assert.deepEqual(events.map(event=>event.category),backoff?['PROVIDER_HTTP']:['PROVIDER_HTTP','APPLICATION_DEADLINE']);
+  }
+});
+
+test('documented API_KEY_INVALID survives actual SDK error parsing without leaking provider data',async()=>{
+  const events=[];let calls=0;
+  const client=new GoogleGenAI({apiKey:'synthetic-key',vertexai:false,httpOptions:{retryOptions:{attempts:1},fetch:async()=>{
+    calls++;return new Response(JSON.stringify({error:{code:400,status:'INVALID_ARGUMENT',message:'private credential and RFQ',details:[{'@type':'type.googleapis.com/google.rpc.ErrorInfo',reason:'API_KEY_INVALID',metadata:{secret:'private'}}]}}),{status:400,headers:{'Content-Type':'application/json'}});
+  }}});
+  await assert.rejects(createGeminiExtractor(config,{generateContent:payload=>client.models.generateContent(payload)})(request(),{onAttempt:event=>events.push(event)}),{code:'AI_PROVIDER_ACCESS',message:'Gemini access was rejected. Check the server API key and project access; continue manually.'});
+  assert.equal(calls,1);assert.equal(events[0].providerReason,'API_KEY_INVALID');assert.equal(events[0].providerStatus,'INVALID_ARGUMENT');
+  assert.ok(!JSON.stringify(events).includes('private'));
 });
