@@ -18,6 +18,9 @@ test('AI extraction HTTP review/save boundary with disposable PostgreSQL (provid
     calls++;lastSignal=payload.config.abortSignal;
     if(mode==='numbered') {const data=numberedSuggestion({headers:true}),extra=structuredClone(data.parts[0]);extra.anchor='Unmatched synthetic proposal';extra.fields.partNumber={status:'present',rawValue:'UNKNOWN',evidence:['Part Number: UNKNOWN']};data.parts.push(extra);return fakeGeminiResponse(data);}
     if(mode==='quota') throw {status:429,message:'secret-key and private document text'};
+    if(mode==='invalidKey') throw {status:400,message:JSON.stringify({error:{status:'INVALID_ARGUMENT',message:'secret-key and private document text',details:[{reason:'API_KEY_INVALID'}]}})};
+    if(mode==='network') throw Object.assign(new TypeError('secret-key and private document text'),{cause:{code:'ECONNRESET'}});
+    if(mode==='internal') throw Error('secret-key and private document text');
     const providerErrors={request:[400,'INVALID_ARGUMENT'],model:[404,'NOT_FOUND'],access:[403,'PERMISSION_DENIED'],unauthorized:[401,'UNAUTHENTICATED'],billing:[403,'PERMISSION_DENIED'],precondition:[400,'FAILED_PRECONDITION']};
     if(providerErrors[mode]) {
       const [status,code]=providerErrors[mode];
@@ -87,19 +90,29 @@ test('AI extraction HTTP review/save boundary with disposable PostgreSQL (provid
     });
     await t.test('provider quota, transient failure, invalid schema and timeout are explicit/redacted and never save',async()=>{
       const before=await counts();
-      for(const [nextMode,status,code,attempts] of [['quota',429,'AI_QUOTA_EXCEEDED',1],['request',502,'AI_PROVIDER_REQUEST',1],['model',503,'AI_MODEL_UNAVAILABLE',1],['access',503,'AI_PROVIDER_ACCESS',1],['unauthorized',503,'AI_PROVIDER_ACCESS',1],['billing',503,'AI_PROVIDER_BILLING',1],['precondition',503,'AI_PROVIDER_PRECONDITION',1],['failure',503,'AI_PROVIDER_UNAVAILABLE',2],['invalid',502,'AI_INVALID_RESPONSE',1],['timeout',504,'AI_TIMEOUT',1]]) {
-        mode=nextMode;const previous=calls,response=await extract();assert.equal(response.status,status);assert.equal(response.data.error.code,code);assert.equal(calls-previous,attempts);
+      for(const [nextMode,status,code,attempts] of [['quota',429,'AI_QUOTA_EXCEEDED',1],['request',502,'AI_PROVIDER_REQUEST',1],['model',503,'AI_MODEL_UNAVAILABLE',1],['access',503,'AI_PROVIDER_ACCESS',1],['invalidKey',503,'AI_PROVIDER_ACCESS',1],['unauthorized',503,'AI_PROVIDER_ACCESS',1],['billing',503,'AI_PROVIDER_BILLING',1],['precondition',503,'AI_PROVIDER_PRECONDITION',1],['failure',503,'AI_PROVIDER_UNAVAILABLE',2],['network',503,'AI_PROVIDER_UNAVAILABLE',2],['internal',503,'AI_PROVIDER_UNAVAILABLE',1],['invalid',502,'AI_INVALID_RESPONSE',1],['timeout',504,'AI_TIMEOUT',1]]) {
+        mode=nextMode;const previous=calls,logStart=logs.length,response=await extract();assert.equal(response.status,status);assert.equal(response.data.error.code,code);assert.equal(calls-previous,attempts);
+        const provider=logs.slice(logStart).map(line=>JSON.parse(line)).filter(event=>event.event==='ai_provider_attempt');
+        assert.equal(provider.length,attempts);
+        const expectedCategory={network:'NETWORK_TRANSPORT',internal:'INTERNAL_EXCEPTION',invalid:'INVALID_RESPONSE',timeout:'APPLICATION_DEADLINE'}[nextMode] || 'PROVIDER_HTTP';
+        assert.ok(provider.every(event=>event.category===expectedCategory && event.requestId===response.response.headers.get('x-request-id')));
+        assert.deepEqual(provider.map(event=>event.attempt),Array.from({length:attempts},(_,index)=>index+1));
+        if(nextMode==='invalidKey') assert.equal(provider[0].providerReason,'API_KEY_INVALID');
+        if(nextMode==='timeout') {assert.equal(provider[0].deadlineExpired,true);assert.equal(provider[0].cancelled,true);}
         assert.ok(!JSON.stringify(response.data).includes('secret-key'));assert.deepEqual(await counts(),before);
       }
       assert.equal(lastSignal.aborted,true);mode='success';
     });
     await t.test('client disconnection aborts the provider signal; no save and manual endpoint remains available',async()=>{
-      mode='timeout';const previous=calls,controller=new AbortController();
+      mode='timeout';const previous=calls,logStart=logs.length,controller=new AbortController();
       const pending=extract(body(),{signal:controller.signal});
       for(let i=0;i<50 && calls===previous;i++) await delay(10);
       assert.equal(calls,previous+1);const providerSignal=lastSignal;controller.abort();await assert.rejects(pending);
       for(let i=0;i<50 && !providerSignal.aborted;i++) await delay(10);
       assert.equal(providerSignal.aborted,true);mode='success';assert.equal((await estimator.request('/api/rfq-rate-keys')).status,200);
+      const provider=logs.slice(logStart).map(line=>JSON.parse(line)).filter(event=>event.event==='ai_provider_attempt');
+      assert.equal(provider.length,1);assert.equal(provider[0].category,'CLIENT_CANCELLATION');
+      assert.equal(provider[0].cancelled,true);assert.equal(provider[0].deadlineExpired,false);
     });
     await t.test('missing key disables only extraction; status and manual RFQ service remain available',async()=>{
       const disabled=createApp(db.runtime,config,{sessionSchema:db.schema,logWriter:line=>logs.push(line),aiConfig:{...aiConfig,apiKey:'',unavailableCode:'AI_NOT_CONFIGURED'}});

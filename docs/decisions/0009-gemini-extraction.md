@@ -1,5 +1,17 @@
 # ADR-0009 - Gemini extraction proposes evidence-backed fields
 
+## Production diagnostics extension (owner approved, 2026-11-06)
+
+The focused diagnostics authorization adds production-only ai_provider_attempt JSON events through the existing request log sink. The request logger supplies its own generated request ID, never a request header value. Each started adapter attempt emits once when it succeeds, fails, or is interrupted; duration covers the provider call and response verification. The abort listener emits immediately even when the SDK ignores its signal. Later resolution/rejection cannot emit a duplicate. Pre-validation/configuration rejection and cancellation before any call do not invent attempts.
+
+Fields: event, requestId, attempt (1 or 2), durationMs (nonnegative integer), upstreamStatus (400-599 or null), category, providerReason, providerStatus, transportCode, deadlineExpired and cancelled. Categories are SUCCESS, INVALID_RESPONSE, PROVIDER_HTTP, NETWORK_TRANSPORT, APPLICATION_DEADLINE, CLIENT_CANCELLATION and INTERNAL_EXCEPTION. Unknown category/reason/status/transport identifiers map to OTHER. Both adapter and sink explicitly project fields; raw errors, stacks, messages, metadata, source, headers, URLs and SDK objects never enter the event. The callback and sink isolate logging exceptions from extraction behavior. No new environment flag.
+
+cancelled means the combined abort signal was set, including deadline abort; deadlineExpired distinguishes the application's timer from client interruption. A provider HTTP 504 is PROVIDER_HTTP with upstreamStatus 504, distinct from the application's AI_TIMEOUT. Retry backoff is outside attempts: a deadline during backoff produces no fictitious extra provider event; correlate the completed attempt event with the final HTTP AI_TIMEOUT. After client disconnect there may be no HTTP finish event, but the attempt event is still emitted.
+
+The SDK's ApiError.status and privately parsed JSON ErrorInfo reason allow HTTP 400 API_KEY_INVALID to use the existing AI_PROVIDER_ACCESS response. Source: [Google GenerateContent error format](https://ai.google.dev/gemini-api/docs/generate-content/api-errors?hl=en). Other existing public messages/statuses remain unchanged. Pre-aborted and during-retry aborts normalize to existing AI_CANCELLED/AI_TIMEOUT instead of leaking raw AbortError reasons. No additional retries or timeout/model/schema/prompt changes.
+
+Limitations: TypeError inside the generate call remains the existing fetch/transport heuristic, not proof of a particular network fault. Known Node transport codes add bounded evidence; unknown exceptions have INTERNAL_EXCEPTION with OTHER identifiers. Provider work may continue after abort. These events diagnose future reproduction; they do not identify the already-observed production cause. No live provider or cloud verification was performed in this change.
+
 - Status: ACCEPTED implementation of owner's T02.2 authorization, 2026-11-03. Initial branch/HEAD verified clean: feature/T02-ai-rfq-intake at 63ada4513758d9798782f0ecac15696166148e8d.
 - Scope: pasted synthetic email/plain text only. No Excel/PDF, approvals, deployment or billing activation. The original missing-key checkpoint is superseded by the live correction verification recorded below.
 

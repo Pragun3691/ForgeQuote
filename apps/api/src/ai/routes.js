@@ -16,7 +16,7 @@ export function installAiRoutes(app,config,{aiConfig=readAiConfig(),aiGenerateCo
     const controller=new AbortController();
     const disconnected=()=>{if(!res.writableEnded) controller.abort();};
     res.on('close',disconnected);inFlight++;
-    try {const result=await extract(req.body,{signal:controller.signal});if(!res.destroyed) res.json(result);}
+    try {const result=await extract(req.body,{signal:controller.signal,onAttempt:res.locals.logAiAttempt});if(!res.destroyed) res.json(result);}
     finally {inFlight--;res.off('close',disconnected);}
   });
 }

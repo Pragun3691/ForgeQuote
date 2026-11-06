@@ -1,4 +1,11 @@
-# Current status - 2026-11-05
+# Current status - 2026-11-06
+
+## Gemini production diagnostics - complete locally; STOP after commit
+
+- Owner-approved focused work from clean main a2770dc on feature/gemini-diagnostics. Production ai_provider_attempt events share the existing server-generated HTTP request ID and contain only bounded numeric fields, booleans and predefined identifiers. HTTP, transport, application deadline, client cancellation, internal exception, invalid response and success are distinct. Unknown provider/transport identifiers become OTHER. Logging failures cannot change extraction; aborts log once even if the SDK settles late or never settles.
+- Documented HTTP 400 API_KEY_INVALID now uses the existing AI_PROVIDER_ACCESS status/message. Pre-aborted requests consistently use the existing AI_CANCELLED contract. Model, prompt, schemas/evidence, 20-second default, SDK attempts:1, application two-attempt/250-ms policy, finance and DB remain unchanged.
+- Passed 90/90 unit/config/parser/PDF (25 focused Gemini), 24/24 disposable-local-PostgreSQL AI API/auth, 47 API source syntax checks, production build and actual production startup 1/1. Initial sandbox esbuild access denial resolved by normal-access build. All nine financial goldens remain unchanged. No live Gemini call or production failure reproduction; root cause remains unproven.
+- No Neon/Render access/change, migration, configured environment changes, push, merge or deployment. Exact changed files, event examples, safe synthetic verification, limitations and three owner questions: docs/gemini-diagnostics-handoff.md; task: tasks/gemini-diagnostics.md; ADR-0009 extension.
 
 ## Final requirements - complete locally; STOP after commit
 
