@@ -1,153 +1,210 @@
-# ForgeQuote — RFQ-to-Quote Costing
+# ForgeQuote
 
-An **individual** IsoCode Labs take-home project. Internal development target: **6 Nov 2026**; contingency feature-freeze: **8 Nov 2026**; external submission deadline: **9 Nov 2026, 23:59 IST**.
+Manufacturing RFQ-to-quotation software with evidence-backed intake, deterministic costing and an auditable approval trail.
 
-## Goal
+**[Open the live demo](https://forgequote-demo.onrender.com)** · **[GitHub repository](https://github.com/Pragun3691/ForgeQuote)**
 
-Build one honest, working end-to-end RFQ → verified intake → deterministic costing at 2–3 volumes → approval gate → issued PDF quote, using versioned rates and auditable snapshots. Seed only **synthetic/anonymized** customer data.
+ForgeQuote takes a reviewed request for quotation (RFQ) through multi-component pricing, Sales Head clearance and estimator issuance. Every saved version preserves its inputs, historical rates and calculated results, so a later rate change cannot silently rewrite an earlier quotation.
 
-## What this ZIP contains
+The hosted application uses synthetic data. Demo passwords are supplied privately to evaluators; they are not published here. No personal Gemini API key is required to use the hosted demo.
 
-Current checkpoint: T03 supports complete 1-20-part draft quotations, unchanged deterministic three-scenario costing/GST, immutable snapshots and idempotent recovery. Intake supports reviewed manual entry, pasted-text Gemini suggestions with literal evidence checks, and bounded template-based Excel import. [T03 handoff](docs/t03-handoff.md) records the verified scope and unchanged nine goldens. Approval, issuance, customer quotation PDF and RFQ PDF intake remain pending.
+<!-- Insert final synthetic-data screenshots here after the owner-approved UI/UX redesign. -->
 
-Estimators confirm every imported/proposed part, fill missing manufacturing facts and choose internal rate keys before saving. Real local Gemini SDK/Chrome extraction was verified in the [association handoff](docs/t02-part-association-handoff.md); current production Gemini connectivity/billing/data handling is unverified. Automated normal suites mock the provider. Manual/Excel entry remains available without an AI key.
+## Why ForgeQuote
 
-T07 updates Render to main, Node 24.20.0 and the existing one-origin Express/React architecture. Neon provisioning is complete with maintenance-owned objects and a separate restricted runtime role; local databases are preserved. No public Render deployment is claimed. Exact dashboard/environment settings, private maintenance boundaries and outstanding live checks are in [deployment instructions](docs/deployment.md). This checkpoint does not push, merge or deploy.
+Manufacturing prices depend on material weight, machine time, setup, allowances, freight and margin. When these inputs live across spreadsheets and emails, it becomes difficult to explain an old price, recover a failed save or establish which version was approved.
 
-## Start (Windows PowerShell)
+ForgeQuote connects those decisions: reviewed source facts become an RFQ, date-selected rates become a saved calculation, and approval authorizes that exact quotation version. AI assists data entry; it never calculates authoritative prices or approves a quotation.
+
+## Capabilities
+
+- **Two roles:** Estimators register, cost, submit and issue quotations. Sales Heads approve/reject, append rate versions and record RFQ outcomes.
+- **Three intake paths:** Manual entry, real Gemini-assisted text extraction, and deterministic Excel part-list import.
+- **Human review:** Source quotes, component association and normalized values remain inspectable; estimators correct proposals and select internal rate keys before saving.
+- **Multi-part costing:** Price 1–20 components at three editable annual quantities, defaulting to 50%, 100% and 150%.
+- **Historical rates:** Inspect six rate categories and effective periods; Sales Heads append validated versions with a reason and author attribution.
+- **Immutable quotations:** Preserve rate IDs/values, routing, inputs, formula version, rounded lines and scenario totals. Recalculation creates a new version.
+- **Controlled lifecycle:** Combined annual value above ₹25 lakh excluding GST requires Sales Head approval. Estimators issue cleared versions; RFQs derive estimating/sent status and support terminal won/lost outcomes.
+- **Separate PDFs:** An issued customer quotation presents selling prices and GST. A confidential internal PDF explains saved costs, margins and rate provenance, including historical versions.
+- **Reliable writes and security:** Transactional idempotency, concurrent-action protection, PostgreSQL sessions, server-side roles, Origin/CSRF checks and restricted runtime grants.
+
+## Technology stack
+
+| Area | Implementation |
+| --- | --- |
+| Frontend | React, Vite, JavaScript |
+| API | Node.js 24, Express 5, explicit SQL through `pg` |
+| Financial engine | `decimal.js`, PostgreSQL NUMERIC, decimal-string transport |
+| Persistence and sessions | PostgreSQL; Neon for hosted storage; `connect-pg-simple` sessions |
+| Intake | Google Gemini through `@google/genai` and Zod; bounded XLSX ZIP/XML parser in a worker |
+| PDFs and tests | PDFKit, bundled Noto Sans; Node test runner, real PostgreSQL fixtures, Playwright/Chrome and PDF.js |
+| Hosting | One Render Node service serving the frontend and API on one HTTPS origin |
+
+## Architecture
+
+```mermaid
+flowchart LR
+    B["Browser: React"] -->|HTTPS and same-origin /api| R["Render: Express and built frontend"]
+    R -->|Verified TLS and restricted login| D[("Neon PostgreSQL: business data and sessions")]
+    R -->|Synthetic text only| G["Gemini: structured proposals"]
+    M["Separate maintenance identity"] -->|Migrations and reviewed grants| D
+```
+
+The API validates inputs, resolves historical rates, calculates prices and commits complete snapshots. React displays saved server results. Customer PDFs receive an explicit field allowlist; internal manufacturing data never enters the customer renderer.
+
+A separate maintenance identity owns schema changes, grants and seeding. The runtime cannot perform DDL. Same-origin hosting simplifies secure cookies and exact-Origin checks without a separate cross-origin frontend deployment.
+
+## Application workflow
+
+1. **Register:** Enter an RFQ manually or review Gemini/Excel proposals, complete manufacturing fields and select real rate keys.
+2. **Calculate:** Choose a pricing date, routing revision, margin and three quantities for every component. Save one complete quotation version.
+3. **Review:** Inspect component costs, combined totals and saved rate provenance. Download internal costing evidence if needed.
+4. **Clear:** Submit the current version. At/below ₹25 lakh annual ex-GST clears automatically; above it requires Sales Head approval. A rejection requires a reason.
+5. **Issue:** The estimator issues the cleared current version and downloads its customer PDF. A new version receives no inherited approval.
+6. **Close:** Issuance makes the RFQ `sent`; Sales Head can record `won` or `lost` with a required lost reason. "Sent" means issued, not email-delivered.
+
+If a save response is lost, retry the same stored request key and body. A matching retry recovers the original result; changing intent under that key conflicts instead of silently creating another record.
+
+## Financial correctness and history
+
+Money uses Decimal arithmetic and string transport, never JavaScript binary floats. The engine rounds each cost line HALF_UP to paise, sums those lines, and derives selling price using **gross margin on selling price**:
+
+```text
+selling price = round_paise(manufacturing cost / (1 - margin_percent / 100))
+```
+
+For the independently specified spindle golden case dated **2 November 2026**, material at ₹100/kg gives **₹119.76 cost/unit**, **₹149.70 selling/unit** at 20% margin, and **₹2,69,46,000.00 annual ex-GST** for 180,000 units. See the [nine golden cases](docs/golden-cases.md) and [costing contract](docs/costing-spec.md).
+
+The owner verified a hosted EN8 update to **₹105/kg effective 6 November**. New calculations on that date resolve the new version; older saved quotations retain their original ₹100 rate and outputs. A fresh local seed contains the November 2 version only.
+
+Gross margin, line rounding, at most 12 setup batches/year, default scenario quantities and below-threshold automatic clearance are documented demo assumptions. Illustrative GST is 18%, calculated on the combined quotation subtotal; this is not invoice-tax compliance. Missing historical rates visibly block pricing rather than defaulting to zero.
+
+## Local development
+
+### Prerequisites
+
+Use **Node.js 24.20.0** (pinned), npm, **PostgreSQL 17** and `psql` on PATH. Recorded local database tests used PostgreSQL 17.11. Chrome is needed for browser suites; OpenSSL on PATH is needed for TLS tests in the unit suite.
+
+### 1. Install
 
 ```powershell
+git clone https://github.com/Pragun3691/ForgeQuote.git
+Set-Location ForgeQuote
 npm.cmd ci
-# Create ignored .env at repository root; see configuration below.
+```
+
+### 2. Prepare a fresh local database
+
+The following assumes a local maintenance administrator named `postgres` on port 5432. Passwords are entered at prompts, never embedded in commands:
+
+```powershell
+psql -X -W -h localhost -U postgres -d postgres --set=ON_ERROR_STOP=on -c "CREATE ROLE forgequote_app LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS"
+psql -X -W -h localhost -U postgres -d postgres --set=ON_ERROR_STOP=on -c '\password forgequote_app'
+psql -X -W -h localhost -U postgres -d postgres --set=ON_ERROR_STOP=on -c "CREATE DATABASE forgequote_dev OWNER postgres"
+```
+
+For `\password`, authenticate as the administrator, then choose and confirm a private runtime password. Keep database/table ownership with maintenance; the local grant script expects runtime role `forgequote_app`. If these objects already exist, verify them instead of dropping, resetting or recreating them. Stop on an error; never elevate the runtime role as a workaround.
+
+### 3. Configure
+
+Create an ignored root `.env` using your own local values. [`.env.example`](.env.example) lists variable names; omit unused blank entries.
+
+| Variable | Local purpose/setting |
+| --- | --- |
+| `DATABASE_URL` | Private runtime PostgreSQL URL for `forgequote_app` and `forgequote_dev` |
+| `MIGRATION_DATABASE_URL` | Private maintenance URL: same host, port and database, different role |
+| `SESSION_SECRET` | Private random secret containing at least 32 bytes |
+| `APP_ORIGIN` | `http://127.0.0.1:5173`, no trailing slash |
+| `NODE_ENV`, `PORT` | `development`, `3000` |
+| `DATABASE_TLS_MODE`, `TRUST_PROXY_HOPS` | `disable` for loopback-only local PostgreSQL, `0` locally |
+| `DEMO_GST_PERCENT` | `18`, illustrative |
+| `DEMO_ESTIMATOR_PASSWORD`, `DEMO_SALES_HEAD_PASSWORD` | Distinct private application passwords for seeding: at least 12 characters, at most 256 UTF-8 bytes |
+
+Maintenance and runtime URLs must use identical hostname/port/database spelling. URL-encode credential characters. Do not publish `.env`, connection strings or secrets.
+
+**Optional local AI:** Configure server-only `AI_API_KEY` to enable Gemini in your own installation. `AI_MODEL` defaults to `gemini-3.5-flash-lite`; `AI_TIMEOUT_MS` defaults to `20000`. Manual/Excel intake, costing and PDFs work without a key. Never put secrets in `VITE_*` variables.
+
+### 4. Migrate, grant and seed
+
+```powershell
 npm.cmd run db:migrate
 npm.cmd run db:grant-runtime
 npm.cmd run db:check-permissions
 npm.cmd run db:seed
 npm.cmd run db:seed-users
-npm.cmd test
-npm.cmd run test:db
-npm.cmd run build
-# Terminal 1:
+```
+
+Migrations apply through **007**. Seeding creates the synthetic spindle RFQ/rates and the `estimator`/`sales_head` application identities. Sign in with the local passwords chosen above. Repeated seeding validates existing records; it does not reset passwords or overwrite drift.
+
+### 5. Start
+
+In separate PowerShell terminals at the repository root:
+
+```powershell
+# Terminal 1
 npm.cmd run dev:api
-# Terminal 2:
+```
+
+```powershell
+# Terminal 2
 npm.cmd run dev:web
 ```
 
-Use Node 24 and PostgreSQL 17. Open http://127.0.0.1:5173 when using Vite; it proxies `/api` to Express (default port 3000). Use the exact host/port configured in APP_ORIGIN; an alternate localhost hostname or Vite fallback port will fail Origin validation. Stop conflicting servers rather than bypassing CSRF. For a same-origin built frontend run `npm.cmd run build`, set APP_ORIGIN to the actual origin (e.g. http://127.0.0.1:3000 locally), then `npm.cmd start`. Production NODE_ENV requires an HTTPS origin and secure cookies.
+Open **http://127.0.0.1:5173**. Vite proxies `/api` to port 3000. Use the exact configured origin; if 5173 is occupied, free it or deliberately update `APP_ORIGIN` and restart the API.
 
-Root `.env` requires `DATABASE_URL`. Set `NODE_ENV=development`, `PORT=3000`, `DEMO_GST_PERCENT=18`; omit unused variables rather than leaving blank overrides. PostgreSQL URLs must contain correctly URL-encoded credentials when required by your server. Never commit `.env`. `pg` uses standard PostgreSQL URL TLS parameters; do not disable certificate verification for deployment. Local superuser connections are development-only, never deployment runtime credentials.
-
-`.env.example` lists names only. Before starting the API, configure SESSION_SECRET (random, at least 32 bytes) and APP_ORIGIN (exact origin without trailing slash). Set distinct DEMO_ESTIMATOR_PASSWORD and DEMO_SALES_HEAD_PASSWORD (12+ characters, at most 256 UTF-8 bytes) before db:seed-users. Seed passwords are not needed by the running API. Current local auth values were generated into ignored .env; open that file locally to obtain your demo passwords, never commit or paste them into logs. TRUST_PROXY_HOPS defaults to 0; use 1 only with one trusted proxy and blocked direct access. Deployment is not complete; no hosting has been purchased.
-
-## Database checkpoint setup
-
-On this workspace, `forgequote_dev` and `forgequote_test` have already been created and root `.env` configured. On a fresh machine, create two empty databases with your PostgreSQL administrator (adjust username/host):
-
-```powershell
-psql -h localhost -U postgres -d postgres -c "CREATE DATABASE forgequote_dev"
-psql -h localhost -U postgres -d postgres -c "CREATE DATABASE forgequote_test"
-```
-
-Set DATABASE_URL and TEST_DATABASE_URL in ignored .env to their respective PostgreSQL URLs. Test database name must end in _test. MIGRATION_DATABASE_URL is mandatory for migration and seed commands: use a different maintenance role targeting the same host, port and development database. There is no runtime-credential fallback. Omit maintenance credentials from the deployed API environment. Never point migration/seed commands at real customer data.
-
-```powershell
-npm.cmd run db:migrate
-npm.cmd run db:seed
-npm.cmd run db:seed-users
-npm.cmd test
-npm.cmd run test:db
-npm.cmd run build
-npm.cmd run dev:api
-# In another terminal:
-npm.cmd run dev:web
-```
-
-Migrations are atomic, checksummed and serialized; repeated execution is a no-op. Do not edit an applied migration: add a new one. db:seed inserts the synthetic spindle, six rate keys/versions and first route. db:seed-users separately inserts estimator and sales_head with salted hashes. Both reject drift instead of overwriting; the user seed never resets credentials or reactivates users. No quotation results are seeded.
-
-Database tests create generated schemas inside the dedicated test database and remove only their fixtures. Quote/HTTP/browser tests additionally use maintenance CREATE ROLE/SCHEMA capability to test a generated non-owner runtime role; those roles are cleaned up. NUMERIC/BIGINT transport remains strings. `rate_periods` derives each exclusive end from the next start; no explicit expiry gaps are supported.
-
-Local permissions: original development tables remain postgres-owned. Existing users/sessions ownership is preserved per owner instruction. Grants include master/user/ledger SELECT, session CRUD, snapshot INSERT and column-specific quotation counter UPDATE. T02.1 adds column INSERT for RFQs/parts/routes/receipts and receipt SELECT. No history/input UPDATE/DELETE or TRUNCATE. Apply 005 using npm.cmd run db:migrate before npm.cmd run db:grant-runtime, then npm.cmd run db:check-permissions. Existing auth-table/database ownership still permits owner DDL/self-grants and blocks public runtime isolation. Generated test fixtures use maintenance-owned tables and restricted runtime roles. T02.1 applied 005 only to disposable test fixtures, not existing development schemas.
-
-GET /api/health/live is DB/session-free. GET /api/health/ready requires PostgreSQL and migration 005. Auth: GET /api/auth/session, POST /api/auth/login, POST /api/auth/logout. Protected business endpoints: GET /api/rfqs, GET /api/rfqs/:id, GET /api/rfq-rate-keys, POST /api/rfqs, POST /api/rfqs/:id/quote-versions and GET /api/quote-versions/:id. Business POST requires estimator role, Origin, X-CSRF-Token and UUID Idempotency-Key. RFQ and quote creation each have separate process-local 30-attempt/estimator/15-minute limits. Sales head reads only. On 429 retain key/body and retry later. RFQ POST allows 64 KiB; other JSON retains 4 KiB. All financial values stay decimal strings.
-
-T02.2 additionally exposes estimator-only GET/POST /api/rfq-extraction. POST requires Origin/CSRF and explicit source consent/synthetic attestation, permits 64 KiB JSON with 12000 source characters, and performs no database write. Five attempts/estimator/15 minutes and two in-flight calls per process are separate from manual saves. Errors retain manual entry; availability status indicates configuration only.
-
-## Optional Gemini local setup and review
-
-Keep the provider key exclusively in ignored root .env as AI_API_KEY. Obtain/use an unpaid project key locally; never put a key in React, a VITE_ variable, Git or chat. No billing activation is required or authorized. Optional nonsecret settings: AI_MODEL=gemini-3.5-flash-lite and AI_TIMEOUT_MS=20000 (1000-30000 allowed). Restart the API after changes. Missing/invalid AI configuration leaves manual RFQ entry available. The API uses pinned @google/genai 2.32.0 and Zod 4.6.7; it does not implicitly read SDK key aliases or fall back to another model.
-
-In New RFQ expand Extract from text with AI (optional). Paste only synthetic nonconfidential text, read the linked provider disclosure, confirm both checkboxes and extract. Inspect raw/normalized suggestions, source quotes/locations and the four verification labels. Use verified suggestions explicitly replaces form fields/parts; rejected fields and all internal rate keys remain empty. Correct/fill facts, choose real keys and confirm review before the existing save. Continue manually collapses the panel; provider failure never creates a fake suggestion or RFQ.
-
-Automatic mapping conservatively requires labeled lines and explicit Part:/Part number:/Item: sections. It checks complete values/tokens, correct part, supported units, exact decimal conversion and known contradictions. Generic prose or ambiguous dates/units may require manual correction; setup requires explicit per-batch wording. The full pasted source/evidence are transient; reviewed facts use existing RFQ/recovery storage. [Detailed verifier rules and limits](docs/decisions/0009-gemini-extraction.md).
-
-After privately configuring an unpaid key, npm.cmd run test:ai:live makes a genuine call using the tracked synthetic fixture and prints only success/failure metadata. Without a key it prints LIVE PROVIDER TEST NOT RUN. Regular test suites always mock provider calls. No actual provider call occurred in this checkpoint.
-
-## Test login locally
-
-Run the API and Vite commands above. Select Estimator, use its password from ignored .env, sign in and open RFQ-2611-014. Select pricing date 2026-11-02, margin 20 and quantities 90000/180000/270000; calculate/save. The saved baseline cost is 119.76 and price is 149.70. Refresh to retrieve the same saved version. Sales head can inspect it but cannot create. Start new calculation is an explicit new version/key; after uncertain failure, retry the same pending submission. The tab retains pending key/body across refresh/expiry in sessionStorage. No authoritative client pricing or fake business values.
-
-An incorrect password gives a generic error. Ten login requests per IP in 15 minutes trigger 429, including successful requests. Restarting the single API instance clears its process-local throttle; sessions remain in PostgreSQL.
-
-Automated local browser verification uses installed Chrome by default and starts an ephemeral same-origin API serving the built frontend. Each suite creates a new disposable local database with generated users and a restricted runtime role; neither uses development users or writes sessions to an existing database:
+For a local built frontend, stop the development API, change `APP_ORIGIN` to `http://127.0.0.1:3000`, retain `NODE_ENV=development`, and run:
 
 ```powershell
 npm.cmd run build
-npm.cmd run test:browser
-npm.cmd run test:browser:quotation
-npm.cmd run test:browser:rfq
-npm.cmd run test:browser:ai
-# If only Edge is installed:
-$env:BROWSER_CHANNEL = 'msedge'
-npm.cmd run test:browser
+npm.cmd start
 ```
 
-All four browser suites require the built frontend, local TEST_DATABASE_URL ending in _test and same-host maintenance credentials able to create disposable databases/roles. They migrate/seed only generated databases and remove fixtures afterward. Quotation smoke tests real API process restart/committed-response loss; manual intake tests correction/save and exact-key recovery. AI smoke tests consent, four verification labels, normalization, human correction, confirmed save and quota/manual fallback with an explicitly mocked provider. Screenshots go under ignored .tmp. Use Chrome or BROWSER_CHANNEL=msedge. Other integration tests use isolated dedicated _test fixtures. Production cookie checks simulate HTTPS through a trusted proxy; no deployed TLS claim.
+Render uses `npm ci --include=dev && npm run build` and `npm start`. Production requires HTTPS, verified PostgreSQL TLS and private runtime settings; it does not load `.env` or run migrations/seeds at startup. Maintenance/test/seed credentials are rejected in the production app environment. `/api/health/live` checks the process; `/api/health/ready` checks database access and migration 007.
 
-## Deterministic costing checkpoint
+## Testing and verification
 
-Milestone 5 adds a pure decimal.js engine, independent of HTTP, database and UI. Run `npm.cmd run test:costing` for the nine approved golden cases and financial boundaries. See [costing-engine.md](docs/costing-engine.md) for its input/output contract. Milestone 6 adds six snapshot tables and an internal service; Milestone 7 wraps it in authenticated HTTP and React with transactional submission-key receipts. Approved v0.2 formulas/goldens and migrations 001-003 remain unchanged. See [Milestone 7 handoff](docs/milestone-7-handoff.md), [ADR-0005](docs/decisions/0005-quotation-snapshots.md) and [ADR-0006](docs/decisions/0006-http-submission-idempotency.md).
-
-After migration 004, run npm.cmd run db:grant-runtime explicitly with maintenance credentials and npm.cmd run db:check-permissions. Do not migrate as runtime or change existing ownership. Keep MIGRATION_DATABASE_URL out of deployed runtime settings. No deployment is authorized in this milestone.
-
-## Milestone 8 preparation checks
-
-Node is pinned to the tested 24.20.0. Production requires certificate/hostname-verified PostgreSQL TLS; local development remains unchanged. Production skips .env auto-loading and rejects maintenance/test/seed credentials in its application environment. New configuration names are DATABASE_TLS_MODE, optional DATABASE_CA_CERT and maintenance-only CLOUD_DATABASE_NAME. Values/secrets must never be committed.
+Tests cover independent financial expectations, real restricted-PostgreSQL transactions, roles/CSRF/TLS, historical snapshots, concurrency, uncertain-save recovery, AI evidence, workbook limits and PDF confidentiality/layout. Browser suites exercise actual workflows; normal AI suites mock the provider rather than claim live connectivity.
 
 ```powershell
-npm.cmd test
-npm.cmd run test:db
 npm.cmd run check:api
+npm.cmd run test:costing
+npm.cmd test
+npm.cmd run test:db
 npm.cmd run build
 npm.cmd run test:production
-npm.cmd run test:browser
-npm.cmd run test:browser:quotation
+npm.cmd run test:browser:final
 ```
 
-TLS tests require OpenSSL on PATH and generate/delete ephemeral keys under ignored .tmp. Fresh-cloud tests additionally require the local maintenance/test bootstrap to create disposable databases and roles; they never transfer ownership of existing databases. The generated database is migrated/seeded and accessed through real restricted LOGIN credentials, then removed. Before/after checks preserve local ownership/public ACLs. Existing cost formulas, migrations 001-004 and goldens are unchanged.
+For database/browser tests, first create a dedicated local `forgequote_test` database and configure `TEST_DATABASE_URL` targeting it. Fixtures require maintenance permissions to create disposable schemas/roles and, in some suites, databases. Browser tests also need the built frontend and Chrome. Never target production.
 
-For a future approved fresh Neon database only: db:prepare-cloud and db:check-cloud-permissions are separate maintenance/preflight commands. They require explicit CLOUD_DATABASE_NAME and refuse preserved local targets. Do not run them as local ownership repair. See [deployment.md](docs/deployment.md) for SQL role creation, exact environment separation, Render settings and manual release gates. No account access or cloud setup occurred in this milestone.
+**Recorded passing results**, rather than newly executed results from this README edit:
 
-## Definition of complete
+| Evidence | Result |
+| --- | --- |
+| Latest diagnostics regression | 90/90 unit/config/parser/PDF tests; 24/24 focused DB/API/auth results; 47 syntax modules; build and production-startup test passed |
+| Full final-workflow regression | 137/137 PostgreSQL/API reported results; ten Chrome suites; build/startup passed |
+| Financial suite | 33/33, including nine independently specified golden scenarios |
 
-See `docs/requirements.md` and `tasks/T01-thin-slice.md`. This repo should progress through small reviewable commits, tests, and real deployed slices. Keep a working build throughout.
+Counts overlap and include parent tests; they must not be added into a unique-test total. Details are in the [final-workflow evidence](docs/final-requirements-handoff.md) and [Gemini diagnostics evidence](docs/gemini-diagnostics-handoff.md).
 
-## Excel RFQ intake (T02.3)
+The owner manually verified Render/Neon intake, historical rates, approval, issuance, PDFs and outcomes, and confirmed deployed/main commit `ea03010` on 6 November 2026. Those live observations are distinct from automated local results and do not establish an availability guarantee.
 
-In New RFQ, open Import Excel part list and download the synthetic example. Use the documented headers and plain General-format .xlsx cells, attest synthetic data, inspect worksheet/cell evidence, deliberately copy parts, fill gaps/select internal rate keys and confirm before saving. Excel never calls Gemini or saves automatically. Limits, precise supported template, numeric handling, security and known gaps: [T02.3 handoff](docs/t02-3-handoff.md). No migrations or deployment changes.
+## Architectural decisions
 
-Run `npm.cmd test`, `npm.cmd run test:db` and `npm.cmd run test:browser:xlsx`. The new browser/API import fixtures create and clean up disposable local databases, preserving existing development data. PDF intake is not implemented; customer quotation PDF generation is described below.
+- [Financial policy](docs/decisions/0002-financial-policy.md): explicit rounding, gross margin, setup allocation and approval assumptions.
+- [Effective-start rate history](docs/decisions/0003-rate-history.md) and [immutable snapshots](docs/decisions/0005-quotation-snapshots.md): preserve both master history and the actual saved calculation.
+- [Transactional idempotency](docs/decisions/0006-http-submission-idempotency.md): recover committed writes after lost responses.
+- [Gemini proposals and evidence](docs/decisions/0009-gemini-extraction.md): strict schema/source checks with human financial authority.
+- [Version-bound approval](docs/decisions/0014-approval-issuance.md) and [customer PDF allowlist](docs/decisions/0015-customer-quotation-pdf.md): bind decisions to exact prices and protect internal costs.
+- [Rate authoring, outcomes and internal reports](docs/decisions/0017-final-requirements.md): narrow append-only writes with explicit limitations.
 
+ADRs and handoffs preserve decisions at their original checkpoints; later accepted extensions supersede earlier scope restrictions.
 
-T04 adds version-specific approval and issuance (local verification complete; separate cloud migration/release required). Estimator submits a saved current version; values at/below INR 25,00,000 excluding GST clear automatically, higher values require Sales Head approval. Sales Head uses Pending approvals to inspect the exact immutable snapshot and approve/reject with a reason. Estimator then issues the eligible version; its stable number is saved in append-only history. New versions need their own clearance. Refresh lifecycle to observe another session's decisions; retry the same lifecycle action after an uncertain response. T05 adds the issued customer PDF download described below.
+## Limitations and data policy
 
-For the synthetic automatic-clearance demo, open RFQ-2611-014, use pricing date 2026-11-02, margin 20 and quantities 500/1000/1500 (50/100/150%). Save, then Submit for clearance and Issue quotation. The independently checked baseline excluding GST is INR 3,01,850.00. Start new calculation first if a saved submission is already present. This fixture is also created in the disposable T04 PostgreSQL/Chrome tests; no existing/cloud demo data was modified. Run npm run test:browser:lifecycle with the same local disposable database setup as other browser suites. Contracts/endpoints/migration implications: docs/t04-handoff.md and ADR-0014.
-
-
-T05 customer quotation PDF: after issuance, use Download customer PDF in the selected version's lifecycle panel. Both active demo roles can download the current issued version through GET /api/quote-versions/:id/pdf. The A4 attachment uses the saved customer/RFQ, exact issued number/date/version, all three quantity scenarios and saved selling/GST totals. Internal manufacturing costs, rates and margins are excluded. Unissued/rejected/superseded final downloads are denied; no draft preview is provided. PDF generation uses bundled licensed fonts and pure Node libraries, with no new environment variables or migration. Run npm run test:browser:pdf for the disposable local browser check. Contract, font coverage, limits and results: docs/t05-handoff.md and ADR-0015.
-
-
-T06 adds View rate catalogue for both demo roles: inspect all six rate categories, an as-of date and full effective-dated history with units/version IDs. The final-requirements continuation adds Sales Head version authoring on existing keys, with decimal-string validation, a reason, a forward-only Asia/Kolkata start date and exact-request recovery. Estimators retain read access; history cannot be overwritten or deleted. Migration 007 and reviewed narrow column grants are required before release.
-
-RFQ intake now has compact extracted/imported summaries, collapsible source evidence, missing-field lists and keyboard component navigation. Single-available-key suggestions stay unselected until Use suggested keys is pressed. Apply common rate keys to all parts copies part 1's six selected IDs with explicit overwrite wording. All changes clear final estimator review. Rate history opens in a new tab during editing; unsubmitted fields remain in the original form. Existing exact retry bodies/keys and backend validation remain unchanged. Run npm run test:browser:rates-ux for the focused disposable Chrome check; contracts/results/remaining policy: docs/t06-handoff.md and ADR-0016.
-
-Final requirements also add derived RFQ estimating/sent/won/lost status, assigned estimator and Sales Head terminal outcomes with immutable actor/reason history. Download INTERNAL costing PDF in any saved version for confidential saved costs/rates/margins, including historical versions. The customer PDF path retains its current-issued-only eligibility and confidential-field exclusions. Run `npm run test:browser:final`; see [final requirements handoff](docs/final-requirements-handoff.md) and [ADR-0017](docs/decisions/0017-final-requirements.md). This branch is local only; no deployment is performed.
+- **Synthetic data only.** Gemini input must be nonconfidential and contain no real personal data or NDA-covered drawings. Explicit synthetic-data attestation and processing consent are required; [ADR-0009](docs/decisions/0009-gemini-extraction.md) records the provider-policy review.
+- **AI remains fallible.** Literal evidence verification is not universal semantic correctness. Provider timeouts/quota failures remain possible; manual entry is the visible fallback. Unconfirmed source/evidence is transient.
+- **Bounded intake/manufacturing:** Pasted text and template-based `.xlsx`, not PDF/OCR or arbitrary workbooks; one operation per routing revision. Excel import is not historical quotation import.
+- **Narrow business policies:** No rate-key creation/backdating/cancellation, RFQ reassignment/reopening, customer portal, email dispatch or ERP integration. Won/lost outcomes are terminal.
+- **Demo operating scope:** Two shared accounts can read all synthetic records; throttles are process-local and recovery keys are tab-scoped. Render Free cold starts and provider quotas affect availability.
+- **PDF and tax scope:** Finite font/page/size limits; final customer PDFs require current issuance. Illustrative GST is not full tax compliance, and cross-cluster restore has not been rehearsed.
