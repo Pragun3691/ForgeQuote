@@ -1,3 +1,5 @@
+import RateKeyMatrix from './RateKeyMatrix.jsx';
+import Identifier from './Identifier.jsx';
 import React, { useEffect, useState } from 'react';
 import { api } from './api.js';
 import RfqExtraction from './RfqExtraction.jsx';
@@ -95,14 +97,14 @@ export default function RfqCreate({ session, onExpired, onCreated, onCancel }) {
   function startAnother() {
     try {sessionStorage.removeItem(key);setPending(null);setForm(emptyForm());setReviewed(false);setError('');setAiCycle(value=>value+1);} catch {setStorageError('Browser storage is unavailable. Reload to recover the saved RFQ.');}
   }
-  return <section className="panel costing-form" aria-labelledby="create-rfq-title">
+  return <section className="panel costing-form rfq-intake" aria-labelledby="create-rfq-title">
     <h2 id="create-rfq-title">Create manual RFQ</h2>
-    <p className="muted">Synthetic, nonconfidential demonstration data only. Owner: {session.user.username}. Status: open. Enter and review every part before saving.</p>
+    <p className="muted">Synthetic, nonconfidential data only. Prepared by {session.user.username}. Review every part before saving.</p>
     {pending?.phase!=='saved' && <><RfqDocumentImport key={`excel-${aiCycle}`} session={session} onExpired={onExpired} disabled={!!frozen || !!storageError || extracting} onApply={applyImport} onBusyChange={setImporting}/><RfqExtraction key={aiCycle} session={session} onExpired={onExpired} disabled={!!frozen || !!storageError || importing} onApply={applyExtraction} onBusyChange={setExtracting}/></>}
     {error && <div role="alert" className="error">{error}{!keys && <button type="button" onClick={()=>{setError('');setReload(value=>value+1);}}>Reload rate keys</button>}</div>}
     {storageError && <div role="alert" className="error">{storageError}</div>}
     {!keys && !error && <p role="status">Loading internal rate keys...</p>}
-    {pending && <p className="submission-note">RFQ submission key: <span className="identifier">{pending.submissionKey}</span></p>}
+    {pending && <p className="submission-note">RFQ submission key: <Identifier value={pending.submissionKey}/></p>}
     {pending && ['saving','uncertain'].includes(pending.phase) && <div role="status" className="notice">The previous save outcome may be unknown. Inputs are locked. Retry the same submission to recover it without creating a duplicate.</div>}
     {pending?.phase==='saved' ? <><div role="status" className="success">RFQ saved. <a href={`#rfq=${pending.rfqId}`}>Open saved RFQ</a></div><div className="actions"><button onClick={startAnother} disabled={!!storageError}>Create another RFQ</button><button className="secondary" onClick={onCancel}>Back to register</button></div></> :
     <form onSubmit={save}>
@@ -114,7 +116,7 @@ export default function RfqCreate({ session, onExpired, onCreated, onCancel }) {
           <label>Due date<input required type="date" value={form.dueDate} onChange={event=>change('dueDate',event.target.value)}/></label>
         </div>
         <section className="component-summary" aria-label="Component summary">
-          <h3>Components ({form.parts.length})</h3><p className="muted">Every field and internal key is required. Missing fields are listed below; final review remains required.</p>
+          <h3>Components ({form.parts.length})</h3><p className="muted">Complete the required fields and rate keys, then confirm your review.</p>
           <nav aria-label="Component navigation">{form.parts.map((part,index)=><button type="button" className="secondary component-jump" key={index} onClick={()=>goToPart(index)}>
             <strong>Go to part {index+1}: {part.partNumber || 'Unnamed'}</strong><span>{part.requestedAnnualQty || 'Missing'} units/year - {missingFields(part).length} missing</span>
           </button>)}</nav>
@@ -131,7 +133,7 @@ export default function RfqCreate({ session, onExpired, onCreated, onCancel }) {
             {[['partNumber','Part number',80],['description','Description',500]].map(([field,label,max])=><label key={field}>{label}<input required maxLength={max} value={part[field]} onChange={event=>partChange(index,field,event.target.value)}/></label>)}
             <label>Annual quantity<input required inputMode="numeric" pattern="[1-9][0-9]{0,9}" value={part.requestedAnnualQty} onChange={event=>partChange(index,'requestedAnnualQty',event.target.value)}/></label>
             {[['grossWeightKg','Gross weight (kg)'],['cycleTimeMin','Cycle time (minutes)'],['setupHoursPerBatch','Setup hours per batch']].map(([field,label])=><label key={field}>{label}<input required inputMode="decimal" pattern="(0|[1-9][0-9]{0,11})(\.[0-9]{1,6})?" value={part[field]} onChange={event=>partChange(index,field,event.target.value)}/></label>)}
-            {categories.map(category=><label key={category}>{category[0].toUpperCase()+category.slice(1)} rate key<select aria-label={`${category[0].toUpperCase()+category.slice(1)} rate key`} required value={part.rateKeys[category]} onChange={event=>partChange(index,'rateKeys',{...part.rateKeys,[category]:event.target.value})}>
+            {form.parts.length===1 && categories.map(category=><label key={category}>{category[0].toUpperCase()+category.slice(1)} rate key<select aria-label={`${category[0].toUpperCase()+category.slice(1)} rate key`} required value={part.rateKeys[category]} onChange={event=>partChange(index,'rateKeys',{...part.rateKeys,[category]:event.target.value})}>
               <option value="">Select {category}</option>{keys?.filter(rate=>rate.category===category).map(rate=><option key={rate.id} value={rate.id}>{rate.code} ({rate.unit})</option>)}
             </select>{keys && !keys.some(rate=>rate.category===category) && <span className="error">No internal {category} keys available. Contact maintenance.</span>}
               {part.rateKeys[category] && keys?.find(k=>k.id===part.rateKeys[category] && k.category===category)?.currentVersion===null && <span className="field-warning">No effective {category} rate on {keysAsOf}. Inspect history and select a supported pricing date before costing.</span>}
@@ -141,8 +143,9 @@ export default function RfqCreate({ session, onExpired, onCreated, onCancel }) {
             <button type="button" className="secondary" onClick={()=>useSuggested(index)}>Use suggested keys for part {index+1}</button></div>}
           {form.parts.length>1 && <button type="button" className="secondary" onClick={()=>change('parts',form.parts.filter((_,i)=>i!==index))}>Remove part {index+1}</button>}
         </fieldset>)}
+        {form.parts.length>1 && keys && <RateKeyMatrix parts={form.parts} rateKeys={keys} asOf={keysAsOf} onChange={partChange}/>}
         <div className="actions"><button type="button" className="secondary" disabled={form.parts.length>=20} onClick={()=>change('parts',[...form.parts,newPart()])}>Add part</button></div>
-        <p className="muted">Maximum 20 parts. Gross weight and cycle time must be positive; setup hours may be zero. Quantities: 1–1,000,000,000. Decimals: up to six places. Rate values are resolved later at the quotation pricing date; a missing historical rate will be an error.</p>
+        <details><summary>Input limits and rate resolution</summary><p className="muted">Maximum 20 parts. Gross weight and cycle time must be positive; setup hours may be zero. Quantities: 1–1,000,000,000. Decimals: up to six places. Rate values are resolved later at the quotation pricing date; a missing historical rate will be an error.</p></details>
         <label className="review-confirm"><input type="checkbox" required checked={reviewed} onChange={event=>setReviewed(event.target.checked)}/>I reviewed the RFQ and all {form.parts.length} part(s), including quantities and internal rate keys.</label>
       </fieldset>
       <div className="actions"><button type="submit" disabled={saving || extracting || importing || !!storageError || !keys || (!frozen && !reviewed)}>{saving?'Saving RFQ...':frozen?'Retry same RFQ submission':'Save RFQ'}</button><button type="button" className="secondary" onClick={onCancel} disabled={saving || extracting || importing}>Back to register</button></div>

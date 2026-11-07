@@ -1,3 +1,4 @@
+import {timestamp} from './format.js';
 import React,{useState} from 'react';
 import {api} from './api.js';
 
@@ -48,15 +49,14 @@ export function RateAuthor({data,session,onExpired,onSaved}) {
 export function RfqOutcome({rfq,session,onExpired,onSaved}) {
   const [reason,setReason]=useState('');
   const state=useRecordedAction(`forgequote:rfq-outcome:${session.user.id}:${rfq.id}`,session,onExpired,onSaved);
-  return <section className="panel lifecycle"><h2>RFQ outcome</h2><p role="status">RFQ status: <strong>{rfq.status}</strong></p>
-    <p>Assigned estimator: {rfq.assignedEstimator}</p><Feedback state={state}/>
+  const hasAction=session.user.role==='sales_head' && (state.pending || rfq.status==='sent');
+  if(!hasAction && !rfq.outcomes.length && !state.error && !state.notice) return null;
+  return <section className="outcome-strip"><h2>RFQ outcome</h2><Feedback state={state}/>
     {session.user.role==='sales_head' && (state.pending?<><p>Retry the saved outcome before another action.</p><button disabled={state.busy || state.blocked} onClick={()=>state.save()}>Retry same outcome request</button></>:rfq.status==='sent'?<fieldset disabled={state.busy || state.blocked}>
       <p>Won and lost are terminal outcomes.</p><button onClick={()=>state.save(`/rfqs/${rfq.id}/outcomes`,{outcome:'won'})}>Mark RFQ won</button>
       <label>Lost reason<textarea maxLength={1000} value={reason} onChange={e=>setReason(e.target.value)}/></label>
-      <button disabled={!reason.trim()} onClick={()=>state.save(`/rfqs/${rfq.id}/outcomes`,{outcome:'lost',reason})}>Mark RFQ lost</button>
+      <button className="secondary danger" disabled={!reason.trim()} onClick={()=>state.save(`/rfqs/${rfq.id}/outcomes`,{outcome:'lost',reason})}>Mark RFQ lost</button>
     </fieldset>:null)}
-    {rfq.status==='estimating' && <p>Sent is recorded automatically when a quotation is actually issued.</p>}
-    <ol aria-label="RFQ outcome history">{rfq.outcomes.map(o=><li key={o.outcome}>{o.outcome} - {o.actor} - {o.occurredAt}{o.reason?` - ${o.reason}`:''}</li>)}</ol>
-    <button className="secondary" onClick={onSaved}>Refresh RFQ status</button>
+    {!!rfq.outcomes.length && <ol className="event-ledger" aria-label="RFQ outcome history">{rfq.outcomes.map(o=><li key={o.outcome}>{o.outcome} - {o.actor} - {timestamp(o.occurredAt)}{o.reason?` - ${o.reason}`:''}</li>)}</ol>}
   </section>;
 }

@@ -6,6 +6,9 @@ import Workspace from './Workspace.jsx';
 
 function App() {
   const [session, setSession] = useState(null);
+  const [editingIntake, setEditingIntake] = useState(false);
+  const [hash, setHash] = useState(window.location.hash);
+  useEffect(() => {const changed=()=>setHash(window.location.hash);window.addEventListener('hashchange',changed);return ()=>window.removeEventListener('hashchange',changed);}, []);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -51,8 +54,13 @@ function App() {
     try {setSession(await api('/auth/session'));} catch {setError('Your session could not be refreshed. Check the connection and reload.');}
   }
 
-  return <><header className="topbar"><a className="brand" href="#"><span className="brand-mark">FQ</span><span>ForgeQuote<small>Manufacturing quotations</small></span></a>{session?.user && <div className="identity"><h2>Signed in as {session.user.username}</h2><button className="secondary" onClick={logout} disabled={busy}>{busy?'Signing out...':'Sign out'}</button></div>}</header>
-    {session?.user && <>{error && <p role="alert" className="error auth-error">{error}</p>}<Workspace session={session} onExpired={expired}/></>}
+  const brand=<a className="brand" href="#"><span className="brand-mark">FQ</span><span>ForgeQuote<small>Manufacturing quotations</small></span></a>;
+  return <>
+    {session?.user ? <div className="authenticated-shell"><aside className="sidebar">
+      {brand}<p className="nav-caption">Workspace</p>
+      <nav className="app-nav" aria-label="Workspace navigation"><a href="#" aria-current={!hash.includes('view=rates') && hash!=='#approvals' ? 'page' : undefined}>RFQs</a>{session.user.role === 'sales_head' && <a href="#approvals" aria-current={hash==='#approvals' ? 'page' : undefined}>Approvals</a>}<a href="#view=rates" aria-current={hash.includes('view=rates') ? 'page' : undefined} target={editingIntake ? '_blank' : undefined} rel="noreferrer">Rate catalogue</a></nav>
+      <div className="sidebar-footer"><p className="demo-note">Synthetic demo<span>Nonconfidential data only</span></p><div className="identity"><h2>Signed in as {session.user.username}</h2><span className="role-label">{session.user.role === 'sales_head' ? 'Sales Head' : 'Estimator'}</span><button className="secondary" onClick={logout} disabled={busy}>{busy?'Signing out...':'Sign out'}</button></div></div>
+    </aside><div className="app-content">{error && <p role="alert" className="error auth-error">{error}</p>}<Workspace session={session} onExpired={expired} onEditingChange={setEditingIntake}/></div></div> : <header className="topbar">{brand}<span className="muted">Synthetic demo</span></header>}
     {!session?.user && <main className="login-panel">
     <p className="eyebrow">Synthetic demo · Secure workspace</p><h1>RFQ to quotation</h1>
     {loading && <p role="status">Loading your session...</p>}

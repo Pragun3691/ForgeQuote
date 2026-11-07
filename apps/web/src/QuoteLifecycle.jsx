@@ -1,4 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import {money, timestamp} from './format.js';
+import Identifier from './Identifier.jsx';
+import ScrollTable from './ScrollTable.jsx';
+import IssueConfirmation from './IssueConfirmation.jsx';
+import React, { useEffect, useRef, useState } from 'react';
 import { api } from './api.js';
 
 export function PendingApprovals({onExpired}) {
@@ -10,18 +14,20 @@ export function PendingApprovals({onExpired}) {
     });
     return ()=>controller.abort();
   },[reload]);
-  return <section className="panel lifecycle"><h2>Pending approvals</h2>
-    <button className="secondary" onClick={()=>setReload(n=>n+1)}>Refresh pending approvals</button>
+  return <section id="approvals" className="approval-section"><div className="section-heading"><div><p className="eyebrow">Sales Head review</p><h2>Pending approvals</h2></div>
+    <button className="secondary" onClick={()=>setReload(n=>n+1)}>Refresh pending approvals</button></div>
     {error && <p role="alert" className="error">{error}</p>}
     {!versions && !error && <p role="status">Loading pending approvals...</p>}
     {versions?.length===0 && <p>No quotations pending review.</p>}
-    {versions?.map(v=><p key={v.versionId}><a href={`#${new URLSearchParams({rfq:v.rfqId,version:v.versionId})}`}>{v.rfq.reference} · Version {v.versionNumber} · INR {v.annualValueExGst} excluding GST</a></p>)}
+    {!!versions?.length && <ScrollTable label="Pending approvals" className="panel"><table aria-label="Pending approvals"><thead><tr><th>RFQ / customer</th><th>Version</th><th className="numeric">Saved annual value · ex-GST</th><th>Review</th></tr></thead><tbody>{versions.map(v=><tr key={v.versionId}><th scope="row">{v.rfq.reference}<span className="subtext">{v.rfq.customer_name}</span></th><td>Version {v.versionNumber}</td><td className="numeric">{money(v.annualValueExGst)}</td><td><a className="review-link" aria-label={`${v.rfq.reference} · Version ${v.versionNumber} · Review quotation`} href={`#${new URLSearchParams({rfq:v.rfqId,version:v.versionId})}`}>Review quotation</a></td></tr>)}</tbody></table></ScrollTable>}
   </section>;
 }
 
 export default function QuoteLifecycle({snapshot,session,onExpired}) {
   const [state,setState]=useState(null),[error,setError]=useState(''),[reason,setReason]=useState('');
   const [downloading,setDownloading]=useState(false);
+  const [confirming,setConfirming]=useState(false);
+  const issuanceInFlight=useRef(false);
   const [busy,setBusy]=useState(false),[reload,setReload]=useState(0),[pending,setPending]=useState(null),[blocked,setBlocked]=useState(false);
   const storageKey=`forgequote:lifecycle:${session.user.id}:${snapshot.versionId}`;
   useEffect(()=>{
@@ -70,24 +76,27 @@ export default function QuoteLifecycle({snapshot,session,onExpired}) {
     finally {setDownloading(false);}
   }
   const estimator=session.user.role==='estimator';
+  const canIssue=estimator && state?.status==='approved' && !state.stale && !busy && !blocked && !pending;
+  useEffect(()=>{if(confirming && !canIssue)setConfirming(false);},[confirming,canIssue]);
   return <section className="panel lifecycle" aria-label="Quotation lifecycle"><h2>Approval and issuance · Version {snapshot.versionNumber}</h2>
     {error && <p role="alert" className="error">{error}</p>}
     <button className="secondary" disabled={busy} onClick={()=>setReload(n=>n+1)}>Refresh lifecycle</button>
     {!state && <p role="status">Loading lifecycle...</p>}
-    {state && <><p role="status">Quotation status: <strong>{state.status}</strong>{state.stale?' · Superseded by a newer version':''}</p>
+    {state && <><p role="status">Quotation status: <strong className={`badge status-${state.status}`}>{state.status}</strong>{state.stale?' · Superseded by a newer version':''}</p>
       <p>{state.approvalRequired?'Sales Head approval required: saved annual value is above INR 25,00,000 excluding GST.':'Automatic clearance: saved annual value is at or below INR 25,00,000 excluding GST.'}</p>
-      {state.quotationNumber && <p>Quotation number: <strong>{state.quotationNumber}</strong></p>}
+      {state.quotationNumber && <p>Quotation number: <Identifier value={state.quotationNumber}/></p>}
       <p><button className="secondary" disabled={downloading} onClick={()=>downloadPdf(true)}>Download INTERNAL costing PDF</button></p>
       {state.status==='issued' && !state.stale && <p><button disabled={downloading} onClick={()=>downloadPdf()}>{downloading?'Preparing PDF...':'Download customer PDF'}</button></p>}
       <fieldset disabled={busy || blocked}>
         {pending ? <><p>Previous {pending.action} outcome may be uncertain. Retry the same request before another action.</p><button onClick={()=>act(pending.action)}>Retry same lifecycle action</button></> : !state.stale && <>
           {estimator && state.status==='draft' && <button onClick={()=>act('submit')}>Submit for clearance</button>}
-          {estimator && state.status==='approved' && <button onClick={()=>act('issue')}>Issue quotation</button>}
-          {!estimator && state.status==='pending' && <><button onClick={()=>act('approve')}>Approve version</button><label>Rejection reason<textarea maxLength={1000} value={reason} onChange={e=>setReason(e.target.value)}/></label><button disabled={!reason.trim()} onClick={()=>act('reject')}>Reject version</button></>}
+          {estimator && state.status==='approved' && <button onClick={()=>setConfirming(true)}>Issue quotation</button>}
+          {!estimator && state.status==='pending' && <><button onClick={()=>act('approve')}>Approve version</button><label>Rejection reason<textarea maxLength={1000} value={reason} onChange={e=>setReason(e.target.value)}/></label><button className="secondary danger" disabled={!reason.trim()} onClick={()=>act('reject')}>Reject version</button></>}
         </>}
       </fieldset>
       {state.status==='rejected' && <p>Create and submit a new quotation version to request another review.</p>}
-      <ol aria-label="Lifecycle event history">{state.events.map(e=><li key={e.position}>{e.eventType} · {e.occurredAt} · Actor {e.actorId}{e.reason?` · ${e.reason}`:''}</li>)}</ol>
+      <ol className="event-ledger" aria-label="Lifecycle event history">{state.events.map(e=><li key={e.position}><strong>{e.eventType.replaceAll('_',' ')}</strong><time dateTime={e.occurredAt}>{timestamp(e.occurredAt)}</time><span>Actor <Identifier value={e.actorId}/></span>{e.reason && <p>{e.reason}</p>}</li>)}</ol>
     </>}
+    {confirming && canIssue && <IssueConfirmation snapshot={snapshot} onCancel={()=>setConfirming(false)} onConfirm={()=>{if(canIssue && !issuanceInFlight.current){issuanceInFlight.current=true;setConfirming(false);act('issue').finally(()=>{issuanceInFlight.current=false;});}}}/>}
   </section>;
 }

@@ -1,3 +1,4 @@
+import {rateControls} from './helpers/rate-key-controls.js';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
@@ -34,7 +35,7 @@ try {
   async function fillPart(index,number) {
     const part=page.getByRole('group',{name:`Part ${index}`,exact:true});
     for(const [label,value] of [['Part number',number],['Description','Synthetic demo spindle'],['Annual quantity','180000'],['Gross weight (kg)','0.61'],['Cycle time (minutes)','3.2'],['Setup hours per batch','12']]) await part.getByLabel(label,{exact:true}).fill(value);
-    for(const [i,category] of ['Material','Machine','Scrap','Overhead','Packaging','Freight'].entries()) await part.getByLabel(`${category} rate key`,{exact:true}).selectOption(fixtureId(i+1));
+    for(const [i,category] of ['Material','Machine','Scrap','Overhead','Packaging','Freight'].entries()) await rateControls(page,index).getByLabel(`${category} rate key`,{exact:true}).selectOption(fixtureId(i+1));
   }
   async function fillHeader(reference) {
     await page.getByLabel('RFQ reference',{exact:true}).fill(reference);

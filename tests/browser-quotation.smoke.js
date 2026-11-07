@@ -88,6 +88,7 @@ try {
   assert.ok((await breakdown.innerText()).includes('90,000'));assert.ok((await breakdown.innerText()).includes('2,70,000'));
   await page.getByText('Selected rates & provenance',{exact:true}).click();
   await page.getByRole('table',{name:'Rate provenance'}).waitFor();
+  await page.getByRole('table',{name:'Rate provenance'}).getByTitle(fixtureId(11),{exact:true}).click();
   assert.ok((await page.getByRole('table',{name:'Rate provenance'}).innerText()).includes(fixtureId(11)));
   assert.ok((await page.getByRole('table',{name:'Annual quotation totals'}).innerText()).includes('₹3,17,96,280.00'));
   await mkdir(new URL('../.tmp/',import.meta.url),{recursive:true});

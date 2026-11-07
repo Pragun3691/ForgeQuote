@@ -1,3 +1,4 @@
+import {rateControls} from './helpers/rate-key-controls.js';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
@@ -36,19 +37,39 @@ try {
   }
   async function rateKeys(index) {
     const part=page.getByRole('group',{name:`Part ${index}`,exact:true});
-    for(const [i,category] of ['Material','Machine','Scrap','Overhead','Packaging','Freight'].entries()) await part.getByLabel(`${category} rate key`,{exact:true}).selectOption(fixtureId(i+1));
+    for(const [i,category] of ['Material','Machine','Scrap','Overhead','Packaging','Freight'].entries()) await rateControls(page,index).getByLabel(`${category} rate key`,{exact:true}).selectOption(fixtureId(i+1));
   }
   await aiToggle().click();await source().fill(syntheticSource);
   assert.equal(await extract().isDisabled(),true);assert.equal(calls,0);
   await consent();await extract().click();await page.getByRole('status').filter({hasText:'Extracting with Gemini'}).waitFor();
   await page.getByRole('region',{name:'Extraction review'}).waitFor();assert.equal(calls,1);
+  // Editing an already-reviewed source clears stale evidence and both consents.
+  const reviewedSource=syntheticSource+'\n';await source().fill(reviewedSource);
+  assert.equal(await page.getByRole('region',{name:'Extraction review'}).count(),0);
+  assert.equal(await page.getByRole('checkbox',{name:/I confirm this text is entirely synthetic/}).isChecked(),false);
+  assert.equal(await page.getByRole('checkbox',{name:/I consent to sending this text/}).isChecked(),false);
+  assert.equal(await extract().isDisabled(),true);
+  await consent();await extract().click();await page.getByRole('region',{name:'Extraction review'}).waitFor();assert.equal(calls,2);
   assert.equal((await db.owner.query('SELECT count(*) FROM rfq_submissions')).rows[0].count,'0');
   await page.getByRole('region',{name:'Extracted component summary',exact:true}).waitFor();
   assert.equal(await page.locator('.evidence-section[open]').count(),0);
   for(const summary of await page.locator('.evidence-section > summary').all())await summary.click();
+  const original=page.getByRole('region',{name:'Original submitted source',exact:true});
+  assert.equal(await original.getByLabel('Original source text',{exact:true}).textContent(),reviewedSource);
+  const sourceButton=page.getByRole('button',{name:'View source for Gross weight (kg), evidence 1',exact:true}).first();
+  await sourceButton.click();assert.equal(await original.locator('mark').textContent(),'Gross weight: 610 g');
+  assert.equal(await original.getByLabel('Original source text',{exact:true}).evaluate(el=>el===document.activeElement),true);
+  await original.getByRole('button',{name:'Return to field',exact:true}).click();assert.equal(await sourceButton.evaluate(el=>el===document.activeElement),true);
+  await page.getByText('Source highlight unavailable; review this quote manually.',{exact:true}).first().waitFor();
+  await mkdir('.tmp/tier2',{recursive:true});
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:`.tmp/tier2/evidence-${width}.png`,fullPage:true});await sourceButton.click();await page.waitForFunction(()=>{
+    const region=document.querySelector('.evidence-source'),head=region.querySelector('h4').getBoundingClientRect(),mark=region.querySelector('mark').getBoundingClientRect();
+    const top=innerWidth<=900?document.querySelector('.sidebar').getBoundingClientRect().bottom:0;
+    return head.top>=top && mark.top>=top && mark.bottom<=innerHeight;
+  });await page.screenshot({path:`.tmp/tier2/evidence-source-${width}.png`});}
   const second=page.getByRole('region',{name:'Suggested part 2',exact:true});await second.getByText('missing',{exact:true}).waitFor();
   await second.getByText('ambiguous',{exact:true}).waitFor();await second.getByText('unsupported',{exact:true}).waitFor();
-  await page.getByText('Gross weight: 610 g',{exact:true}).waitFor();
+  await page.getByRole('region',{name:'Suggested part 1',exact:true}).getByText('Gross weight: 610 g',{exact:true}).waitFor();
   await mkdir(new URL('../.tmp/',import.meta.url),{recursive:true});
   await page.getByRole('region',{name:'Extraction review'}).evaluate(element=>element.scrollIntoView({block:'start'}));
   await page.screenshot({path:'.tmp/t02-ai-review-desktop.png'});
@@ -61,7 +82,7 @@ try {
   assert.equal(await part1.getByLabel('Cycle time (minutes)',{exact:true}).inputValue(),'3.2');
   assert.equal(await part2.getByLabel('Setup hours per batch',{exact:true}).inputValue(),'');
   assert.equal(await part2.getByLabel('Cycle time (minutes)',{exact:true}).inputValue(),'');assert.equal(await part2.getByLabel('Annual quantity',{exact:true}).inputValue(),'');
-  assert.equal(await part1.getByLabel('Material rate key',{exact:true}).inputValue(),'');assert.equal(await review().isChecked(),false);
+  assert.equal(await rateControls(page,1).getByLabel('Material rate key',{exact:true}).inputValue(),'');assert.equal(await review().isChecked(),false);
   await page.getByLabel('Customer name',{exact:true}).fill('Synthetic AI Human Correction');
   await part2.getByLabel('Setup hours per batch',{exact:true}).fill('24');await part2.getByLabel('Cycle time (minutes)',{exact:true}).fill('11.5');await rateKeys(1);await rateKeys(2);
   await review().check();await part2.getByLabel('Annual quantity',{exact:true}).fill('30000');assert.equal(await review().isChecked(),false);await review().check();
@@ -71,14 +92,18 @@ try {
   const facts=(await db.owner.query("SELECT r.customer_name,p.part_number,p.requested_annual_qty FROM rfqs r JOIN rfq_parts p ON p.rfq_id=r.id WHERE r.reference='SYNTH-AI-001' ORDER BY p.part_number")).rows;
   assert.deepEqual(facts,[{customer_name:'Synthetic AI Human Correction',part_number:'ARM-B',requested_annual_qty:'30000'},{customer_name:'Synthetic AI Human Correction',part_number:'SPINDLE-A',requested_annual_qty:'180000'}]);
   await page.getByRole('link',{name:/RFQ register/}).click();await page.getByRole('button',{name:'New RFQ',exact:true}).click();await page.getByRole('button',{name:'Create another RFQ',exact:true}).click();
-  mode='quota';await aiToggle().click();await source().fill(syntheticSource);await consent();await extract().click();
+  mode='quota';await aiToggle().click();await source().fill(syntheticSource);
+  assert.equal(await original.count(),0);
+  assert.equal(await page.getByRole('checkbox',{name:/I confirm this text is entirely synthetic/}).isChecked(),false);
+  assert.equal(await page.getByRole('checkbox',{name:/I consent to sending this text/}).isChecked(),false);
+  await consent();await extract().click();
   await page.getByRole('alert').filter({hasText:'Gemini quota or rate limit reached'}).waitFor();
   assert.equal((await db.owner.query('SELECT count(*) FROM rfq_submissions')).rows[0].count,'1');
   await page.getByRole('button',{name:'Continue manually',exact:true}).click();
   await page.getByLabel('RFQ reference',{exact:true}).fill('RFQ-AI-MANUAL-FALLBACK');await page.getByLabel('Customer name',{exact:true}).fill('Synthetic Fallback Customer');await page.getByLabel('Due date',{exact:true}).fill('2026-11-07');
   for(const [label,value] of [['Part number','FALLBACK-A'],['Description','Synthetic manual fallback'],['Gross weight (kg)','0.61'],['Annual quantity','180000'],['Cycle time (minutes)','3.2'],['Setup hours per batch','12']]) await page.getByRole('group',{name:'Part 1',exact:true}).getByLabel(label,{exact:true}).fill(value);
   await rateKeys(1);await review().check();await page.getByRole('button',{name:'Save RFQ',exact:true}).click();
-  await page.getByRole('row').filter({hasText:'RFQ-AI-MANUAL-FALLBACK'}).waitFor();assert.equal(calls,2);
+  await page.getByRole('row').filter({hasText:'RFQ-AI-MANUAL-FALLBACK'}).waitFor();assert.equal(calls,3);
   assert.equal((await db.owner.query('SELECT count(*) FROM rfq_submissions')).rows[0].count,'2');assert.deepEqual(errors,[]);
   console.log('PASS: real Chrome + PostgreSQL with MOCKED Gemini: explicit consent, multi-part evidence review, exact normalization, missing-field completion, human correction, manual key selection, confirmed register save, provider quota failure/manual fallback and mobile layout. LIVE CONNECTIVITY NOT TESTED.');
 } finally {if(browser) await browser.close();app?.locals.sessionStore.close();await new Promise(resolve=>server.close(resolve));await db.close();}

@@ -1,3 +1,4 @@
+import {rateControls} from './helpers/rate-key-controls.js';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
@@ -37,10 +38,10 @@ try {
     const part=page.getByRole('group',{name:`Part ${i+1}`,exact:true});
     for(const [j,label] of ['Part number','Description','Gross weight (kg)','Annual quantity'].entries())assert.equal(await part.getByLabel(label,{exact:true}).inputValue(),values[j]);
     for(const label of ['Cycle time (minutes)','Setup hours per batch'])assert.equal(await part.getByLabel(label,{exact:true}).inputValue(),'');
-    for(const category of ['Material','Machine','Scrap','Overhead','Packaging','Freight'])assert.equal(await part.getByLabel(`${category} rate key`,{exact:true}).inputValue(),'');
+    for(const category of ['Material','Machine','Scrap','Overhead','Packaging','Freight'])assert.equal(await rateControls(page,i+1).getByLabel(`${category} rate key`,{exact:true}).inputValue(),'');
   }
   const reviewed=page.getByRole('checkbox',{name:/I reviewed the RFQ and all/});assert.equal(await reviewed.isChecked(),false);assert.equal(await page.getByRole('button',{name:'Save RFQ',exact:true}).isDisabled(),true);
-  for(let i=0;i<2;i++){const part=page.getByRole('group',{name:`Part ${i+1}`,exact:true});await part.getByLabel('Cycle time (minutes)',{exact:true}).fill(i?'11.5':'3.2');await part.getByLabel('Setup hours per batch',{exact:true}).fill(i?'24':'12');for(const [j,category] of ['Material','Machine','Scrap','Overhead','Packaging','Freight'].entries())await part.getByLabel(`${category} rate key`,{exact:true}).selectOption(fixtureId(j+1));}
+  for(let i=0;i<2;i++){const part=page.getByRole('group',{name:`Part ${i+1}`,exact:true});await part.getByLabel('Cycle time (minutes)',{exact:true}).fill(i?'11.5':'3.2');await part.getByLabel('Setup hours per batch',{exact:true}).fill(i?'24':'12');for(const [j,category] of ['Material','Machine','Scrap','Overhead','Packaging','Freight'].entries())await rateControls(page,i+1).getByLabel(`${category} rate key`,{exact:true}).selectOption(fixtureId(j+1));}
   await reviewed.check();await page.getByRole('button',{name:'Save RFQ',exact:true}).click();await page.getByRole('row').filter({hasText:'SYNTH-NUMBERED-001'}).waitFor();
   const facts=(await db.owner.query("SELECT p.part_number,p.gross_weight_kg,p.requested_annual_qty FROM rfq_parts p JOIN rfqs r ON r.id=p.rfq_id WHERE r.reference='SYNTH-NUMBERED-001' ORDER BY p.part_number")).rows;
   assert.deepEqual(facts,[{part_number:'BR-202',gross_weight_kg:'1.250000',requested_annual_qty:'24000'},{part_number:'SP-101',gross_weight_kg:'0.610000',requested_annual_qty:'180000'}]);assert.deepEqual(errors,[]);

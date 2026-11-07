@@ -25,7 +25,7 @@ export default function RfqDocumentImport({session,onExpired,disabled,onBusyChan
   return <details className="ai-intake" ref={panel}><summary>Import Excel part list (optional)</summary><div className="ai-content">
     <h3>Review an Excel part list</h3>
     <p>Only synthetic, nonconfidential .xlsx documents, up to 2 MiB and 20 parts. Excel import is deterministic and does not send data to Gemini. File contents and cell evidence are not persisted.</p>
-    <p>Use one populated visible worksheet. Row 1 headers: <strong>Part number, Description, Gross weight (kg), Annual quantity</strong>. Optional: Material, Cycle time (min), Setup hours per batch. No formulas, merged/hidden data or formatted numbers. RFQ reference, customer and due date stay manual.</p>
+    <details><summary>Excel template requirements</summary><p>Use one populated visible worksheet. Row 1 headers: <strong>Part number, Description, Gross weight (kg), Annual quantity</strong>. Optional: Material, Cycle time (min), Setup hours per batch. No formulas, merged/hidden data or formatted numbers. RFQ reference, customer and due date stay manual.</p></details>
     <p><a href="/synthetic-rfq.xlsx" download>Download synthetic Excel example</a></p>
     <fieldset disabled={disabled||busy}><legend className="sr-only">Excel source</legend>
       <label>Synthetic Excel RFQ<input type="file" accept=".xlsx" onChange={e=>{setFile(e.target.files?.[0]||null);setSynthetic(false);setResult(null);setError('');setNotice('');}}/></label>

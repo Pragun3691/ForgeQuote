@@ -1,5 +1,45 @@
 # Learning log — fill during the build
 
+## 2026-11-08 - Final UI commit gate
+
+- Owner approval to commit is separate from visual approval and remote release. Run the ten existing browser workflows on the final code plus the new version-race/focused UI checks, full unit/costing/PostgreSQL tests, build/startup and syntax checks before staging the approved change set.
+- Review an explicit source/docs/test manifest rather than adding the entire worktree. Scan staged content as well as paths; distinguish a documented mocked-provider placeholder from an actual credential. Keep screenshots, review patches, private submission drafts and environment files ignored/local. Preserve all financial goldens and existing backend/package/README content.
+
+## 2026-11-08 - Final selected-version consistency
+
+- A hash-only change within the same RFQ does not remount its workspace. Fetching the new quote alone leaves the RFQ's version list stale if another actor appended that version after the initial RFQ read. The reported Version 1/Version 2 screenshot was a real metadata bug, while all its financial panels correctly belonged to version 2.
+- Refresh navigation metadata separately from form initialization: adding the selected version to the original RFQ effect would reset estimator inputs/recovered bodies. Validate the selected snapshot/list together, reject late responses and render saved panels only when the snapshot ID matches the current target.
+- Test the actual rendered selector against panel identities. location.hash changes before hashchange is delivered; URL/ready-state assertions are separate from cross-panel render consistency. Deliberately delayed metadata/snapshot/lifecycle replies expose races that immediate local responses conceal.
+
+## 2026-11-08 - Tier 2 review controls
+
+- A matrix should remain a view of form.parts[].rateKeys, not a second assignment model. Six native required selects per part reuse the existing change/review-reset handlers. A 20-part test counts 120 controls and proves deleting a middle part retains the surviving assignments. Wait for catalogue loading before presenting missing-key warnings.
+- Verify evidence offset conventions against the real verifier. It uses JavaScript UTF-16 offsets, end exclusive; a prefix containing an emoji, variation selector, accented text and CRLF occupies ten code units. Browser slice matches every genuine returned quote. Invalid/null/unscoped/mismatched ranges do not trigger fuzzy searches or highlights.
+- Keep the exact submitted source in transient state and clear stale review/highlights when it changes. The edit-and-reconsent test exposed a wrapping textarea label that included its text value; explicit htmlFor/id association preserves its stable accessible name. Both consent boxes reset and applying verified fields still requires final estimator review.
+- A Sales Head summary must read snapshot input/routing/tiers rather than the disabled form's defaults. The browser test distinguishes a saved 1,000-unit baseline from the RFQ's 180,000-unit facts while retaining direct server-side write denial.
+- Opening a confirmation is not business intent to issue: do not allocate a recovery key or POST until Confirm. React busy state alone cannot prevent two events in the same batch; a synchronous ref gate prevents a second fresh request. Existing same-key recovery remains independent of the modal.
+- Native dialog modality makes background content inert, but explicit forward/reverse button wrapping was needed for the strict keyboard test. Cancel/Escape restore focus; navigation discards only the unopened issuance intent. Server eligibility/approval remains authoritative.
+- Independent browser gates precede each next slice. Expanded regression tests found duplicate-confirm, focus-wrap and source-label problems; fix these without weakening financial, consent, recovery or identity assertions. Proportional charts remain deferred.
+
+## 2026-11-08 - Owner-requested Tier 1 visual refinement
+
+- Passing workflow tests does not mean the owner has accepted a visual design. Preserve the first screenshot set and distinguish approved implementation scope/palette from visual approval in the handoff.
+- A structured pending table can use only the existing snapshot reference/customer, version and saved baseline. Do not invent submission dates or join every lifecycle merely to enrich presentation.
+- Remove duplicated state by keeping RFQ status/assignment in one title block while preserving outcome decisions, recovery, errors and terminal history. Relocate the existing form/components without reconstructing their request state.
+- Decimal precision and display length are separate concerns: strip only trailing fractional zeros with string operations for rates; expose the exact original value in history; retain monetary paise and every significant digit. Large-value, zero and six-place tests guard this boundary.
+- A scroll hint should correspond to actual overflow and remaining direction. ResizeObserver plus a labelled focusable region allows keyboard navigation; sticky mobile RFQ references preserve row context. Put the rate value next to its key before secondary columns on mobile.
+- New sidebar links replace redundant catalogue/register links; tests follow the intentional accessible navigation change while keeping all workflow and golden assertions. Existing consent, unknown-save replay and server authorization remain unchanged.
+
+## 2026-11-08 - Tier 1 visual redesign
+
+- Keep display formatting separate from authority: insert Indian separators into decimal strings, preserve every fractional digit and derive the headline only from the selected saved snapshot. Date-only inputs need an explicit Kolkata midnight so a timezone conversion cannot change their day.
+- RFQ outcome and quotation lifecycle describe different facts. The register response cannot support a lifecycle badge; the existing version-scoped lifecycle response can. Do not invent a combined status or fetch every snapshot merely for decoration.
+- Relocating a workflow component can accidentally remove it entirely. Browser approval/PDF coverage caught the missing lifecycle panel; restore the same component and recovery logic rather than recreating it. Intentionally shortened identifiers still need keyboard access to full exact values; existing identity assertions must exercise that disclosure, not disappear.
+- A disabled costing form may show RFQ defaults rather than selected historical inputs. Explicitly label the Sales Head defaults and direct review to saved results/internal PDF to avoid implying unsaved values are authoritative.
+- Hairlines suitable for panels are insufficient control boundaries. The tertiary token passes contrast against every dark surface and is used for inputs; copper focus and dark-on-copper action text are independently checked. Written labels accompany settled/error colors.
+- Opening the catalogue from the shared shell during intake must preserve the original tab and form, just like the previous contextual link. The new focused browser test verifies a real popup and the unchanged unsaved field after it closes.
+- All ten existing workflow suites, financial/API/unit checks and focused UI checks passed locally. The 1440/390px screenshots verify the tested fallback rupee glyph. Chrome-only targeted checks do not establish full WCAG/screen-reader or cross-browser compliance. No Tier 2, cloud, commit or deployment work.
+
 ## 2026-11-03 / T02.2 Gemini extraction and review
 
 - Gemini proposes raw facts/evidence; it cannot calculate costs or choose internal keys. Structured JSON is still untrusted: one strict Zod schema feeds provider JSON Schema and application validation, with unknown fields rejected.
