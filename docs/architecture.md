@@ -1,63 +1,43 @@
-# Architecture - current slice and future scope
+# ForgeQuote architecture - current implemented product
 
-Current checkpoint: Milestone 8 prepares one Render Free Express/React service and a fresh Neon Free database, without creating resources or deploying. The implemented product remains the Milestone 7 login -> RFQ -> idempotent POST -> immutable snapshot -> saved GET workflow. The diagram below also includes future scope; approvals, intake AI and PDF are not implemented. See milestone-8-handoff.md and deployment.md for prepared settings and actual verification.
+This describes the local implementation through accepted M1-M6 and the owner-approved M7/M8 frontend assignment. Earlier numbered backend milestones and frontend M1-M8 are different sequences. This document does not claim a cloud deployment or multi-tenant isolation.
 
-```text
-Estimator/Sales Head React UI
-          |
-  Express API (session authentication, authorization, validation)
-     |         |           |               |
-  RFQ CRUD  costing      approvals       intake AI
-     |       engine          |          (document parser, evidence)
-     +---------+-------------+---------------+
-               |
-           PostgreSQL
-  users, rfqs, parts, rate_versions, quote_versions,
-  quote_lines, approval_events, extraction_runs
-               |
-    server PDF renderer consumes frozen quote snapshot
-```
+## Runtime and trust boundaries
 
-**Transaction invariants:** approving a quote must compare the current quote version; publishing and approving must not overwrite the snapshot. Rate selection uses effective date and must fail if no rate. Split user-entered RFQ facts, AI suggestions, approved inputs and calculated results.
+React/Vite JavaScript runs against Express JSON and binary routes on one production origin; local Vite proxies /api. PostgreSQL stores users/sessions, RFQs/parts/routing, append-only rate versions, immutable quotation snapshots/receipts, lifecycle events and terminal outcomes. Node decimal.js implements the approved finance contract. Existing PDFKit/font assets generate customer and INTERNAL PDFs from saved values.
 
-**First slice:** One part, seeded material and machine rates, a small RFQ form, POST calculate on backend, persist quote draft, retrieve and display. Defer AI, permissions polish and PDF to later slices. Have an online deployed URL and DB from the start, not an all-local app until Nov 6.
+Authenticated server sessions supply actors; active role, Origin/CSRF and idempotency checks protect writes. The client never supplies authorization, calculated quotation prices, actors or decision timestamps. Estimators create RFQs/costings and submit/issue quotations. Sales Head appends rate versions, approves/rejects and records terminal RFQ outcomes. Both active demo roles can inspect saved quotations and permitted documents. See ADR-0004/0006/0014/0017 for the exact contracts and trusted-runtime limitations.
 
-**Schema design follows the approved costing spec.** Entity names here are conceptual, not final migration contracts.
+## Intake and financial persistence
 
-## Authorized T01 checkpoint
+Manual intake supports 1-20 parts and six explicitly chosen internal rate keys per part. Excel import is deterministic and returns worksheet/cell evidence; it makes no provider call. Gemini proposes fields from synthetic text only after both consent gates. Server schema, source-section association and exact evidence verification precede editable review. Applying a suggestion does not save an RFQ or assign an authoritative material rate key. Raw source, workbook bytes and evidence remain transient. RFQ PDF intake is not implemented. See ADR-0008/0009/0010/0025/0026.
 
-React/Vite JavaScript and Express share one production origin. pg for PostgreSQL; decimal.js for finance. Milestones 1-3 cover workspace, schema and synthetic data only. No public writes. Milestone 4 adds persistent sessions and roles. AI, approvals and PDF deferred.
+RFQ creation and quotation saving persist exact request intent before POST in actor/entity-scoped sessionStorage. Unknown outcomes freeze conflicting actions and require explicit same-key recovery. A new calculation is deliberate. Requests use decimal-string transport; no frontend money arithmetic, current-master substitution or automatic mutation retry exists.
 
-Rates use unique effective starts and derived ends (ADR-0003); routing revisions append-only. Future snapshots retain inputs, rate IDs/values, routing, date, formula, results and illustrative 18% GST. Baseline edits change quote inputs, not RFQ facts.
+Quotation services resolve rates at the pricing date and atomically persist inputs, resolved rate IDs/values/effective starts, formula version, three scenarios and totals. Reads of historical quotations use these immutable snapshots. Current working quantities/margins and live rate masters do not rewrite saved results. PostgreSQL guards and independent financial goldens enforce the accepted contract. See costing-spec.md, quotation-persistence.md and ADR-0002/0003/0005/0012.
 
-Milestone 6 quote transactions: READ COMMITTED; insert/lock the RFQ's unique quotation header and increment its counter; resolve dependencies in one statement; calculate in the existing engine and insert atomically. No automatic retries, including after uncertain COMMIT. See ADR-0005 for the future HTTP submission-key contract.
+## Decisions, documents and outcomes
 
-## Milestone 4 authentication
+Lifecycle status derives from append-only quotation_events, separate from the snapshot's original draft status. Submission at or below the saved INR 25,00,000 ex-GST annual baseline clears automatically; strictly above requires Sales Head. Only the current approved version can issue. Decisions and issuance bind their exact version; concurrent/new-version checks remain server-side. Same-key replay returns the original result before new-action eligibility checks. See ADR-0014.
 
-Implemented: React login/logout -> same-origin Express -> session/user lookup in PostgreSQL. Session bootstrapping supplies CSRF; successful password verification regenerates the session ID/token. Backend roles are authoritative; user activation is checked on every authenticated request. See ADR-0004 for hashing, expiry, cookies, throttling and proxy details.
+Customer PDF GET requires a current issued version and an allowlisted customer projection. INTERNAL PDF GET permits saved historical/unissued versions and includes costs, margins, routing and provenance with repeated confidentiality labels. Neither renderer recalculates finance or writes snapshots. Authenticated binary fetches preserve filenames, no-store/nosniff handling, limits and visible errors. Frontend progress is document-specific; leaving a version aborts its pending download. See ADR-0015/0017/0027.
 
-Milestone 6 now adds quotation snapshot tables and separately tests real internal quote-write authorization. No draft URL is implemented; HTTP role/CSRF middleware remains exercised on a test-only probe. Migrations/seeds require a separate maintenance connection; runtime grants are table-specific. Historical ownership is unchanged, including the existing local auth-table ownership limitation documented in ADR-0004. New snapshot tables are maintenance-owned.
+RFQ status is estimating until actual issuance, then sent; an append-only terminal outcome takes precedence. Sent is not evidence of an email delivery. Sales Head may record won, or lost with a required reason; reopening/correction is unsupported. There is no email/ERP integration. See ADR-0017.
 
-## Milestone 5 pure costing
+## Frontend ownership and navigation
 
-`src/costing/calculate.js` takes validated decimal-string manufacturing inputs/resolved rates, returns versioned three-tier financial results, and imports only decimal.js. No Express, SQL, environment or clock dependency. A separate quotation-total helper aggregates rounded unit prices/quantities before GST. See costing-engine.md for exact API/bounds. The engine remains unchanged in milestone 6.
+App owns authentication. AppShell owns branding/navigation presentation and deliberate task focus; WorkspaceDrafts supplies an authenticated-lifetime memory store and unload markers. One hash parser/navigation helper preserves existing URLs and browser history. Register/approval and rate filters use returned data with URL state; they are not server pagination.
 
-## Milestone 6 internal quotation service
+Workspace retains one intake and rates subtree across internal navigation. RfqCreate owns the manual form and final review; stable UI-only part IDs never enter API bodies. RfqWorkspace owns costing drafts, selected-version read guards and submission recovery. Controlled child components render these values without a second draft model. QuoteResults/SavedCostingInputs read saved snapshots only.
 
-`src/quotations.js`: trusted actor/config -> DB role check -> header lock/counter -> single master/rate-resolution statement -> pure engine -> atomic immutable snapshot. Tables: quotations -> quotation_versions -> quotation_parts -> quotation_rates/quotation_part_tiers; versions also own quotation_totals. Parts/rates retain both master references and copied data. Numeric JSON inputs are strings and financial SQL outputs use unbounded NUMERIC with exact-paise checks.
+RateAuthor and workflow-specific action owners retain their existing serializers/replay policies. Rejection and outcome reasons use memory drafts; recorded pending intent has precedence. Presentation helpers show exact rate previews, decision confirmation and read-only recovery summaries. Only known server success justifies saved wording. Background reads do not move focus. See ADR-0021 through ADR-0027 and milestone handoffs.
 
-Retrieval reads saved snapshots only; explicit diagnostic reproduction dispatches the saved formula version. Transaction-ID child guards prohibit later appends; mutation/truncate guards protect committed history. Service completeness and trusted credentials are explicit boundaries. See quotation-persistence.md and ADR-0005. Milestone 7 subsequently adds the HTTP/UI connection below; no issue/approval or PDF workflow exists.
+Tokens, base controls, workflow layouts, shell and login have ordered CSS layers. The charcoal/forest/ivory identity with restrained crimson remains. Native controls/details/dialogs, named scroll regions, focus indicators and reduced-motion handling are used without a component-library dependency. Long financial tables remain intentionally scrollable.
 
-## Milestone 7 HTTP and React integration
+## Operations, verification and limits
 
-`quotation-routes.js` wraps existing session/role/CSRF protection around RFQ reads and draft writes. `rfqs.js` provides stored inputs/routes/default integer quantities and version metadata. `quotation-request.js` strictly validates and canonicalizes explicit business fields. `draft-submissions.js` owns one transaction for actor/key lock, replay/conflict lookup, quotation creation via shared client and append-only receipt insertion. Migration 004 adds UNIQUE(actor_user_id, submission_key); no generic job framework or automatic retries. See ADR-0006.
+Runtime uses restricted credentials; maintenance provisioning/migrations/grants remain a separate reviewed operation. /api/health/live is DB-independent; /api/health/ready verifies database readiness. Production configuration rejects maintenance/test/seed credentials and insecure database TLS. See ADR-0007 and deployment.md for prepared hosting configuration and actual deployment evidence; this frontend assignment performs no deployment.
 
-React Workspace reads the register/details, accepts date/margin/routing/three quantities and stores exact pending key/body in per-actor/RFQ sessionStorage before POST. Unknown outcomes use explicit same-key recovery. Only Start new calculation generates another key. QuoteResults renders saved GET financial strings and selected rates; hash URLs retain saved version on refresh. Actual Chrome tests verify full API-process restart and loss of a committed POST response followed by refresh/replay. HTTP T01 rejects multi-part RFQs; internal service still supports multiple parts. Subsequent Milestone 8 preparation is described below; no deployment occurred.
+Writable regression fixtures guard local disposable *_test targets and use synthetic data. API/security/financial tests, actual Chrome role journeys, production startup and rendered PDF inspection provide local evidence. Gemini is mocked in deterministic tests. Physical devices, Safari/Firefox, screen-reader user testing, cloud HTTPS/TLS and live provider connectivity are not newly verified here.
 
-## Milestone 8 deployment preparation
-
-Prepared flow: browser HTTPS -> Render edge -> one Express service serving React and /api -> verified TLS -> Neon Free. Runtime receives only its restricted login; maintenance owns the fresh database/schema objects and runs migrations/seeds/explicit grants separately. Local development/test ownership is deliberately preserved; no data/ownership migration into cloud. render.yaml has no database/paid resource and auto-deploy is off. Applying it remains an external action requiring review/access.
-
-database-config.js normalizes SSL URL flags into one strict TLS policy. Production config rejects insecure TLS, local .env loading and maintenance/test/seed credentials. cloud-database.js guards fresh target identity and ownership, applies namespace/default ACLs, invokes unchanged migrations and scopes runtime grants/functions/domain access. checkCloudPermissions verifies direct LOGIN, no owner/elevated access, exact table/column grants and the 25 enabled protection triggers. See ADR-0007.
-
-Frequent /api/health/live checks precede sessions/auth and never query PostgreSQL. /api/health/ready is a separate DB diagnostic/release gate. Production logging allowlists server-generated request ID, registered route, method/status/duration/error code. A per-estimator process-local write limiter runs after role/CSRF and before the idempotent transaction; 429 retains same-key recovery. One instance initially. Actual cloud/HTTPS/region/quota verification and deployment remain pending; no AI/approval/rate-management/PDF services are provisioned.
+Ordinary unsent drafts live in the authenticated tab, not a backend draft service. Sign-out/session teardown ends that lifetime; submitted intent retains its existing same-tab storage recovery. Provider source is never persisted by the UI. Organization identity/membership/isolation, invitations, pagination, accounting/legal invoice compliance and ERP remain separate scope. No tenant picker can substitute for server isolation.

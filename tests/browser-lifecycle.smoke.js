@@ -40,7 +40,7 @@ try {
   assert.equal(await s.getByTestId('annual-baseline-value').innerText(),'₹2,69,46,000.00');
   assert.equal(await s.getByRole('button',{name:'Calculate & save draft',exact:true}).count(),0);
   assert.equal(await s.getByRole('button',{name:'Reject version',exact:true}).isDisabled(),true);
-  await s.getByRole('button',{name:'Approve version',exact:true}).click();await status(s,'approved');
+  await s.getByRole('button',{name:'Approve version',exact:true}).click();await s.getByRole('button',{name:'Confirm approval',exact:true}).click();await status(s,'approved');
   await e.getByRole('button',{name:'Refresh lifecycle'}).click();await status(e,'approved');
   // Opening, Escape and Cancel leave both request storage and the server unchanged.
   let issueRequests=0;e.on('request',req=>{if(req.method()==='POST' && req.url().endsWith('/issue'))issueRequests++;});
@@ -65,8 +65,8 @@ try {
     if(!lost){lost=true;await route.fetch();await route.abort('failed');}else await route.continue();
   });
   await e.getByRole('button',{name:'Issue quotation',exact:true}).click();
-  await mkdir('.tmp/tier2',{recursive:true});
-  for(const width of [1440,390]){await e.setViewportSize({width,height:1000});await e.screenshot({path:`.tmp/tier2/issuance-${width}.png`});}
+  await mkdir('.tmp/visual-v2/lifecycle',{recursive:true});
+  for(const width of [1440,390]){await e.setViewportSize({width,height:width===390?844:1000});assert.equal(await e.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await e.screenshot({path:`.tmp/visual-v2/lifecycle/issuance-${width}.png`});}
   await dialog.getByRole('button',{name:'Confirm issuance',exact:true}).click();
   await e.getByRole('button',{name:'Retry same lifecycle action'}).waitFor();
   await e.reload();await status(e,'issued');
@@ -83,8 +83,8 @@ try {
   assert.equal(await savedInputs.getByRole('textbox').count(),0);
   assert.equal(await s.getByLabel('Pricing date',{exact:true}).count(),0);
   assert.ok((await savedInputs.innerText()).includes('02 Nov 2026'));
-  await mkdir('.tmp/tier2',{recursive:true});
-  for(const width of [1440,390]){await s.setViewportSize({width,height:1000});assert.equal(await s.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await s.screenshot({path:`.tmp/tier2/saved-inputs-${width}.png`,fullPage:true});}
+  await mkdir('.tmp/visual-v2/lifecycle',{recursive:true});
+  for(const width of [1440,390]){await s.setViewportSize({width,height:width===390?844:1000});assert.equal(await s.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await s.screenshot({path:`.tmp/visual-v2/lifecycle/saved-inputs-${width}.png`,fullPage:true});await s.screenshot({path:`.tmp/visual-v2/lifecycle/saved-inputs-${width}-viewport.png`});}
   await e.getByRole('button',{name:'Submit for clearance'}).click();await status(e,'approved');
   await e.getByRole('button',{name:'Issue quotation',exact:true}).click();
   const beforeConfirm=issueRequests;
@@ -93,7 +93,7 @@ try {
   assert.deepEqual((await db.owner.query('SELECT event_type FROM quotation_events WHERE version_id=$1 ORDER BY position',[low.versionId])).rows.map(r=>r.event_type),['submitted','auto_approved','issued']);
   const rejected=await create();await open(e,rejected.versionId);await e.getByRole('button',{name:'Submit for clearance'}).click();await status(e,'pending');
   await s.goto(origin);await s.getByRole('link',{name:/RFQ-2611-014.*Version 3/}).click();await status(s,'pending');
-  await s.getByLabel('Rejection reason').fill('Verify the requested annual quantity.');await s.getByRole('button',{name:'Reject version',exact:true}).click();await status(s,'rejected');
+  await s.getByLabel('Rejection reason').fill('Verify the requested annual quantity.');await s.getByRole('button',{name:'Reject version',exact:true}).click();await s.getByRole('button',{name:'Confirm rejection',exact:true}).click();await status(s,'rejected');
   await e.getByRole('button',{name:'Refresh lifecycle'}).click();await status(e,'rejected');
   await lifecycle(e).getByText(/Verify the requested annual quantity/).waitFor();assert.equal(await e.getByRole('button',{name:'Issue quotation',exact:true}).count(),0);
   const fresh=await create();await open(e,fresh.versionId);await status(e,'draft');

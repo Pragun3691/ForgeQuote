@@ -34,11 +34,12 @@ try {
   async function consistent(id,number,role){
     await lifecycle().getByRole('status').filter({hasText:`Quotation status: ${number===1?'issued':'draft'}`}).waitFor();
     const selected=nav().locator('a[aria-current="page"]');
+    assert.equal(await page.locator('.version-context strong').innerText(),`Selected: Version ${number}`);
     assert.equal(await selected.count(),1,'Selected saved version must exist in the refreshed selector');
     assert.equal(new URLSearchParams((await selected.getAttribute('href')).slice(1)).get('version'),id);
     assert.ok((await selected.innerText()).startsWith(`Version ${number} `));
     assert.ok((await baseline().textContent()).includes(`Version ${number}`));
-    assert.ok((await lifecycle().getByRole('heading').innerText()).includes(`Version ${number}`));
+    assert.ok((await lifecycle().getByRole('heading',{level:2}).innerText()).includes(`Version ${number}`));
     assert.equal(await page.getByTestId('annual-baseline-value').innerText(),number===1?'₹2,69,46,000.00':'₹3,01,850.00');
     assert.equal(await page.getByTestId('baseline-price').innerText(),number===1?'₹149.70':'₹301.85');
     assert.equal(await page.getByTestId('baseline-cost').innerText(),number===1?'₹119.76':'₹241.48');
@@ -100,7 +101,7 @@ try {
     await nav().getByRole('link',{name:/Version 1/}).click();await consistent(first.versionId,1,role);
     const eventRead=await hold(`**/api/quote-versions/${second.versionId}/lifecycle`);
     await nav().getByRole('link',{name:/Version 2/}).click();await eventRead.arrived;
-    assert.ok((await lifecycle().getByRole('heading').innerText()).includes('Version 2'));
+    assert.ok((await lifecycle().getByRole('heading',{level:2}).innerText()).includes('Version 2'));
     assert.equal(await lifecycle().getByText('issued',{exact:true}).count(),0);
     await nav().getByRole('link',{name:/Version 1/}).click();await consistent(first.versionId,1,role);await eventRead.release();
     await page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));await consistent(first.versionId,1,role);

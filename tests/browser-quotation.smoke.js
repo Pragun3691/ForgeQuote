@@ -52,6 +52,7 @@ try {
   }
   async function saved() {
     await page.getByRole('heading',{name:/Saved quotation/}).waitFor();
+    assert.equal(await page.getByRole('table',{name:/^Cost breakdown/}).first().getByRole('columnheader').first().innerText(),'INR / UNIT, EX-GST');
     assert.equal(await page.getByTestId('baseline-cost').innerText(),'₹119.76');
     assert.equal(await page.getByTestId('baseline-price').innerText(),'₹149.70');
   }

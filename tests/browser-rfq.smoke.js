@@ -45,7 +45,7 @@ try {
   await fillHeader('RFQ-BROWSER-MULTI');await fillPart(1,'BROWSER-A');
   await page.getByRole('button',{name:'Add part',exact:true}).click();await fillPart(2,'BROWSER-A');
   await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Save RFQ',exact:true}).click();
-  await page.getByRole('alert').filter({hasText:'Part numbers must be unique'}).waitFor();
+  await page.getByRole('region',{name:'RFQ validation errors'}).waitFor();
   assert.equal(await page.getByLabel('RFQ reference',{exact:true}).isEnabled(),true);
   assert.equal((await db.owner.query("SELECT count(*) FROM rfqs WHERE reference='RFQ-BROWSER-MULTI'")).rows[0].count,'0');
   await page.getByRole('group',{name:'Part 2',exact:true}).getByLabel('Part number',{exact:true}).fill('BROWSER-B');
@@ -61,7 +61,7 @@ try {
   await page.getByRole('alert').filter({hasText:'Network failure'}).waitFor();
   assert.equal(await page.getByLabel('RFQ reference',{exact:true}).isDisabled(),true);
   await page.unroute('**/api/rfqs');await page.reload();
-  await page.getByRole('button',{name:'New RFQ',exact:true}).click();
+  // Intake is now a real history entry; reload restores its recovery screen.
   await page.getByRole('button',{name:'Retry same RFQ submission',exact:true}).waitFor();
   assert.equal(await page.getByLabel('RFQ reference',{exact:true}).isDisabled(),true);
   const replayRequest=page.waitForRequest(request=>request.url()===origin+'/api/rfqs' && request.method()==='POST');

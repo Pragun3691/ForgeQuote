@@ -40,7 +40,7 @@ try {
  await rateControls(page,1).getByLabel('Material rate key',{exact:true}).selectOption(fixtureId(1));
  await part(2).getByRole('button',{name:'Use suggested keys for part 2',exact:true}).click();await rateControls(page,2).getByLabel('Material rate key',{exact:true}).selectOption(alternate);
  await rateControls(page,2).getByLabel('Freight rate key',{exact:true}).selectOption(missing);await rateControls(page,2).getByText(/No effective freight rate on/).waitFor();
- await review.check();await page.getByRole('button',{name:'Apply common rate keys to all parts',exact:true}).click();assert.equal(await review.isChecked(),false);
+ await review.check();await page.getByRole('button',{name:'Apply common rate keys to all parts',exact:true}).click();await page.getByRole('button',{name:'Replace working inputs',exact:true}).click();assert.equal(await review.isChecked(),false);
  for(const n of [1,2])for(const [i,label] of ['Material','Machine','Scrap','Overhead','Packaging','Freight'].entries())assert.equal(await rateControls(page,n).getByLabel(`${label} rate key`,{exact:true}).inputValue(),fixtureId(i+1));
  assert.equal(await page.getByRole('button',{name:'Save RFQ',exact:true}).isDisabled(),true);
  await page.getByRole('button',{name:/Go to part 2:/}).focus();await page.keyboard.press('Enter');assert.equal(await page.evaluate(()=>document.activeElement.id),'rfq-intake-part-1');

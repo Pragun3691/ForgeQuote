@@ -30,7 +30,7 @@ try {
   assert.equal((await db.owner.query('SELECT count(*) FROM rfq_submissions')).rows[0].count,'0');assert.equal(providerCalls,0);
   await mkdir('.tmp',{recursive:true});await page.screenshot({path:'.tmp/t02-xlsx-desktop.png',fullPage:true});
   await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:'.tmp/t02-xlsx-mobile.png',fullPage:true});
-  await page.getByRole('button',{name:'Use imported parts',exact:true}).click();assert.equal(await reference.inputValue(),'SYNTH-XLSX-BROWSER');
+  await page.getByRole('button',{name:'Use imported parts',exact:true}).click();if(await page.getByRole('dialog',{name:'Review replacement'}).count())await page.getByRole('button',{name:'Replace working inputs',exact:true}).click();assert.equal(await reference.inputValue(),'SYNTH-XLSX-BROWSER');
   const part=page.getByRole('group',{name:'Part 1',exact:true}),confirm=page.getByRole('checkbox',{name:/I reviewed the RFQ and all/});
   assert.equal(await part.getByLabel('Gross weight (kg)',{exact:true}).inputValue(),'0.61');assert.equal(await part.getByLabel('Material rate key',{exact:true}).inputValue(),'');assert.equal(await confirm.isChecked(),false);
   for(const [i,category] of ['Material','Machine','Scrap','Overhead','Packaging','Freight'].entries())await part.getByLabel(`${category} rate key`,{exact:true}).selectOption(fixtureId(i+1));
@@ -39,7 +39,7 @@ try {
   await page.route('**/api/rfqs',async route=>{if(route.request().method()==='POST'){await route.fetch();await route.abort('failed');}else await route.continue();});
   await page.getByRole('button',{name:'Save RFQ',exact:true}).click();await page.getByRole('button',{name:'Retry same RFQ submission',exact:true}).waitFor();
   const pendingBefore=await page.evaluate(()=>Object.fromEntries(Object.entries(sessionStorage).filter(([k])=>k.startsWith('forgequote:rfq-intake:'))));
-  await page.unroute('**/api/rfqs');await page.reload();await page.getByRole('button',{name:'New RFQ',exact:true}).click();
+  await page.unroute('**/api/rfqs');await page.reload(); // The intake route restores recovery directly.
   await page.getByRole('button',{name:'Retry same RFQ submission',exact:true}).click();await page.getByRole('row').filter({hasText:'SYNTH-XLSX-BROWSER'}).waitFor();
   assert.equal((await db.owner.query('SELECT count(*) FROM rfq_submissions')).rows[0].count,'1');assert.ok(Object.keys(pendingBefore).length===1);
   const facts=(await db.owner.query("SELECT p.gross_weight_kg,p.requested_annual_qty FROM rfq_parts p JOIN rfqs r ON r.id=p.rfq_id WHERE r.reference='SYNTH-XLSX-BROWSER'")).rows[0];assert.deepEqual(facts,{gross_weight_kg:'0.610000',requested_annual_qty:'24000'});

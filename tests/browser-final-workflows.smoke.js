@@ -33,7 +33,7 @@ try {
  assert.equal(await page.getByRole('button',{name:'Download customer PDF',exact:true}).count(),0);
  await page.getByLabel('Lost reason',{exact:true}).fill('Synthetic customer declined');
  let outcomeLost=false;await page.route('**/api/rfqs/*/outcomes',async route=>{if(!outcomeLost){outcomeLost=true;await route.fetch();await route.abort('failed');}else await route.continue();});
- await page.getByRole('button',{name:'Mark RFQ lost',exact:true}).click();await page.getByRole('button',{name:'Retry same outcome request',exact:true}).waitFor();await page.reload();await page.getByRole('button',{name:'Retry same outcome request',exact:true}).click();
+ await page.getByRole('button',{name:'Mark RFQ lost',exact:true}).click();await page.getByRole('button',{name:'Confirm lost',exact:true}).click();await page.getByRole('button',{name:'Retry same outcome request',exact:true}).waitFor();await page.reload();await page.getByRole('button',{name:'Retry same outcome request',exact:true}).click();
  await page.getByRole('status').filter({hasText:'RFQ status: lost'}).waitFor();await page.getByRole('list',{name:'RFQ outcome history'}).getByText(/Synthetic customer declined/).waitFor();
  assert.equal((await db.owner.query('SELECT count(*) FROM rfq_outcomes')).rows[0].count,'1');assert.equal(await page.getByRole('button',{name:'Mark RFQ won',exact:true}).count(),0);
  await page.getByRole('button',{name:'Sign out',exact:true}).click();await login('estimator',db.passwords.DEMO_ESTIMATOR_PASSWORD);

@@ -75,7 +75,7 @@ try {
   await page.screenshot({path:'.tmp/t02-ai-review-desktop.png'});
   await page.setViewportSize({width:390,height:844});await page.getByRole('region',{name:'Extraction review'}).evaluate(element=>element.scrollIntoView({block:'start'}));assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
   await page.screenshot({path:'.tmp/t02-ai-review-mobile.png'});
-  await page.getByRole('button',{name:'Use verified suggestions',exact:true}).click();
+  await page.getByRole('button',{name:'Use verified suggestions',exact:true}).click();if(await page.getByRole('dialog',{name:'Review replacement'}).count())await page.getByRole('button',{name:'Replace working inputs',exact:true}).click();
   assert.equal(await page.getByLabel('RFQ reference',{exact:true}).inputValue(),'SYNTH-AI-001');
   const part1=page.getByRole('group',{name:'Part 1',exact:true}),part2=page.getByRole('group',{name:'Part 2',exact:true});
   assert.equal(await part1.getByLabel('Gross weight (kg)',{exact:true}).inputValue(),'0.61');

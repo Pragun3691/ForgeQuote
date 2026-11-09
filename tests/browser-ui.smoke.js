@@ -18,13 +18,14 @@ try {
   const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
   page.on('pageerror',error=>errors.push(error.message));
   page.setDefaultTimeout(15000);
-  await mkdir('.tmp/tier2/ui',{recursive:true});
+  await mkdir('.tmp/visual-v2/ui',{recursive:true});
   async function capture(screen) {
     for(const width of [1440,390]) {
       await page.setViewportSize({width,height:width===390?844:1000});
       await page.evaluate(()=>window.scrollTo(0,0));
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${screen} overflow at ${width}`);
-      await page.screenshot({path:`.tmp/tier2/ui/${screen}-${width}.png`,fullPage:true});
+      await page.screenshot({path:`.tmp/visual-v2/ui/${screen}-${width}.png`,fullPage:true});
+      await page.screenshot({path:`.tmp/visual-v2/ui/${screen}-${width}-viewport.png`});
     }
     await page.setViewportSize({width:1440,height:1000});
   }
@@ -40,12 +41,13 @@ try {
   assert.equal(await nav.getByRole('link',{name:'Approvals',exact:true}).count(),0);
   await page.getByRole('table',{name:'RFQ register',exact:true}).waitFor();await capture('register');
   assert.equal(await page.getByRole('link',{name:'View rate catalogue',exact:true}).count(),0);
-  assert.equal(await page.locator('.sidebar').evaluate(el=>Math.round(el.getBoundingClientRect().width)),208);
+  assert.equal(await page.locator('.sidebar').evaluate(el=>Math.round(el.getBoundingClientRect().width)),224);
   await page.setViewportSize({width:390,height:844});
+  assert.ok(await page.getByRole('link',{name:'Open RFQ',exact:true}).first().evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.height>=44;}),'Leading mobile RFQ action is visible');
   const registerScroll=page.getByRole('region',{name:'RFQ register scroll area',exact:true});
   await registerScroll.focus();await page.keyboard.press('ArrowRight');
   await page.waitForFunction(()=>document.querySelector('.register-table .table-scroll').scrollLeft>0);
-  await page.screenshot({path:'.tmp/tier2/ui/register-scrolled-390.png',fullPage:true});
+  await page.screenshot({path:'.tmp/visual-v2/ui/register-scrolled-390.png',fullPage:true});
   await page.setViewportSize({width:1440,height:1000});
   await nav.getByRole('link',{name:'RFQs',exact:true}).focus();await page.keyboard.press('Tab');
   assert.equal(await nav.getByRole('link',{name:'Rate catalogue',exact:true}).evaluate(el=>el===document.activeElement),true);
@@ -65,7 +67,7 @@ try {
   }
   assert.equal(await page.getByRole('table',{name:'Rate-key assignment',exact:true}).getByRole('combobox').count(),12);
   await capture('matrix');
-  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await page.locator('.rate-assignment').screenshot({path:`.tmp/tier2/ui/matrix-detail-${width}.png`});}
+  for(const width of [1440,390]){await page.setViewportSize({width,height:width===390?844:1000});await page.locator('.rate-assignment').screenshot({path:`.tmp/visual-v2/ui/matrix-detail-${width}.png`});}
   await page.getByRole('button',{name:'Back to register',exact:true}).click();
   await page.getByRole('link',{name:'Open RFQ',exact:true}).click();
   await page.getByLabel('Pricing date').fill('2026-11-02');await page.getByRole('button',{name:'Calculate & save draft',exact:true}).click();
@@ -103,9 +105,9 @@ try {
     const ratio=contrast(colors[fg],colors[bg]);assert.ok(ratio>=4.5,`${fg}/${bg}: ${ratio}`);checks[`${fg}/${bg}`]=ratio.toFixed(2);
   }
   checks['action button']=contrast(colors.canvas,colors.action).toFixed(2);assert.ok(Number(checks['action button'])>=4.5);
-  await writeFile('.tmp/tier2/ui/contrast.json',JSON.stringify(checks,null,2));
+  await writeFile('.tmp/visual-v2/ui/contrast.json',JSON.stringify(checks,null,2));
   assert.deepEqual(errors,[]);
-  console.log('PASS: UI role navigation, keyboard focus, unsaved intake preservation, saved golden baseline, ledger, Sales Head read-only costing, 21 screenshots at 1440/390px, text/action contrast.');
+  console.log('PASS: UI role navigation, keyboard focus, unsaved intake preservation, saved golden baseline, ledger, Sales Head read-only costing, full-page/viewport screenshots at 1440x1000 and 390x844, text/action contrast.');
 } finally {
   if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));app?.locals.sessionStore.close();await db.close();
 }

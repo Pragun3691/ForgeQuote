@@ -32,7 +32,7 @@ try {
   assert.equal((await db.owner.query('SELECT count(*) FROM rfq_submissions')).rows[0].count,'0');
   await mkdir('.tmp',{recursive:true});const suffix=live?'live':'mock';await page.screenshot({path:`.tmp/ai-numbered-${suffix}-desktop.png`,fullPage:true});
   await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:`.tmp/ai-numbered-${suffix}-mobile.png`,fullPage:true});
-  await page.getByRole('button',{name:'Use verified suggestions',exact:true}).click();assert.equal(await page.getByRole('group',{name:/^Part \d+$/}).count(),2);
+  await page.getByRole('button',{name:'Use verified suggestions',exact:true}).click();if(await page.getByRole('dialog',{name:'Review replacement'}).count())await page.getByRole('button',{name:'Replace working inputs',exact:true}).click();assert.equal(await page.getByRole('group',{name:/^Part \d+$/}).count(),2);
   const expected=[['SP-101','Rear Wheel Spindle','0.61','180000'],['BR-202','Mounting Bracket','1.25','24000']];
   for(const [i,values] of expected.entries()) {
     const part=page.getByRole('group',{name:`Part ${i+1}`,exact:true});

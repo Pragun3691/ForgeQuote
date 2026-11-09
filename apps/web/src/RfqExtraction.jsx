@@ -2,28 +2,39 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 import { api } from './api.js';
 import EvidenceSource from './EvidenceSource.jsx';
 import {evidenceSlice} from './evidence-display.js';
+import {useDraftMarker} from './WorkspaceDrafts.jsx';
+import {manualPartFields,verifiedIntakeValue} from './intake-review.js';
 
 const names={reference:'RFQ reference',customerName:'Customer name',dueDate:'Due date',partNumber:'Part number',description:'Description',material:'Customer material (select internal key manually)',grossWeightKg:'Gross weight (kg)',requestedAnnualQty:'Annual quantity',cycleTimeMin:'Cycle time (minutes)',setupHoursPerBatch:'Setup hours per batch'};
-function EvidenceFields({fields,source,onSelect,disabled}) {
-  return <div className="extraction-fields">{Object.entries(fields).map(([name,field])=><article className="extraction-field" key={name}>
+function EvidenceFields(props) {
+  return <div className="extraction-fields">{Object.entries(props.fields).map(([name,field])=><EvidenceField key={name} {...props} name={name} field={field}/>)}</div>;
+}
+function EvidenceField({name,field,source,onSelect,disabled,onApplyField,targets,part}) {
+  const [target,setTarget]=useState('');
+  const applicable=verifiedIntakeValue(field,source)!==null&&(!part||manualPartFields.includes(name));
+  const validTarget=!part||targets.some(item=>item.id===target);
+  return <article className="extraction-field">
     <div className="section-heading"><h4>{names[name]}</h4><span className={`verification ${field.status}`}>{field.status}</span></div>
     <p>Suggested raw: <strong>{field.rawValue ?? 'Missing'}</strong><br/>Normalized: <strong>{field.normalizedValue ?? 'Not accepted'}</strong></p>
     {field.issues.map((issue,index)=><p className="muted" key={index}>{issue}</p>)}
     {field.evidence.map((item,index)=><blockquote key={index}><pre>{item.quote}</pre><p className="muted">{item.start===null ? 'No unique evidence location in this section' : `Source lines ${item.lineStart}–${item.lineEnd}; characters ${item.start}–${item.end} (end exclusive)`}</p>{evidenceSlice(source,item)?<button type="button" className="secondary" disabled={disabled} onClick={e=>onSelect({item,label:names[name],trigger:e.currentTarget})}>View source for {names[name]}, evidence {index+1}</button>:<p className="muted">Source highlight unavailable; review this quote manually.</p>}</blockquote>)}
-  </article>)}</div>;
+    {applicable?<div className="field-apply">{part&&<label>Apply to manual part<select aria-label={`Apply ${names[name]} to manual part`} value={target} onChange={event=>setTarget(event.target.value)} disabled={disabled}><option value="">Choose a manual part</option>{targets.map(item=><option key={item.id} value={item.id}>{item.label}</option>)}</select></label>}<button type="button" className="secondary" disabled={disabled||!validTarget} onClick={()=>onApplyField({name,field,source,targetId:part?target:null})}>Apply verified {names[name]}</button></div>:<p className="muted">{name==='material'?'Customer material is informational. Select internal rate keys manually.':'Resolve this value manually; only verified values with exact source evidence can be applied.'}</p>}
+  </article>;
 }
 
-export default function RfqExtraction({session,onExpired,disabled,onApply,onBusyChange}) {
+export default function RfqExtraction({session,onExpired,disabled,onApply,onApplyField,targets=[],onBusyChange,onManualContinue,protectDraft=true}) {
   const [availability,setAvailability]=useState(null),[source,setSource]=useState(''),[consent,setConsent]=useState(false),[synthetic,setSynthetic]=useState(false);
   const [busy,setBusy]=useState(false),[error,setError]=useState(''),[result,setResult]=useState(null),[notice,setNotice]=useState(''),[reload,setReload]=useState(0);
   const [reviewSource,setReviewSource]=useState(''),[selectedEvidence,setSelectedEvidence]=useState(null);
   const controller=useRef(null);
   const panel=useRef(null);
   const sourceId=useId();
+  const markDirty=useDraftMarker('intake:source');
+  useEffect(()=>{markDirty(protectDraft && !!source);return()=>markDirty(false);},[source,protectDraft,markDirty]);
   useEffect(()=>{
     const request=new AbortController();
-    api('/rfq-extraction',{signal:request.signal}).then(setAvailability).catch(error=>{
-      if(error.name!=='AbortError') {setError(error.message);if(error.status===401) onExpired();}
+    api('/rfq-extraction',{signal:request.signal}).then(data=>{if(!request.signal.aborted){setAvailability(data);setError('');}}).catch(error=>{
+      if(!request.signal.aborted&&error.name!=='AbortError') {setError(error.message);if(error.status===401) onExpired();}
     });
     return ()=>request.abort();
   },[reload]);
@@ -35,16 +46,16 @@ export default function RfqExtraction({session,onExpired,disabled,onApply,onBusy
     const request=new AbortController();controller.current=request;
     try {
       const data=await api('/rfq-extraction',{method:'POST',body:{sourceText:submittedSource,consent,syntheticOnly:synthetic},csrfToken:session.csrfToken,signal:request.signal});
-      if(!request.signal.aborted) {setReviewSource(submittedSource);setResult(data);}
+      if(controller.current===request&&!request.signal.aborted) {setReviewSource(submittedSource);setResult(data);}
     } catch(error) {
-      if(error.name!=='AbortError') {setError(error.code==='NETWORK_FAILURE' ? 'Extraction connection was interrupted. No RFQ was saved. Continue manually or explicitly extract again.' : error.message);if(error.status===401) onExpired();}
-    } finally {setBusy(false);onBusyChange(false);controller.current=null;}
+      if(controller.current===request&&!request.signal.aborted&&error.name!=='AbortError') {setError(error.code==='NETWORK_FAILURE' ? 'Extraction connection was interrupted. No RFQ was saved. Continue manually or explicitly extract again.' : error.message);if(error.status===401) onExpired();}
+    } finally {if(controller.current===request){setBusy(false);onBusyChange(false);controller.current=null;}}
   }
-  function continueManually() {controller.current?.abort();panel.current.open=false;setNotice('Continue with the editable manual fields below. Extraction does not save an RFQ.');}
+  function continueManually() {controller.current?.abort();controller.current=null;setBusy(false);onBusyChange(false);panel.current.open=false;onManualContinue('Continue with the editable manual fields below. Extraction does not save an RFQ.');}
   function apply() {
-    onApply(result);setNotice('Verified suggestions copied to the manual form. Correct or fill every field, select internal rate keys and confirm review before saving.');
+    onApply(result,reviewSource);
   }
-  const hasVerified=result && [...Object.values(result.rfq),...result.parts.flatMap(part=>Object.values(part.fields))].some(field=>field.status==='verified');
+  const hasVerified=result && [...Object.values(result.rfq),...result.parts.flatMap(part=>Object.entries(part.fields).filter(([name])=>manualPartFields.includes(name)).map(([,field])=>field))].some(field=>verifiedIntakeValue(field,reviewSource)!==null);
   return <details ref={panel} className="ai-intake"><summary>Extract from text with AI (optional)</summary><div className="ai-content">
     <h3>Gemini RFQ extraction</h3>
     <p className="notice">Google Gemini unpaid API: synthetic, nonconfidential demonstration documents only. Do not paste personal, customer-confidential or NDA-covered information. Google may use inputs/outputs to improve products, and human reviewers may process them. <a href="https://ai.google.dev/gemini-api/terms" target="_blank" rel="noreferrer">Provider terms</a>. AI suggestions require your review; AI never calculates prices.</p>
@@ -63,14 +74,14 @@ export default function RfqExtraction({session,onExpired,disabled,onApply,onBusy
     {busy && <p role="status">Extracting with Gemini and verifying source evidence…</p>}
     {notice && <p role="status" className="notice">{notice}</p>}
     {result && <section aria-label="Extraction review">
-      <h3>Review suggestions and source evidence</h3><p className="muted">Compare every suggestion with its source quote. Only verified normalized fields are copied; ambiguous, unsupported and missing fields remain empty.</p>
+      <h3>Review suggestions and source evidence</h3><p className="muted">Verified means the server validated the value and its exact evidence, not that you have approved it. Compare each value with the source. Apply individual values to an explicitly chosen manual part, or replace the form below. Ambiguous, unsupported and missing values require manual correction. Applying values never saves an RFQ.</p>
       {result.warnings.map((warning,index)=><p className="notice" key={index}>{warning}</p>)}
       <section className="component-summary" aria-label="Extracted component summary"><h3>Extracted components ({result.parts.length})</h3>
         <ul>{result.parts.map((part,index)=><li key={index}><strong>Part {index+1}: {part.fields.partNumber?.status==='verified'?part.fields.partNumber.normalizedValue:'Identifier needs review'}</strong> - {part.fields.requestedAnnualQty?.status==='verified'?`${part.fields.requestedAnnualQty.normalizedValue} units/year`:'Quantity needs review'} - {Object.values(part.fields).filter(f=>f.status!=='verified').length} fields need review</li>)}</ul>
       </section>
       <div className="evidence-layout"><EvidenceSource source={reviewSource} selected={selectedEvidence}/><div className="evidence-review-fields">
-      <details className="evidence-section"><summary>RFQ field evidence</summary><EvidenceFields fields={result.rfq} source={reviewSource} onSelect={setSelectedEvidence} disabled={disabled || busy}/></details>
-      {result.parts.map((part,index)=><section key={index} aria-label={`Suggested part ${index+1}`}><h3>Suggested part {index+1}: {part.anchor}</h3><p className="muted">{part.sourcePartIndex===null?'Part association unsupported':`Source part ${part.sourcePartIndex+1}`}</p><details className="evidence-section"><summary>Evidence for suggested part {index+1}</summary><EvidenceFields fields={part.fields} source={reviewSource} onSelect={setSelectedEvidence} disabled={disabled || busy}/></details></section>)}
+      <details className="evidence-section"><summary>RFQ field evidence</summary><EvidenceFields fields={result.rfq} source={reviewSource} onSelect={setSelectedEvidence} onApplyField={onApplyField} targets={targets} disabled={disabled || busy}/></details>
+      {result.parts.map((part,index)=><section key={index} aria-label={`Suggested part ${index+1}`}><h3>Suggested part {index+1}: {part.anchor}</h3><p className="muted">{part.sourcePartIndex===null?'Part association unsupported':`Source part ${part.sourcePartIndex+1}`}</p><details className="evidence-section"><summary>Evidence for suggested part {index+1}</summary><EvidenceFields part fields={part.fields} source={reviewSource} onSelect={setSelectedEvidence} onApplyField={onApplyField} targets={targets} disabled={disabled || busy}/></details></section>)}
       </div></div>
       <p className="notice">Use verified suggestions replaces the current form's RFQ fields and parts. Internal rate keys remain unselected. Resolve all other fields manually and confirm review before saving.</p>
       <button type="button" onClick={apply} disabled={disabled || busy || !hasVerified}>Use verified suggestions</button>
