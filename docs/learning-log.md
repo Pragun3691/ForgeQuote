@@ -1,5 +1,14 @@
 # Learning log — fill during the build
 
+## 2026-11-10 - Synchronize a concurrency test on the operation it asserts
+
+- The AI HTTP test expected the mock counter to advance by two (cumulative 20), but polled for only 50 ten-millisecond iterations. Authentication/session work and request dispatch occur before the provider. Holding the second authentication lookup reproduced 19 while that request was still upstream of the provider; it was not evidence of a lost provider invocation or a broken two-in-flight limiter.
+- A test-only provider-start callback resolves a two-start barrier. Racing that barrier against either request's completion fails explicitly if a request terminates too early. Keep the exact count, third-request AI_BUSY and no-extra-provider assertions; do not increase sleeps, provider deadlines or retries. Production code remains unchanged.
+- Preserve negative evidence: the original controlled failure, a passing delayed-authentication diagnostic and an early-request-completion control that still fails. Ten focused corrected runs passed before submission; the resumed focused run and all 23 browser suites also passed. The preserved full API/database run passed 204/204; fresh units, frontend helpers, financials, syntax/build/startup passed.
+- One previous unchanged M1 keyboard-navigation case timed out. Five focused repetitions, a subsequent unchanged full M1 run and the resumed full browser run passed. Do not invent a root cause or silently remove that earlier failure; retain it as an intermittent verification watchpoint.
+- Treat submission history as immutable too: preserve the submitted ZIP and its original source SHA, exclude the local generated access guide from Git, and update development evidence without regenerating submitted documents. Public Git history must never carry evaluator credentials.
+- Understanding checks: Why can an authenticated HTTP request exist before the provider counter advances? Why must an early response fail the barrier instead of count as a successful wait? Why does a complete local browser pass still not establish a production maintenance traffic barrier?
+
 ## 2026-11-09 - A maintenance response is not a distributed write fence
 
 - Install the maintenance responder instead of writers, not after session middleware: even GET session recovery and timer-based session pruning can write. Avoid constructing the pool/store at all in maintenance, and test absent writers across timer intervals.

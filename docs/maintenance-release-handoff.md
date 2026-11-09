@@ -1,5 +1,7 @@
 # Free maintenance safety handoff
 
+Historical implementation checkpoint: the maintenance capability was subsequently committed/pushed as `dc1fe07d9ddbb0288ec3fe4c9ae2e5c5e2033732`. The owner-authorized post-submission test-only correction, completed browser rerun, submitted-artifact preservation and main integration are recorded in [post-submission-verification-handoff.md](post-submission-verification-handoff.md). Original no-commit/unstaged statements below describe this handoff's earlier checkpoint; they are not current Git status. No production operation is implied by source publication.
+
 Complete locally; stop for owner review. No staging, commit, push, merge, production connection, Render/Neon change or deployment. This is implementation/rehearsal evidence, not production release authorization.
 
 ## Branch and preserved baseline
@@ -78,7 +80,7 @@ Logs: `.tmp/maintenance-{unit,all-unit,deployment,db,browser,browser-all,helpers
 - Ordinary unsent drafts keep their existing authenticated-tab memory lifetime. Keep existing tabs open; hard navigation/session teardown can still end that lifetime. Submitted intent keeps its existing sessionStorage recovery. Maintenance does not create new draft persistence.
 - Browser verification is real local Chrome, not Safari/Firefox, physical devices or assistive-technology testing. No live provider request. No Linux Render signal/control-plane claim; Windows handler testing is explicitly modeled.
 
-## Rollback before any deployment
+## Original pre-commit rollback checkpoint (historical)
 
 No commit exists for this assignment. Record/save later owner edits before undoing anything. Review the file list below; restore only this assignment's modified paths from `.tmp/maintenance-before` and remove only its newly added paths. Do not reset/clean/stash or overwrite later edits. No development/production database rollback is needed: neither was migrated here.
 

@@ -12,10 +12,10 @@ import { numberedBrowserSource,numberedSuggestion } from './fixtures/numbered-rf
 test('AI extraction HTTP review/save boundary with disposable PostgreSQL (provider mocked)',async t=>{
   const db=await testDatabase(),logs=[];
   const config={nodeEnv:'production',gstPercent:'18',sessionSecret:randomBytes(32).toString('hex'),appOrigin:'https://fixture.example',trustProxyHops:1};
-  let calls=0,mode='success',lastSignal;
+  let calls=0,mode='success',lastSignal,onProviderStart;
   const aiConfig={apiKey:'test-only-not-a-real-key',model:'gemini-3.5-flash-lite',timeoutMs:1000,unavailableCode:null};
   const app=createApp(db.runtime,config,{sessionSchema:db.schema,aiConfig,aiLimit:100,logWriter:line=>logs.push(line),aiGenerateContent:async payload=>{
-    calls++;lastSignal=payload.config.abortSignal;
+    calls++;lastSignal=payload.config.abortSignal;onProviderStart?.();
     if(mode==='numbered') {const data=numberedSuggestion({headers:true}),extra=structuredClone(data.parts[0]);extra.anchor='Unmatched synthetic proposal';extra.fields.partNumber={status:'present',rawValue:'UNKNOWN',evidence:['Part Number: UNKNOWN']};data.parts.push(extra);return fakeGeminiResponse(data);}
     if(mode==='quota') throw {status:429,message:'secret-key and private document text'};
     if(mode==='invalidKey') throw {status:400,message:JSON.stringify({error:{status:'INVALID_ARGUMENT',message:'secret-key and private document text',details:[{reason:'API_KEY_INVALID'}]}})};
@@ -127,11 +127,16 @@ test('AI extraction HTTP review/save boundary with disposable PostgreSQL (provid
     });
     await t.test('two in-flight extractions are bounded; a third cannot contact provider',async()=>{
       mode='timeout';const previous=calls,controllers=[new AbortController(),new AbortController()];
+      const bothStarted=Promise.withResolvers();
+      onProviderStart=()=>{if(calls===previous+2)bothStarted.resolve();};
       const pending=controllers.map(controller=>extract(body(),{signal:controller.signal}).catch(()=>null));
       try {
-        for(let i=0;i<50 && calls<previous+2;i++) await delay(10);
+        // Request dispatch/authentication can take longer than a polling window.
+        // Require both actual provider starts, and fail if either request ends
+        // before that boundary rather than extending sleeps or provider timeouts.
+        await Promise.race([bothStarted.promise,...pending.map(request=>request.then(()=>assert.fail('Extraction completed before both provider calls started')))]);
         assert.equal(calls,previous+2);const busy=await extract();assert.equal(busy.status,429);assert.equal(busy.data.error.code,'AI_BUSY');assert.equal(calls,previous+2);
-      } finally {controllers.forEach(controller=>controller.abort());await Promise.all(pending);await delay(20);mode='success';}
+      } finally {onProviderStart=undefined;controllers.forEach(controller=>controller.abort());await Promise.all(pending);await delay(20);mode='success';}
     });
     await t.test('per-estimator extraction limiter checks CSRF first and leaves manual creation available',async()=>{
       let limitedCalls=0;

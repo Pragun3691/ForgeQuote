@@ -4,7 +4,7 @@
 
 ## 0. Release identity, approval and remaining verification
 
-Current development baseline: `eec0e833fdc0c795475547a3b8473bbcbfe75167`. It is NOT the maintenance-capable deployment target. After owner review, separately authorize the maintenance commit, push and main integration. Record its full SHA as `$ReleaseCommit`; use that exact reviewed commit for maintenance activation and normal reopening. A capability build may contain migration 008 without applying it.
+Original development baseline: `eec0e833fdc0c795475547a3b8473bbcbfe75167`. It is NOT the maintenance-capable deployment target. The reviewed maintenance capability was committed/pushed as `dc1fe07d9ddbb0288ec3fe4c9ae2e5c5e2033732`; the subsequent post-submission continuation changes only a test and development documentation. See [post-submission-verification-handoff.md](post-submission-verification-handoff.md) for completed verification and the submitted release reference. After separate production authorization, record the exact reviewed main commit in the operator release record as `$ReleaseCommit`; use the same SHA for maintenance activation and normal reopening. Do not substitute an unreviewed latest commit or infer the live SHA from origin/main. A capability build may contain migration 008 without applying it. Git integration/publication is not production deployment authorization.
 
 The implementation is locally tested, not independently tested on Render's control plane. Before starting, verify the real service's replacement/routing/termination controls. If positive evidence of old-process termination or traffic isolation is unavailable, **deployment is blocked**. Do not substitute a timer, a single health response or an environment Save operation for that evidence.
 
