@@ -1,3 +1,4 @@
+import {rateControls} from './helpers/rate-key-controls.js';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
@@ -34,7 +35,7 @@ try {
   async function fillPart(index,number) {
     const part=page.getByRole('group',{name:`Part ${index}`,exact:true});
     for(const [label,value] of [['Part number',number],['Description','Synthetic demo spindle'],['Annual quantity','180000'],['Gross weight (kg)','0.61'],['Cycle time (minutes)','3.2'],['Setup hours per batch','12']]) await part.getByLabel(label,{exact:true}).fill(value);
-    for(const [i,category] of ['Material','Machine','Scrap','Overhead','Packaging','Freight'].entries()) await part.getByLabel(`${category} rate key`,{exact:true}).selectOption(fixtureId(i+1));
+    for(const [i,category] of ['Material','Machine','Scrap','Overhead','Packaging','Freight'].entries()) await rateControls(page,index).getByLabel(`${category} rate key`,{exact:true}).selectOption(fixtureId(i+1));
   }
   async function fillHeader(reference) {
     await page.getByLabel('RFQ reference',{exact:true}).fill(reference);
@@ -44,7 +45,7 @@ try {
   await fillHeader('RFQ-BROWSER-MULTI');await fillPart(1,'BROWSER-A');
   await page.getByRole('button',{name:'Add part',exact:true}).click();await fillPart(2,'BROWSER-A');
   await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Save RFQ',exact:true}).click();
-  await page.getByRole('alert').filter({hasText:'Part numbers must be unique'}).waitFor();
+  await page.getByRole('region',{name:'RFQ validation errors'}).waitFor();
   assert.equal(await page.getByLabel('RFQ reference',{exact:true}).isEnabled(),true);
   assert.equal((await db.owner.query("SELECT count(*) FROM rfqs WHERE reference='RFQ-BROWSER-MULTI'")).rows[0].count,'0');
   await page.getByRole('group',{name:'Part 2',exact:true}).getByLabel('Part number',{exact:true}).fill('BROWSER-B');
@@ -60,7 +61,7 @@ try {
   await page.getByRole('alert').filter({hasText:'Network failure'}).waitFor();
   assert.equal(await page.getByLabel('RFQ reference',{exact:true}).isDisabled(),true);
   await page.unroute('**/api/rfqs');await page.reload();
-  await page.getByRole('button',{name:'New RFQ',exact:true}).click();
+  // Intake is now a real history entry; reload restores its recovery screen.
   await page.getByRole('button',{name:'Retry same RFQ submission',exact:true}).waitFor();
   assert.equal(await page.getByLabel('RFQ reference',{exact:true}).isDisabled(),true);
   const replayRequest=page.waitForRequest(request=>request.url()===origin+'/api/rfqs' && request.method()==='POST');
@@ -91,7 +92,7 @@ try {
   assert.equal(await page.getByTestId('baseline-price').innerText(),'₹149.70');
   assert.equal(await page.getByTestId('baseline-cost').innerText(),'₹119.76');
   await page.getByRole('link',{name:/RFQ register/}).click();await page.getByRole('button',{name:'Sign out',exact:true}).click();
-  await page.getByLabel('Demo identity').selectOption('sales_head');await page.getByLabel('Password',{exact:true}).fill(db.passwords.DEMO_SALES_HEAD_PASSWORD);
+  await page.getByLabel('Account').selectOption('sales_head');await page.getByLabel('Password',{exact:true}).fill(db.passwords.DEMO_SALES_HEAD_PASSWORD);
   await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('heading',{name:'RFQ register',exact:true}).waitFor();
   assert.equal(await page.getByRole('button',{name:'New RFQ',exact:true}).count(),0);assert.deepEqual(errors,[]);
   console.log('PASS: real Chrome manual multi-part validation/correction, atomic save, lost-response refresh/same-key recovery, single-part golden costing, mobile layout and sales-head read-only UI.');

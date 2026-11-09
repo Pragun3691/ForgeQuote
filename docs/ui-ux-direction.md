@@ -1,4 +1,8 @@
-# UI/UX direction (proposed; timebox ~90 min)
+# UI/UX direction
+
+The original light/teal proposal below is superseded by the owner's approved **Drafting Sheet — Soft Dark** Tier 1 pass (November 7-8, 2026). ADR-0018 records the palette, accessibility constraints, typography fallback, existing-page navigation and financial presentation boundaries. Implementation and review evidence: docs/ui-redesign-handoff.md. No Tier 2 implementation or deployment is authorized.
+
+## Historical proposal (timebox ~90 min)
 
 - A calm, professional **industrial costing workspace**, not a generic marketing dashboard.
 - Desktop-first, with a usable collapsed nav and horizontally scrollable detailed tables on small screens.

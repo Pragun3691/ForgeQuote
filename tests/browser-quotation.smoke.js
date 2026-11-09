@@ -45,13 +45,14 @@ try {
   const origin=`http://127.0.0.1:${port}`;
   async function login(username,password) {
     await page.getByRole('heading',{name:'Sign in',exact:true}).waitFor();
-    await page.getByLabel('Demo identity').selectOption(username);
+    await page.getByLabel('Account').selectOption(username);
     await page.getByLabel('Password',{exact:true}).fill(password);
     await page.getByRole('button',{name:'Sign in',exact:true}).click();
     await page.getByRole('heading',{name:`Signed in as ${username}`,exact:true}).waitFor();
   }
   async function saved() {
     await page.getByRole('heading',{name:/Saved quotation/}).waitFor();
+    assert.equal(await page.getByRole('table',{name:/^Cost breakdown/}).first().getByRole('columnheader').first().innerText(),'INR / UNIT, EX-GST');
     assert.equal(await page.getByTestId('baseline-cost').innerText(),'₹119.76');
     assert.equal(await page.getByTestId('baseline-price').innerText(),'₹149.70');
   }
@@ -88,6 +89,7 @@ try {
   assert.ok((await breakdown.innerText()).includes('90,000'));assert.ok((await breakdown.innerText()).includes('2,70,000'));
   await page.getByText('Selected rates & provenance',{exact:true}).click();
   await page.getByRole('table',{name:'Rate provenance'}).waitFor();
+  await page.getByRole('table',{name:'Rate provenance'}).getByTitle(fixtureId(11),{exact:true}).click();
   assert.ok((await page.getByRole('table',{name:'Rate provenance'}).innerText()).includes(fixtureId(11)));
   assert.ok((await page.getByRole('table',{name:'Annual quotation totals'}).innerText()).includes('₹3,17,96,280.00'));
   await mkdir(new URL('../.tmp/',import.meta.url),{recursive:true});

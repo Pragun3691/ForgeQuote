@@ -1,5 +1,132 @@
 # Learning log — fill during the build
 
+## 2026-11-09 - Branding without concealing demonstration boundaries
+
+- Product naming and data policy are separate. Present ForgeQuote consistently while explaining the two shared accounts and their common synthetic-record access once on login; keep a short data reminder and all context-specific provider warnings. Do not imply tenant isolation or real customer accounts.
+- Remove the obsolete login badge rule and the two selectors that hid its old companion text; leaving those selectors would hide the sole remaining metadata label on mobile/tablet. Keep tokens, layout and original assets intact.
+- Changing the visible accessible label to Account requires matching browser selectors, not changes to username IDs, role values, authentication or provisioning. Keep historical seeded names/PDF data and deployment URLs unchanged. Exact evidence and remaining limits: `branding-handoff.md`.
+
+## 2026-11-09 - Subsequent F2 correction: one owner for metadata read errors
+
+- A reader's sequence guard does not protect an unconditional catch in its caller. The reader rethrew an obsolete failure after correctly ignoring it; the save callback then published that failure into the unrelated action error state.
+- Reusing `refreshRfq()` preserves both existing metadata requests, consumes rejected promises and keeps current failures in `readError`. Do not clear shared mutation errors on GET success; that could conceal a genuine uncertain write. Independent saved-snapshot failures also keep their own recovery path.
+- A permanent controlled-response regression first reproduced the exact stale error. Opposite completion order, successful retry, real disposable-session expiry, late unmount, draft/recovery preservation and unchanged saved financial strings check the boundaries of the fix. The earlier owner deferral remains historical; the new fix is separately authorized and locally verified. See `f2-stale-refresh-error-handoff.md`.
+- Full verification exposed an existing M7 assertion observing rate validation before its reset effect completed. A diagnostic saw removal 38 ms later; use a bounded DOM-state wait before the unchanged assertion, without arbitrary sleeps, larger timeouts or application changes. Preserve the failed logs as well as the successful rerun.
+
+## 2026-11-09 - Final audit F1 correction and F2 deferral
+
+- Unknown lifecycle state is not evidence that a remembered rejection reason is inapplicable. Requiring a successful pending read in the dirty marker silently removed unload protection during remount/read failure. A regression reproduced the failure before the narrow fix; preserve protection until confirmed state or explicit clearing justifies removing it.
+- Confirmed writes, ordinary memory drafts and durable uncertain-request recovery have distinct lifetimes. Keep immutable-version ownership and existing recovery behavior intact.
+- Owner deferred F2: an older post-save metadata failure can display an obsolete error after a newer successful refresh. Saved quotation and financial results remain correct. Local audit evidence does not establish production verification; implementation is unchanged. Final results and rollback: `final-audit-resolution.md`.
+
+## 2026-11-09 - M7/M8 exact review, request ownership and product acceptance
+
+- Catalogue as-of date, server business date and latest future rate start are different concepts. Validate rate starts against API businessDate and every recorded start, never the browser clock. Keep rates as exact strings, including an explicit zero, and let server concurrency rules reject stale previews.
+- Preserve existing mutation owners and serialized intent. Read-only recovery summaries must describe the original path/body/key. Confirmation changes when an existing operation is invoked, not its business rules. Synchronous guards prevent duplicate clicks before React updates; server idempotency remains authoritative.
+- Remembered rejection/outcome text needs dirty protection even while its screen is unmounted. Native confirmation should begin on Cancel, cycle focus, support Escape and restore its trigger. A successful background read must not erase another resource's error or move focus.
+- PDF preparation, lifecycle mutation and read refresh are separate states. Bind binary requests to the selected version and abort on leave; report browser download requested rather than promising disk persistence. Distinguish customer allowlisted documents from INTERNAL saved-cost reports without changing either renderer.
+- Full journeys found real navigation friction: add task jumps to approval/documents/outcome and the multipart matrix, and place exact rate preview before the save action. Reuse existing focus/scroll offsets and state owners rather than a new wizard/store.
+- Assertions alone missed a blank screenshot at true 400% Chrome zoom. Visual review required native-frame capture, followed by actual image inspection. Render real downloaded PDFs and inspect continuation pages, not just extracted text or screenshots of download buttons.
+- Preserve operational limits in tests. Twenty-four downloads by one actor correctly hit the PDF limiter; use the two legitimate roles for their document journeys instead of relaxing the limit. Bind golden assertions to the spindle identity rather than assuming immutable arrays/display ordering.
+- Complete and checkpoint M7 before M8. One existing test API shutdown timeout passed on full rerun without changing backend behavior or timeouts. Record this evidence, mocked-provider limits and unverified devices/cloud clearly. Never describe local acceptance as deployment or multi-tenant isolation.
+
+
+## 2026-11-09 - M5/M6 validation, identity and source review
+
+- Match frontend bounds to the actual backend canonicalizer, including trimmed case-sensitive part uniqueness, exact dates, positive weight/cycle, nonnegative setup and BigInt quantity limits. Validate decimal strings without rewriting them or doing financial arithmetic. A syntactically plausible value can still be outside the documented range.
+- Separate UI identity from transport. Stable part UUIDs preserve surviving DOM/state across removal and undo, and source-field target selection must use the same identity so removal never silently redirects an action. UI IDs never enter API bodies or durable submission records.
+- Client evidence checks can only reject a server-verified suggestion. Every exact UTF-16 span must still match the submitted source; missing or uncertain fields cannot be guessed. Customer material remains informational. Application, final human review and server-confirmed persistence are separate actions with separate wording.
+- Native modal focus restoration needs explicit care when React removes the dialog. Capture the initiating control before opening and restore it after closing. Only deliberate bulk application moves focus into manual validation; background reads and individual application leave focus stable.
+- Cancelled requests retain asynchronous finally blocks. Guard results, errors and completion by current-controller identity; release manual controls immediately on cancel. An old completion must never unlock or clear a newer extraction/import request.
+- Complete and checkpoint M5 before touching M6. Actual screenshots caught a misleading readiness count for invalid nonempty inputs; count validation issues as well as blanks. Regression also preserved the accepted new-tab Rates action from intake rather than changing product navigation to satisfy an incorrect test assumption.
+- Full browser/API/financial tests use disposable local databases and mocked provider responses. Keep development data untouched and distinguish actual production process startup from DB readiness in a deliberately disconnected startup fixture. Preserve prior uncommitted work with exact-byte checkpoints rather than resetting to Git HEAD.
+
+
+## 2026-11-09 - M4 working inputs and immutable financial review
+
+- Extract only controlled presentation; keep persist-before-POST, exact-key retry, legacy bodies, draft scope and read/version guards with their existing owners. Byte-identical handlers plus lost-response browser recovery demonstrate that a visual extraction did not invent a new data flow.
+- Working inputs, known confirmed submissions and the selected historical snapshot are three distinct concepts. Only server-confirmed receipts justify saved wording. Independent metadata success cannot erase a failed snapshot read or leave the new header claiming indefinite loading.
+- Show per-unit/annual and ex-GST/GST-component/inclusive scope next to figures. Move persisted annual comparison before per-part detail; mobile adapters read the same snapshot and never calculate totals. Sort copied part arrays for predictable review without mutating saved records.
+- Inspect actual narrow screenshots: two money columns caused a final paise digit to wrap at 320px. Full-width value rows plus a browser Range line-count regression fixed readability without rounding/truncation. Keep context selectors stable: a decorative Baseline badge collided with the existing version badge selector, so plain text preserves it.
+- Default queue order comes from saved-version creation order, not a submission timestamp absent from the response. Accurate wording avoids invented age/priority claims.
+- Complete separate M3 and M4 checkpoints and gates before final handoff. Guard every writable fixture to disposable local databases; preserve development data and all prior uncommitted work. No M5/deployment is implied by completion.
+
+
+## 2026-11-09 - M3 list state and mobile task entry
+
+- List queries are URL state, not form drafts or authorization. Search replaces history; deliberate filter/sort changes add entries. Auth-scoped destination URLs preserve context without moving workspace ownership.
+- Queue filters must use queue response fields; RFQ statuses cannot stand in for quotation lifecycle. Keep server submission order as the default.
+- A leading native reference link retains table semantics and a 44px target while removing horizontal hunting and oversized double-line desktop rows. Explicit select labels prevent option text from changing accessible control names.
+- M3 verification passes before the M4 checkpoint; a combined approval does not remove the sequential test gate.
+
+
+## 2026-11-09 - M2 design system and stable shell
+
+- Preserve accepted uncommitted work with a file/hash/status/patch checkpoint before extraction; a reset to HEAD would erase M1. UI-only rollback restores the M2 checkpoint, not the earlier M1 checkpoint.
+- Presentation extraction is safe when the workflow owner retains its type/key/position. App still owns auth, while AppShell owns only navigation presentation, title/focus and header measurements. No route key, global form abstraction or new request layer is needed.
+- Consolidation removes obsolete declarations and selector/context duplicates before introducing a new styling layer. Structural separators differ from control boundaries, and compact feature variants remain explicit. A user-relative root requires auditing old rem values together.
+- A queued resize can run after React clears refs but before passive cleanup. Capture observed elements, check isConnected and test the unmount boundary deterministically.
+- Token contrast is insufficient: interpolating foreground and background through a disabled/busy state produced a 1.65:1 intermediate button. Atomic fill/text plus a border-only transition preserves contrast; sample actual request-driven animation frames as well as steady states.
+- Genuine Chrome page zoom changes devicePixelRatio and layout viewport. Fresh task-owned host-zoom profiles plus CDP viewport captures verify 200%/400%; ordinary Playwright screenshots at native zoom can crop using CSS coordinates. Keyboard Tab/Shift+Tab verifies actual focus scrolling, beyond fill()'s automation positioning.
+- Route focus should respond to deliberate task identity, not metadata refresh or selected saved-version reads. Background authoring refresh retains both its reason and focus. Physical device/screen-reader/cross-browser evidence remains a separate limitation.
+
+
+## 2026-11-09 - M1 navigation, ordinary drafts and read state
+
+- Submitted-intent recovery does not protect ordinary edits. Keep the exact durable submission protocol authoritative, and use a separate auth-lifetime memory scope for unsent costing inputs. Retain the original intake/rates trees through internal navigation so source/file and authoring state do not acquire another writable model or new persistence policy.
+- Navigation must be explicit state: adding an intake hash entry makes RFQs and browser Back/Forward deterministic. Derive active sections from the same parser, and bind intake-only new-tab behavior to the Estimator role so it cannot leak across a sign-in on an old URL.
+- Read errors belong to their resources, not a shared error bucket. A successful lifecycle read clears its prior read error, but cannot clear a storage/write error; RFQ metadata success cannot clear a separate failed saved snapshot. Aborted/late reads must not apply data/errors, and read refreshes must not reinitialize forms.
+- Put fallback feedback outside the disclosure it closes. Use a fresh notice event even for repeated identical messages and move focus only after cancellation releases disabled manual inputs. Retained textarea values also exposed changing label text; stable explicit reason names keep selectors and assistive output consistent.
+- Red regressions proved seven confirmed failures. Final gates: 13 existing plus M1 browser suites, ten M1 cases, nine state/display/evidence unit tests, 90 API unit, 33 financial/all nine goldens and build/startup passed. M1-only checkpoint/rollback and before/after evidence: `docs/m1-handoff.md`. No application DB/prod writes, backend/dependency/financial/style change or Git publication.
+
+## 2026-11-08 - Complete visual v2
+
+- A full visual redesign can retain the accepted state architecture. Shared presentation tokens and existing semantic classes restyle intake, financial review and issuance without creating another form model or changing requests. `main.jsx` adds only presentation and stateless original SVGs; the auth handlers stay unchanged.
+- Brand and semantic colors need different jobs. Crimson holds the original mark; ivory actions and independently checked error/pending/success colors keep contrast and written status meaning. Text passes 4.5:1 across every structural surface; input boundaries and focus pass 3:1. Thin layout rules and decorative drafting guides are not control edges.
+- Screenshots must distinguish viewport captures from full-page output. Verified 1440x1000 / 390x844 viewports, preserved complete long pages, and captured source focus and modal states separately. Visual QA exposed a mobile column-reverse button order that conflicted with keyboard order; normal column order keeps both consistent.
+- Real local session/API/PostgreSQL tests can exercise visual busy/error/reload states deterministically by holding browser requests, without replacing application authentication or printing passwords. Gemini substitution is explicitly confined to test fixtures; no live provider success is claimed.
+- Passed ten workflow and three focused browser suites, 90 unit, 33 financial/all nine goldens, 137 disposable PostgreSQL/API, five display/evidence, production build/startup and 35 contrast checks. The 96 screenshots remain local/ignored. No commit, push, merge, deployment, remote font, dependency, backend or database change. Handoff: `docs/visual-v2-handoff.md`.
+
+## 2026-11-08 - Final UI commit gate
+
+- Owner approval to commit is separate from visual approval and remote release. Run the ten existing browser workflows on the final code plus the new version-race/focused UI checks, full unit/costing/PostgreSQL tests, build/startup and syntax checks before staging the approved change set.
+- Review an explicit source/docs/test manifest rather than adding the entire worktree. Scan staged content as well as paths; distinguish a documented mocked-provider placeholder from an actual credential. Keep screenshots, review patches, private submission drafts and environment files ignored/local. Preserve all financial goldens and existing backend/package/README content.
+
+## 2026-11-08 - Final selected-version consistency
+
+- A hash-only change within the same RFQ does not remount its workspace. Fetching the new quote alone leaves the RFQ's version list stale if another actor appended that version after the initial RFQ read. The reported Version 1/Version 2 screenshot was a real metadata bug, while all its financial panels correctly belonged to version 2.
+- Refresh navigation metadata separately from form initialization: adding the selected version to the original RFQ effect would reset estimator inputs/recovered bodies. Validate the selected snapshot/list together, reject late responses and render saved panels only when the snapshot ID matches the current target.
+- Test the actual rendered selector against panel identities. location.hash changes before hashchange is delivered; URL/ready-state assertions are separate from cross-panel render consistency. Deliberately delayed metadata/snapshot/lifecycle replies expose races that immediate local responses conceal.
+
+## 2026-11-08 - Tier 2 review controls
+
+- A matrix should remain a view of form.parts[].rateKeys, not a second assignment model. Six native required selects per part reuse the existing change/review-reset handlers. A 20-part test counts 120 controls and proves deleting a middle part retains the surviving assignments. Wait for catalogue loading before presenting missing-key warnings.
+- Verify evidence offset conventions against the real verifier. It uses JavaScript UTF-16 offsets, end exclusive; a prefix containing an emoji, variation selector, accented text and CRLF occupies ten code units. Browser slice matches every genuine returned quote. Invalid/null/unscoped/mismatched ranges do not trigger fuzzy searches or highlights.
+- Keep the exact submitted source in transient state and clear stale review/highlights when it changes. The edit-and-reconsent test exposed a wrapping textarea label that included its text value; explicit htmlFor/id association preserves its stable accessible name. Both consent boxes reset and applying verified fields still requires final estimator review.
+- A Sales Head summary must read snapshot input/routing/tiers rather than the disabled form's defaults. The browser test distinguishes a saved 1,000-unit baseline from the RFQ's 180,000-unit facts while retaining direct server-side write denial.
+- Opening a confirmation is not business intent to issue: do not allocate a recovery key or POST until Confirm. React busy state alone cannot prevent two events in the same batch; a synchronous ref gate prevents a second fresh request. Existing same-key recovery remains independent of the modal.
+- Native dialog modality makes background content inert, but explicit forward/reverse button wrapping was needed for the strict keyboard test. Cancel/Escape restore focus; navigation discards only the unopened issuance intent. Server eligibility/approval remains authoritative.
+- Independent browser gates precede each next slice. Expanded regression tests found duplicate-confirm, focus-wrap and source-label problems; fix these without weakening financial, consent, recovery or identity assertions. Proportional charts remain deferred.
+
+## 2026-11-08 - Owner-requested Tier 1 visual refinement
+
+- Passing workflow tests does not mean the owner has accepted a visual design. Preserve the first screenshot set and distinguish approved implementation scope/palette from visual approval in the handoff.
+- A structured pending table can use only the existing snapshot reference/customer, version and saved baseline. Do not invent submission dates or join every lifecycle merely to enrich presentation.
+- Remove duplicated state by keeping RFQ status/assignment in one title block while preserving outcome decisions, recovery, errors and terminal history. Relocate the existing form/components without reconstructing their request state.
+- Decimal precision and display length are separate concerns: strip only trailing fractional zeros with string operations for rates; expose the exact original value in history; retain monetary paise and every significant digit. Large-value, zero and six-place tests guard this boundary.
+- A scroll hint should correspond to actual overflow and remaining direction. ResizeObserver plus a labelled focusable region allows keyboard navigation; sticky mobile RFQ references preserve row context. Put the rate value next to its key before secondary columns on mobile.
+- New sidebar links replace redundant catalogue/register links; tests follow the intentional accessible navigation change while keeping all workflow and golden assertions. Existing consent, unknown-save replay and server authorization remain unchanged.
+
+## 2026-11-08 - Tier 1 visual redesign
+
+- Keep display formatting separate from authority: insert Indian separators into decimal strings, preserve every fractional digit and derive the headline only from the selected saved snapshot. Date-only inputs need an explicit Kolkata midnight so a timezone conversion cannot change their day.
+- RFQ outcome and quotation lifecycle describe different facts. The register response cannot support a lifecycle badge; the existing version-scoped lifecycle response can. Do not invent a combined status or fetch every snapshot merely for decoration.
+- Relocating a workflow component can accidentally remove it entirely. Browser approval/PDF coverage caught the missing lifecycle panel; restore the same component and recovery logic rather than recreating it. Intentionally shortened identifiers still need keyboard access to full exact values; existing identity assertions must exercise that disclosure, not disappear.
+- A disabled costing form may show RFQ defaults rather than selected historical inputs. Explicitly label the Sales Head defaults and direct review to saved results/internal PDF to avoid implying unsaved values are authoritative.
+- Hairlines suitable for panels are insufficient control boundaries. The tertiary token passes contrast against every dark surface and is used for inputs; copper focus and dark-on-copper action text are independently checked. Written labels accompany settled/error colors.
+- Opening the catalogue from the shared shell during intake must preserve the original tab and form, just like the previous contextual link. The new focused browser test verifies a real popup and the unchanged unsaved field after it closes.
+- All ten existing workflow suites, financial/API/unit checks and focused UI checks passed locally. The 1440/390px screenshots verify the tested fallback rupee glyph. Chrome-only targeted checks do not establish full WCAG/screen-reader or cross-browser compliance. No Tier 2, cloud, commit or deployment work.
+
 ## 2026-11-03 / T02.2 Gemini extraction and review
 
 - Gemini proposes raw facts/evidence; it cannot calculate costs or choose internal keys. Structured JSON is still untrusted: one strict Zod schema feeds provider JSON Schema and application validation, with unknown fields rejected.

@@ -3,9 +3,14 @@ import { createRoot } from 'react-dom/client';
 import './styles.css';
 import { api } from './api.js';
 import Workspace from './Workspace.jsx';
+import {useRoute,useListDestinations} from './route.js';
+import LoginView from './LoginView.jsx';
+import AppShell from './AppShell.jsx';
 
 function App() {
   const [session, setSession] = useState(null);
+  const route=useRoute(session?.user?.role);
+  const destinations=useListDestinations(session?.user,route);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -51,23 +56,9 @@ function App() {
     try {setSession(await api('/auth/session'));} catch {setError('Your session could not be refreshed. Check the connection and reload.');}
   }
 
-  return <><header className="topbar"><a className="brand" href="#"><span className="brand-mark">FQ</span><span>ForgeQuote<small>Manufacturing quotations</small></span></a>{session?.user && <div className="identity"><h2>Signed in as {session.user.username}</h2><button className="secondary" onClick={logout} disabled={busy}>{busy?'Signing out...':'Sign out'}</button></div>}</header>
-    {session?.user && <>{error && <p role="alert" className="error auth-error">{error}</p>}<Workspace session={session} onExpired={expired}/></>}
-    {!session?.user && <main className="login-panel">
-    <p className="eyebrow">Synthetic demo · Secure workspace</p><h1>RFQ to quotation</h1>
-    {loading && <p role="status">Loading your session...</p>}
-    {error && <p role="alert" className="error">{error}</p>}
-    {!loading && session && !session.user && <form onSubmit={login}>
-      <h2>Sign in</h2><p>Use one of the seeded demo identities and its configured password.</p>
-      <label htmlFor="username">Demo identity</label>
-      <select id="username" name="username" value={username} onChange={event => setUsername(event.target.value)} disabled={busy} autoComplete="username">
-        <option value="estimator">Estimator</option><option value="sales_head">Sales head</option>
-      </select>
-      <label htmlFor="password">Password</label>
-      <input id="password" name="password" type="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} required disabled={busy} />
-      <button type="submit" disabled={busy}>{busy ? 'Signing in...' : 'Sign in'}</button>
-    </form>}
-    {!loading && !session && <button onClick={() => window.location.reload()}>Reload session</button>}
-  </main>}</>;
+  return session?.user ? <AppShell destinations={destinations} route={route} user={session.user} busy={busy} error={error} logout={logout}>
+    <Workspace destinations={destinations} key={`${session.user.id}:${session.user.role}`} session={session} onExpired={expired}/>
+  </AppShell> : <LoginView {...{loading,busy,error,session,username,setUsername,password,setPassword,login}}/>;
 }
+
 createRoot(document.getElementById('root')).render(<App />);
