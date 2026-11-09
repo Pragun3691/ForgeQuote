@@ -1,5 +1,13 @@
 # Current status - 2026-11-09
 
+## Subsequent F2 correction - owner-approved separate fix branch
+
+- Accepted M1-M8/F1 commit `69c3e5c28657a169c9c665af4f30439f5e8ad13d` remains the baseline on `fix/f2-stale-refresh-error`. The historical F2 deferral below records the earlier owner decision; a separate owner approval now authorizes its correction.
+- The save-triggered metadata refresh now uses existing `refreshRfq()`. Its rejected promise is consumed; only the sequence-guarded reader publishes RFQ read failures. Older failures cannot write an obsolete action error, and latest read failures remain visible until retry/success. Existing requests, financial snapshots, action/snapshot errors, drafts, navigation and exact-request recovery are preserved.
+- Permanent F2 regression reproduced the old failure before the one-line correction. Focused M1/F2 verification passed 13 cases, including delayed ordering, real session expiry/recovery, navigation/unmount, independent save/snapshot errors, one save POST and unchanged golden snapshot values. Final full-suite results and rollback are recorded in `docs/f2-stale-refresh-error-handoff.md`.
+- Final verification passed: all 21 browser suites on the complete rerun, 24 frontend helpers, 90 existing units, 137 guarded disposable API/database tests, 33 financial tests/all nine unchanged goldens, 47 syntax modules, 62-module build and actual production startup 1/1. Initial full run and independent M7 run exposed its pre-existing immediate rate-discard assertion; a diagnostic confirmed the unchanged reset effect completed 38 ms later. One bounded DOM wait in M7 preserves every assertion; independent M7 and the complete rerun passed. Failed logs are retained. Exactly eight assignment files changed/added; all 87 backend files and the F1 application correction remain unchanged.
+- No backend/schema/API/security/financial/dependency changes, development-database writes, staging, commits, pushes, merges or deployment. Stop for owner review after verification.
+
 ## Final audit resolution - F1 corrected; F2 explicitly deferred
 
 - Owner authorized the narrow rejection-draft protection correction and accepted F2 as a non-blocking limitation. F1 now treats an unknown lifecycle read conservatively: a retained dirty reason remains protected during loading/failure/delay; confirmed inapplicability, confirmed submission or explicitly clearing the reason removes protection. Immutable-version draft ownership and same-key recovery remain unchanged.

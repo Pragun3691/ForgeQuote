@@ -87,5 +87,90 @@ try {
   const metadata=page.waitForResponse(r=>r.url().endsWith(`/api/rfqs/${fixtureId(21)}`));await page.getByRole('button',{name:'Refresh RFQ status',exact:true}).click();const response=await metadata;assert.equal(response.status(),200);await response.finished();await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));assert.equal(await failure.isVisible(),true);
   await page.unroute(pattern);await page.getByRole('button',{name:'Reload saved quotation',exact:true}).click();await page.getByRole('region',{name:'Saved quotation',exact:true}).waitFor();assert.equal(await failure.count(),0);
  });
+ // F2: real saves and immutable snapshots, with only read completion order/failures controlled.
+ const rfqPattern=`**/api/rfqs/${fixtureId(21)}`;
+ const obsoleteRefresh='Draft saved, but the RFQ version list could not be refreshed. Reload to view it.';
+ const metadataFailure='Unable to load this RFQ. Please retry.';
+ const settled=page=>page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+ const failRead=(route,status=503)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify({error:{code:status===401?'AUTH_REQUIRED':'DATABASE_UNAVAILABLE',message:'Synthetic read failure'}})});
+ async function holdMetadata(page,status=200){
+  let release,reached,finished,request,captured=false;
+  const gate=new Promise(resolve=>release=resolve),arrived=new Promise(resolve=>reached=resolve),done=new Promise(resolve=>finished=resolve);
+  const handler=async route=>{
+   if(captured)return route.continue();captured=true;request=route.request();
+   const response=status===200?await route.fetch():null;reached();await gate;
+   try{if(response)await route.fulfill({response});else await failRead(route,status);}catch(error){if(!page.isClosed()&&!request.failure())throw error;}finally{finished();}
+  };
+  await page.route(rfqPattern,handler);
+  return {arrived,release:async()=>{const response=page.waitForResponse(r=>r.request()===request);release();await done;await (await response).finished();await page.unroute(rfqPattern,handler);await settled(page);},cancel:release};
+ }
+ async function refreshMetadata(page){
+  await Promise.all([page.waitForResponse(r=>r.url().endsWith(`/api/rfqs/${fixtureId(21)}`)&&r.status()===200),page.getByRole('button',{name:'Refresh RFQ status',exact:true}).click()]);await settled(page);
+ }
+ const submission=page=>page.evaluate(()=>Object.entries(sessionStorage).find(([key])=>key.startsWith('forgequote:submission:'))?.[1]);
+ await run('f2-stale-refresh','estimator',async page=>{
+  const watchRejections=()=>{window.f2Unhandled=[];window.addEventListener('unhandledrejection',event=>window.f2Unhandled.push(event.reason?.name||'rejection'));};
+  await page.addInitScript(watchRejections);await page.evaluate(watchRejections);
+  await page.goto(`${origin}/#rfq=${fixtureId(21)}`);await page.getByLabel('Gross margin (%)',{exact:true}).waitFor();await page.getByLabel('Pricing date',{exact:true}).fill('2026-11-02');
+  let posts=0,metadataReads=0;page.on('request',r=>{if(r.url().endsWith(`/api/rfqs/${fixtureId(21)}`))metadataReads++;if(r.method()==='POST'&&r.url().endsWith('/quote-versions'))posts++;});
+  const older=await holdMetadata(page,503);
+  try{
+   await page.getByRole('button',{name:'Calculate & save draft',exact:true}).click();await older.arrived;
+   await page.getByRole('region',{name:'Saved quotation',exact:true}).waitFor();assert.equal(metadataReads,2,'Keep both existing post-save metadata requests');
+   const versionId=new URLSearchParams(new URL(page.url()).hash.slice(1)).get('version');
+   const quotes=createQuotationService(db.runtime,{gstPercent:'18'}),before=await quotes.getDraftVersion(estimator,versionId),record=await submission(page);
+   await older.release();
+   assert.equal(await page.getByRole('alert').filter({hasText:obsoleteRefresh}).count(),0,'F2: an older save-triggered failure must not overwrite a newer successful refresh');
+   assert.equal(await page.getByRole('alert').filter({hasText:metadataFailure}).count(),0);
+   await refreshMetadata(page);assert.equal(await submission(page),record);
+   assert.equal(await page.getByTestId('baseline-price').innerText(),'\u20b9149.70');assert.equal(await page.getByTestId('baseline-cost').innerText(),'\u20b9119.76');assert.equal(await page.getByTestId('annual-baseline-value').innerText(),'\u20b92,69,46,000.00');
+   // The latest failed read remains visible even when an older success arrives later.
+   const oldSuccess=await holdMetadata(page);
+   try{
+    await page.getByRole('button',{name:'Refresh RFQ status',exact:true}).click();await oldSuccess.arrived;
+    await page.route(rfqPattern,route=>failRead(route));await page.getByRole('button',{name:'Refresh RFQ status',exact:true}).click();await page.getByRole('alert').filter({hasText:metadataFailure}).waitFor();
+    await oldSuccess.release();assert.equal(await page.getByRole('alert').filter({hasText:metadataFailure}).isVisible(),true,'Older success must not erase the latest failure');
+   }finally{oldSuccess.cancel();await page.unroute(rfqPattern);}
+   await refreshMetadata(page);assert.equal(await page.getByRole('alert').filter({hasText:metadataFailure}).count(),0,'Latest successful retry clears its read error');
+   const oldData=await holdMetadata(page);
+   try{
+    await page.getByRole('button',{name:'Refresh RFQ status',exact:true}).click();await oldData.arrived;
+    await db.owner.query('UPDATE rfqs SET owner_label=$1 WHERE id=$2',['Synthetic F2 newer assignment',fixtureId(21)]);
+    await refreshMetadata(page);await page.locator('.title-block').getByText('Synthetic F2 newer assignment',{exact:true}).waitFor();await oldData.release();
+    assert.equal(await page.locator('.title-block').getByText('Synthetic F2 newer assignment',{exact:true}).count(),1,'Older metadata cannot replace newer data');
+   }finally{oldData.cancel();}
+   assert.deepEqual(await quotes.getDraftVersion(estimator,versionId),before);assert.equal(await submission(page),record);assert.equal(posts,1,'Reads must not replay the save');assert.deepEqual(await page.evaluate(()=>window.f2Unhandled),[]);
+   await page.locator('.costing-workspace').screenshot({path:`${directory}/f2-recovered.png`});
+   // Expire only disposable fixture sessions: latest 401 still invokes real recovery.
+   await db.owner.query("UPDATE sessions SET expire=now()-interval '1 minute'");await page.getByRole('button',{name:'Refresh RFQ status',exact:true}).click();await page.getByRole('button',{name:'Sign in',exact:true}).waitFor();assert.equal(await submission(page),record);
+   await page.getByLabel('Password',{exact:true}).fill(db.passwords.DEMO_ESTIMATOR_PASSWORD);await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('region',{name:'Saved quotation',exact:true}).waitFor();
+   assert.equal(await submission(page),record);assert.equal(await page.getByRole('button',{name:'Retrieve same submission',exact:true}).isVisible(),true);assert.equal(posts,1);assert.deepEqual(await quotes.getDraftVersion(estimator,versionId),before);assert.deepEqual(await page.evaluate(()=>window.f2Unhandled),[]);
+  }finally{older.cancel();}
+ });
+ await run('f2-unmount-save','estimator',async page=>{
+  await page.goto(`${origin}/#rfq=${fixtureId(21)}`);await page.getByLabel('Gross margin (%)',{exact:true}).waitFor();await page.getByLabel('Pricing date',{exact:true}).fill('2026-11-02');let posts=0;page.on('request',r=>{if(r.method()==='POST'&&r.url().endsWith('/quote-versions'))posts++;});
+  const older=await holdMetadata(page,401);
+  try{
+   await page.getByRole('button',{name:'Calculate & save draft',exact:true}).click();await older.arrived;await page.getByRole('region',{name:'Saved quotation',exact:true}).waitFor();const record=await submission(page);
+   let sessionReads=0;page.on('request',r=>{if(r.url().endsWith('/api/auth/session'))sessionReads++;});
+   await nav(page).getByRole('link',{name:'RFQs',exact:true}).click();await page.getByRole('button',{name:'Refresh RFQs',exact:true}).waitFor();await older.release();
+   assert.equal(sessionReads,0,'Abandoned save refresh must not trigger stale session recovery');assert.equal(await page.getByRole('alert').filter({hasText:'session expired'}).count(),0);assert.equal(await page.getByRole('alert').filter({hasText:obsoleteRefresh}).count(),0);
+   await page.goBack();await page.getByRole('region',{name:'Saved quotation',exact:true}).waitFor();assert.equal(await submission(page),record);assert.equal(posts,1);
+   await page.getByRole('button',{name:'Start new calculation',exact:true}).click();await page.getByLabel('Gross margin (%)',{exact:true}).fill('17.25');
+   const delayed=await holdMetadata(page,503);
+   try{
+    await page.getByRole('button',{name:'Refresh RFQ status',exact:true}).click();await delayed.arrived;await nav(page).getByRole('link',{name:'Rate catalogue',exact:true}).click();await page.getByRole('heading',{name:'Rate catalogue',exact:true}).waitFor();await delayed.release();
+    await page.goBack();await page.getByLabel('Gross margin (%)',{exact:true}).waitFor();assert.equal(await page.getByLabel('Gross margin (%)',{exact:true}).inputValue(),'17.25');assert.equal(await page.getByRole('alert').filter({hasText:metadataFailure}).count(),0);
+    assert.equal(await page.evaluate(()=>{const event=new Event('beforeunload',{cancelable:true});window.dispatchEvent(event);return event.defaultPrevented;}),true);assert.equal(posts,1);
+   }finally{delayed.cancel();}
+  }finally{older.cancel();}
+ });
+ await run('f2-action-error','estimator',async page=>{
+  await page.goto(`${origin}/#rfq=${fixtureId(21)}`);await page.getByLabel('Gross margin (%)',{exact:true}).waitFor();
+  const pattern=`**/api/rfqs/${fixtureId(21)}/quote-versions`,message='Synthetic quotation save failure';let posts=0;
+  await page.route(pattern,route=>{posts++;return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:{message}})});});
+  await page.getByRole('button',{name:'Calculate & save draft',exact:true}).click();await page.getByRole('alert').filter({hasText:message}).waitFor();const record=await submission(page);assert.equal(JSON.parse(record).phase,'uncertain');
+  await refreshMetadata(page);assert.equal(await page.getByRole('alert').filter({hasText:message}).isVisible(),true,'Metadata success must not hide a failed save');assert.equal(await submission(page),record);assert.equal(posts,1);assert.equal(await page.getByRole('button',{name:'Retry same submission',exact:true}).isVisible(),true);assert.equal(await page.getByRole('status').filter({hasText:'Draft saved successfully.'}).count(),0);
+ });
  await writeFile(`${directory}/results.json`,JSON.stringify(results,null,2));if(results.some(r=>!r.passed))process.exitCode=1;
 }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));app?.locals.sessionStore.close();await db.close();}

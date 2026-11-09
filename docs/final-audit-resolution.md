@@ -2,6 +2,8 @@
 
 Owner scope: fix F1 only; defer F2 as a known, non-blocking limitation. No backend, schema, API, financial, security, dependency or deployment changes.
 
+Subsequent owner authorization: after accepting and pushing M1-M8/F1 as `69c3e5c28657a169c9c665af4f30439f5e8ad13d`, the owner separately approved correcting F2 on `fix/f2-stale-refresh-error`. That correction and its local verification are documented in [f2-stale-refresh-error-handoff.md](f2-stale-refresh-error-handoff.md). The deferral and verdict below preserve the historical audit decision; they do not describe F2 as still deferred after the subsequent fix. No independent production verification is claimed.
+
 ## F1: rejection-draft unload protection
 
 The previous marker required `state.status === 'pending'`. Returning from Rates remounts the version-bound lifecycle component with a retained rejection reason but an initially unknown lifecycle response. The marker consequently cleared before the read completed, and stayed clear after a failed read. The reason survived, but browser unload protection did not.

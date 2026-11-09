@@ -1,5 +1,12 @@
 # Learning log — fill during the build
 
+## 2026-11-09 - Subsequent F2 correction: one owner for metadata read errors
+
+- A reader's sequence guard does not protect an unconditional catch in its caller. The reader rethrew an obsolete failure after correctly ignoring it; the save callback then published that failure into the unrelated action error state.
+- Reusing `refreshRfq()` preserves both existing metadata requests, consumes rejected promises and keeps current failures in `readError`. Do not clear shared mutation errors on GET success; that could conceal a genuine uncertain write. Independent saved-snapshot failures also keep their own recovery path.
+- A permanent controlled-response regression first reproduced the exact stale error. Opposite completion order, successful retry, real disposable-session expiry, late unmount, draft/recovery preservation and unchanged saved financial strings check the boundaries of the fix. The earlier owner deferral remains historical; the new fix is separately authorized and locally verified. See `f2-stale-refresh-error-handoff.md`.
+- Full verification exposed an existing M7 assertion observing rate validation before its reset effect completed. A diagnostic saw removal 38 ms later; use a bounded DOM-state wait before the unchanged assertion, without arbitrary sleeps, larger timeouts or application changes. Preserve the failed logs as well as the successful rerun.
+
 ## 2026-11-09 - Final audit F1 correction and F2 deferral
 
 - Unknown lifecycle state is not evidence that a remembered rejection reason is inapplicable. Requiring a successful pending read in the dirty marker silently removed unload protection during remount/read failure. A regression reproduced the failure before the narrow fix; preserve protection until confirmed state or explicit clearing justifies removing it.

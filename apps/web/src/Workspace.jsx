@@ -149,7 +149,7 @@ function RfqWorkspace({ returnHref="#",rfqId, versionId, session, onExpired,onCh
       onChanged();
       window.location.hash=link(rfqId,receipt.versionId);
       setReload(value => value+1);setNotice(receipt.replayed ? 'Saved draft recovered. This submission created no duplicate version.' : 'Draft saved successfully.');
-      readRfq().catch(error => {setError('Draft saved, but the RFQ version list could not be refreshed. Reload to view it.');if(error.status === 401) onExpired();});
+      refreshRfq();
     } catch(error) {
       const rejected=[400,404,422].includes(error.status);
       try {persist({...record,phase:rejected?'rejected':'uncertain'});} catch {setStorageError('Could not update browser storage. Keep this tab open and retain the submission key shown below.');}
