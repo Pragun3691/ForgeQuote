@@ -94,6 +94,8 @@ function RfqWorkspace({ returnHref="#",rfqId, versionId, session, onExpired,onCh
   }
   const refreshRfq=()=>{setReadError('');return readRfq().catch(()=>{});};
   const canWrite = session.user.role === 'estimator';
+  const terminal=['won','lost'].includes(rfq?.status);
+  useEffect(()=>{if(terminal)markDirty(false);},[terminal,markDirty]);
   const targetVersion = versionId || pending?.versionId;
   const rfqReady=!!rfq;
   // A new route renders before its fetching effect runs. Never expose the
@@ -136,6 +138,7 @@ function RfqWorkspace({ returnHref="#",rfqId, versionId, session, onExpired,onCh
   },[rfqId,targetVersion,reload,rfqReady]);
   async function submit(event) {
     event.preventDefault();setError('');setNotice('');
+    if(terminal&&(!pending||pending.phase==='rejected')){setError('This RFQ is closed. Only recovery of an existing submission is available.');return;}
     let record;
     try {
       record = pending && pending.phase !== 'rejected' ? pending : {submissionKey:pending?.submissionKey || crypto.randomUUID(),body:structuredClone(form),phase:'saving'};
@@ -151,13 +154,15 @@ function RfqWorkspace({ returnHref="#",rfqId, versionId, session, onExpired,onCh
       setReload(value => value+1);setNotice(receipt.replayed ? 'Saved draft recovered. This submission created no duplicate version.' : 'Draft saved successfully.');
       refreshRfq();
     } catch(error) {
-      const rejected=[400,404,422].includes(error.status);
+      const rejected=[400,404,422].includes(error.status)||error.code==='RFQ_TERMINAL';
       try {persist({...record,phase:rejected?'rejected':'uncertain'});} catch {setStorageError('Could not update browser storage. Keep this tab open and retain the submission key shown below.');}
       handleError(error);
+      if(error.code==='RFQ_TERMINAL')refreshRfq();
       if(error.code === 'CSRF_INVALID') setError('Session security token changed. Refresh this page, then retry the same submission.');
     } finally {setSaving(false);}
   }
   function startNew() {
+    if(terminal)return;
     setError('');setNotice('New calculation started. Saving will create a new quotation version.');
     try {
       const next={submissionKey:crypto.randomUUID(),body:structuredClone(form),phase:'rejected'};
@@ -178,18 +183,19 @@ function RfqWorkspace({ returnHref="#",rfqId, versionId, session, onExpired,onCh
     {!rfq && readError && <button onClick={()=>{setReadError('');setInputReload(value=>value+1);}}>Reload RFQ</button>}
     {rfq && <><div className="section-heading"><div><p className="eyebrow">RFQ / {canWrite?'Estimation':'Review'}</p><h1>{rfq.reference}</h1></div><span className="badge">{canWrite?'Estimator':'Sales head'}</span></div>
       <dl className="title-block"><div><dt>Customer</dt><dd>{rfq.customerName}</dd></div><div><dt>Due date</dt><dd>{dateLabel(rfq.dueDate)}</dd></div><div><dt>Assigned estimator</dt><dd>{rfq.assignedEstimator}</dd></div><div><dt>RFQ status</dt><dd role="status"><span className="sr-only">RFQ status: </span><span className={`badge status-${rfq.status}`}>{rfq.status}</span></dd></div></dl>
+      {terminal&&<p className="notice" role="status">RFQ closed: {rfq.status}. Quotation work is read-only. New versions, submission, approval, rejection and issuance are blocked. Historical versions, eligible PDFs and exact-request recovery remain available.</p>}
       <div className="rfq-outcome-area"><RfqOutcome rfq={rfq} session={session} onExpired={onExpired} onSaved={()=>{refreshRfq();onChanged();}}/><button className="secondary" onClick={refreshRfq}>Refresh RFQ status</button></div>
       <SavedVersionNav versions={rfq.versions} versionId={targetVersion} rfqId={rfqId} snapshot={selectedSnapshot} canWrite={canWrite} loading={loadingQuote} error={snapshotError}/>
       <nav className="workspace-sections" aria-label="RFQ sections">{(!canWrite || (supported && form && inputsReady))&&<button type="button" className="secondary" onClick={()=>jumpTo(canWrite?'working-heading':'saved-inputs-heading')}>{canWrite?'Go to costing inputs':'Go to saved inputs'}</button>}{selectedSnapshot&&<button type="button" className="secondary" onClick={()=>jumpTo('saved-results-heading')}>Go to saved results</button>}<button type="button" className="secondary" onClick={()=>jumpTo('rfq-parts-heading')}>Go to RFQ part facts</button>{selectedSnapshot&&<><button type="button" className="secondary" onClick={()=>jumpTo('lifecycle-heading')}>Go to approval and issuance</button><button type="button" className="secondary" onClick={()=>jumpTo('documents-heading')}>Go to documents</button></>}{(['sent','won','lost'].includes(rfq.status)||rfq.outcomes.length>0)&&<button type="button" className="secondary" onClick={()=>jumpTo('rfq-outcome-heading')}>Go to RFQ outcome</button>}</nav>
-      {selectedSnapshot && <div className="saved-overview"><QuoteResults snapshot={selectedSnapshot} summaryOnly/><QuoteLifecycle key={selectedSnapshot.versionId} snapshot={selectedSnapshot} session={session} onExpired={onExpired} onChanged={()=>{refreshRfq();onChanged();}}/></div>}
+      {selectedSnapshot && <div className="saved-overview"><QuoteResults snapshot={selectedSnapshot} summaryOnly/><QuoteLifecycle key={selectedSnapshot.versionId} rfqOutcome={terminal?rfq.status:null} snapshot={selectedSnapshot} session={session} onExpired={onExpired} onChanged={()=>{refreshRfq();onChanged();}}/></div>}
       {!supported && <p role="alert" className="error">Costing requires 1–20 RFQ parts, each with a supported routing revision. No partial quotation can be saved.</p>}
       <div className="detail-workbench"><div className="part-list"><h2 id="rfq-parts-heading" tabIndex={-1}>RFQ part facts</h2><p className="muted">Current RFQ quantities and specifications.</p>{rfq.parts.map(part => <section className="part-facts" key={part.id}><div><p className="eyebrow">RFQ part</p><h2>{part.partNumber}</h2><p>{part.description}</p></div><div><p className="eyebrow">Gross weight</p><strong>{part.grossWeightKg} kg</strong></div><div><p className="eyebrow">Annual quantity</p><strong>{grouped(part.requestedAnnualQty)}</strong></div></section>)}</div>
       {!canWrite && <SavedCostingInputs snapshot={selectedSnapshot} loading={loadingQuote}/>}
-      {canWrite && supported && form && inputsReady && <CostingInputs form={form} rfq={rfq} pending={pending} frozen={frozen} saving={saving} storageError={storageError} onSubmit={submit} onChangePart={changePart} onStartNew={startNew} onPricingDateChange={value=>{markDirty(true);setForm({...form,pricingDate:value});}}/>}</div>
+      {canWrite && supported && form && inputsReady && <CostingInputs terminal={terminal} form={form} rfq={rfq} pending={pending} frozen={frozen} saving={saving} storageError={storageError} onSubmit={submit} onChangePart={changePart} onStartNew={startNew} onPricingDateChange={value=>{markDirty(true);setForm({...form,pricingDate:value});}}/>}</div>
       {notice && <p role="status" className="success">{notice}</p>}
     </>}
     {loadingQuote && <p role="status">Loading saved quotation...</p>}
     {targetVersion && !loadingQuote && !snapshot && <button onClick={()=>{setSnapshotError('');setReload(value=>value+1);}}>Reload saved quotation</button>}
-    {selectedSnapshot && <><QuoteResults snapshot={selectedSnapshot}/></>}
+    {selectedSnapshot && <><QuoteResults snapshot={selectedSnapshot} terminal={terminal}/></>}
   </main>;
 }

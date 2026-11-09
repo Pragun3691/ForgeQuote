@@ -7,13 +7,13 @@ export {grouped, money} from './format.js';
 const lines = { material:'Material',machining:'Machining',scrap:'Scrap allowance',overhead:'Overhead',packaging:'Packaging',freight:'Freight',setup:'Allocated setup' };
 const rateLabels = { materialInrPerKg:['Material','INR/kg'],machineInrPerHour:['Machine','INR/hour'],scrapPercent:['Scrap','%'],overheadPercent:['Overhead','%'],packagingInrPerPiece:['Packaging','INR/piece'],freightInrPerPiece:['Freight','INR/piece'] };
 
-export default function QuoteResults({ snapshot, summaryOnly=false }) {
+export default function QuoteResults({ snapshot, summaryOnly=false, terminal=false }) {
   if (summaryOnly) return <section className="baseline-summary" aria-label="Saved annual baseline"><p className="eyebrow">Saved combined annual baseline · Version {snapshot.versionNumber}</p><p className="headline-price" data-testid="annual-baseline-value">{money(snapshot.annualValueExGst)}</p><p className="muted">Excluding GST · 100% scenario · Immutable saved value</p></section>;
   const parts=[...snapshot.parts].sort((a,b)=>a.part.part_number.localeCompare(b.part.part_number,'en',{numeric:true}));
   return <section className="results" aria-label="Saved quotation">
     <div className="section-heading"><div><p className="eyebrow">Persisted quotation</p><h2 id="saved-results-heading" tabIndex={-1}>Saved quotation <span className="badge">Version {snapshot.versionNumber}</span></h2></div><span className="muted">Pricing date {dateLabel(snapshot.pricingDate)}</span></div>
     <p className="muted">{snapshot.rfq.reference} · {snapshot.rfq.customer_name} · Saved {timestamp(snapshot.createdAt)}</p>
-    <p className="notice">Immutable saved results. Changing inputs creates a new version.</p>
+    <p className="notice">{terminal?'Immutable saved results. This RFQ is closed; new quotation versions are blocked.':'Immutable saved results. Changing inputs creates a new version.'}</p>
     <h3>Annual quotation totals</h3>
     <p className="muted">All parts combined. Each scenario uses its saved annual quantities. Financial values below belong to Version {snapshot.versionNumber}.</p>
     <div className="scenario-strip" aria-label="Saved annual scenario summaries">{snapshot.totals.map(total=><section key={total.scenario} className={total.scenario==='100'?'scenario-baseline':''} aria-label={`Saved ${total.scenario}% annual scenario`}><h4>{total.scenario}% scenario {total.scenario==='100'&&<span className="muted">Baseline</span>}</h4><dl><div><dt>Annual subtotal, ex-GST</dt><dd>{money(total.taxableSubtotal)}</dd></div><div><dt>Annual illustrative GST ({snapshot.parts[0].input.gstPercent}%)</dt><dd>{money(total.gstAmount)}</dd></div><div><dt>Annual total, including GST</dt><dd>{money(total.totalWithGst)}</dd></div></dl></section>)}</div>

@@ -26,12 +26,13 @@ export function createLifecycleService(pool) {
         await actor(client,actorId);
         // One statement snapshot keeps status/history and latest-version detection consistent.
         const row=(await client.query(`SELECT v.*,q.next_version-1 AS latest,
+          (SELECT outcome FROM rfq_outcomes WHERE rfq_id=q.rfq_id) AS rfq_outcome,
           COALESCE((SELECT jsonb_agg(jsonb_build_object('versionId',e.version_id,'position',e.position,'eventType',e.event_type,
           'actorId',e.actor_user_id,'occurredAt',e.occurred_at,'reason',e.reason,'quotationNumber',e.quotation_number) ORDER BY position)
           FROM quotation_events e WHERE e.version_id=v.id),'[]') AS history
           FROM quotation_versions v JOIN quotations q ON q.id=v.quotation_id WHERE v.id=$1`,[versionId])).rows[0];
         if(!row) fail('Quotation version not found.','QUOTATION_NOT_FOUND');
-        return describe(row,row.history,row.latest);
+        return {...describe(row,row.history,row.latest),rfqOutcome:row.rfq_outcome};
       };
       return sharedClient ? read(sharedClient) : transaction(pool,read);
     },
@@ -42,6 +43,7 @@ export function createLifecycleService(pool) {
           v.rfq_snapshot AS rfq,v.annual_value_ex_gst AS "annualValueExGst"
           FROM quotation_versions v JOIN quotations q ON q.id=v.quotation_id
           WHERE v.version_number=q.next_version-1 AND EXISTS (SELECT 1 FROM quotation_events e WHERE e.version_id=v.id AND event_type='submitted')
+          AND NOT EXISTS (SELECT 1 FROM rfq_outcomes o WHERE o.rfq_id=q.rfq_id)
           AND NOT EXISTS (SELECT 1 FROM quotation_events e WHERE e.version_id=v.id AND event_type IN ('auto_approved','approved','rejected'))
           ORDER BY v.created_at,v.id`)).rows;
       });
@@ -64,7 +66,8 @@ export function createLifecycleService(pool) {
         }
         const version=(await client.query('SELECT * FROM quotation_versions WHERE id=$1',[versionId])).rows[0];
         if(!version) fail('Quotation version not found.','QUOTATION_NOT_FOUND');
-        const header=(await client.query('SELECT next_version-1 AS latest FROM quotations WHERE id=$1 FOR UPDATE',[version.quotation_id])).rows[0];
+        const header=(await client.query('SELECT rfq_id,next_version-1 AS latest FROM quotations WHERE id=$1 FOR UPDATE',[version.quotation_id])).rows[0];
+        if((await client.query('SELECT 1 FROM rfq_outcomes WHERE rfq_id=$1',[header.rfq_id])).rowCount) fail('This RFQ is Won or Lost. New quotation actions are closed; historical versions remain available.','RFQ_TERMINAL');
         if(version.version_number!==header.latest) fail('A newer version exists. Open and submit the latest version.','STALE_QUOTATION');
         const baseline=(await client.query("SELECT taxable_subtotal FROM quotation_totals WHERE version_id=$1 AND scenario='100'",[versionId])).rows[0];
         if(!baseline || !new Decimal(baseline.taxable_subtotal).eq(version.annual_value_ex_gst)) fail('Saved baseline totals do not match.');

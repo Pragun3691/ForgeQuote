@@ -40,7 +40,7 @@ export function PendingApprovals({onExpired,active=true,refreshSignal=0}) {
   </section>;
 }
 
-export default function QuoteLifecycle({snapshot,session,onExpired,onChanged=()=>{}}) {
+export default function QuoteLifecycle({snapshot,session,onExpired,onChanged=()=>{},rfqOutcome=null}) {
   const [state,setState]=useState(null),[error,setError]=useState('');
   const [readError,setReadError]=useState(''),[reading,setReading]=useState(false);
   const [reason,setReason]=useMemoryDraft(`rejection:${snapshot.versionId}`,'');
@@ -49,6 +49,7 @@ export default function QuoteLifecycle({snapshot,session,onExpired,onChanged=()=
   const [confirming,setConfirming]=useState(false);
   const issuanceInFlight=useRef(false);
   const [busy,setBusy]=useState(false),[reload,setReload]=useState(0),[pending,setPending]=useState(null),[blocked,setBlocked]=useState(false);
+  const terminal=['won','lost'].includes(rfqOutcome)||['won','lost'].includes(state?.rfqOutcome);
   const storageKey=`forgequote:lifecycle:${session.user.id}:${snapshot.versionId}`;
   useEffect(()=>{
     try {
@@ -59,7 +60,7 @@ export default function QuoteLifecycle({snapshot,session,onExpired,onChanged=()=
   },[storageKey]);
   useEffect(()=>{
     const controller=new AbortController();setReadError('');setReading(true);
-    api(`/quote-versions/${snapshot.versionId}/lifecycle`,{signal:controller.signal}).then(result=>{if(!controller.signal.aborted){setState(result);setReadError('');}}).catch(e=>{
+    api(`/quote-versions/${snapshot.versionId}/lifecycle`,{signal:controller.signal}).then(result=>{if(!controller.signal.aborted){setState(result);setReadError('');if(result.rfqOutcome)onChanged();}}).catch(e=>{
       if(!controller.signal.aborted){setReadError(readErrorMessage(e,'lifecycle status'));if(e.status===401) onExpired();}
     }).finally(()=>{if(!controller.signal.aborted)setReading(false);});
     return ()=>controller.abort();
@@ -67,10 +68,11 @@ export default function QuoteLifecycle({snapshot,session,onExpired,onChanged=()=
   // An unknown lifecycle read cannot make a retained rejection draft inapplicable.
   // A recorded request already has durable same-key recovery; confirmed terminal or
   // superseded states no longer accept a rejection for this immutable version.
-  useEffect(()=>{markDirty(session.user.role==='sales_head'&&(!state||(state.status==='pending'&&!state.stale))&&!pending&&!!reason);},[reason,pending,state,session.user.role,markDirty]);
+  useEffect(()=>{markDirty(!terminal&&session.user.role==='sales_head'&&(!state||(state.status==='pending'&&!state.stale))&&!pending&&!!reason);},[reason,pending,state,terminal,session.user.role,markDirty]);
   function reviewDecision(action){setDecision({action,trigger:document.activeElement,title:action==='approve'?'Approve saved version?':'Reject saved version?',description:action==='approve'?'Approval applies only to this saved version. Issuance remains a separate Estimator action.':'Rejection is final for this version. A correction requires a new quotation version.',facts:[['RFQ',snapshot.rfq.reference],['Customer',snapshot.rfq.customer_name],['Saved version',String(snapshot.versionNumber)],['Saved annual value, excluding GST',money(snapshot.annualValueExGst)]],reason:action==='reject'?reason:undefined,confirmLabel:action==='approve'?'Confirm approval':'Confirm rejection'});}
   const actionInFlight=useRef(false);
   async function act(action) {
+    if(terminal&&!pending)return;
     if(actionInFlight.current)return;actionInFlight.current=true;
     setBusy(true);setError('');setNotice('');
     try {
@@ -81,33 +83,35 @@ export default function QuoteLifecycle({snapshot,session,onExpired,onChanged=()=
     } catch(e) {
       setError(e.message || 'Action failed. Retry the same action to check its outcome.');
       if(e.status===401) onExpired();
+      if(e.code==='RFQ_TERMINAL'){setReload(n=>n+1);onChanged();}
       if([400,403,404,409,422].includes(e.status)) {
         try {sessionStorage.removeItem(storageKey);setPending(null);} catch {setBlocked(true);}
       }
     } finally {setBusy(false);actionInFlight.current=false;}
   }
   const estimator=session.user.role==='estimator';
-  const canIssue=estimator && state?.status==='approved' && !state.stale && !busy && !blocked && !pending && !reading && !readError;
-  useEffect(()=>{if(decision&&(busy||blocked||pending||state?.status!=='pending'||state?.stale||reading||readError))setDecision(null);},[decision,busy,blocked,pending,state,reading,readError]);
+  const canIssue=!terminal && estimator && state?.status==='approved' && !state.stale && !busy && !blocked && !pending && !reading && !readError;
+  useEffect(()=>{if(decision&&(terminal||busy||blocked||pending||state?.status!=='pending'||state?.stale||reading||readError))setDecision(null);},[decision,terminal,busy,blocked,pending,state,reading,readError]);
   useEffect(()=>{if(confirming && !canIssue)setConfirming(false);},[confirming,canIssue]);
   return <section className="panel lifecycle" aria-label="Quotation lifecycle"><h2 id="lifecycle-heading" tabIndex={-1}>Approval and issuance · Version {snapshot.versionNumber}</h2>
     {error && <p role="alert" className="error">{error}</p>}
     {notice&&<p role="status" className="success">{notice}</p>}
+    {terminal&&<p className="notice" role="status">This RFQ is closed. The saved lifecycle and eligible PDFs remain available; no new quotation actions are permitted.</p>}
     {readError && <p role="alert" className="error">{readError}{state && ' Showing previously loaded lifecycle status.'}</p>}
     <button className="secondary" disabled={busy} onClick={()=>setReload(n=>n+1)}>Refresh lifecycle</button>
     {reading && !readError && <p role="status">{state?'Refreshing lifecycle...':'Loading lifecycle...'}</p>}
     {state && <><p role="status">Quotation status: <strong className={`badge status-${state.status}`}>{state.status}</strong>{state.stale?' · Superseded by a newer version':''}</p>
       <p>{state.approvalRequired?'Sales Head approval required: saved annual value is above INR 25,00,000 excluding GST.':'Automatic clearance: saved annual value is at or below INR 25,00,000 excluding GST.'}</p>
       {state.quotationNumber && <p>Quotation number: <Identifier value={state.quotationNumber}/></p>}
-      <PdfDownloads snapshot={snapshot} state={state} onExpired={onExpired}/>
+      <PdfDownloads snapshot={snapshot} state={state} terminal={terminal} onExpired={onExpired}/>
       <fieldset disabled={busy || blocked || (!pending && (reading || !!readError))}>
-        {pending ? <><p>Previous {pending.action} outcome may be uncertain. Retry the same request before another action.</p><RecordedActionSummary request={{...pending,path:`/quote-versions/${snapshot.versionId}/${pending.action}`}} label="Recorded lifecycle request"/><button onClick={()=>act(pending.action)}>Retry same lifecycle action</button></> : !state.stale && <>
+        {pending ? <><p>Previous {pending.action} outcome may be uncertain. Retry the same request before another action.</p><RecordedActionSummary request={{...pending,path:`/quote-versions/${snapshot.versionId}/${pending.action}`}} label="Recorded lifecycle request"/><button onClick={()=>act(pending.action)}>Retry same lifecycle action</button></> : !terminal && !state.stale && <>
           {estimator && state.status==='draft' && <button onClick={()=>act('submit')}>Submit for clearance</button>}
           {estimator && state.status==='approved' && <button onClick={()=>setConfirming(true)}>Issue quotation</button>}
           {!estimator && state.status==='pending' && <><button onClick={()=>reviewDecision('approve')}>Approve version</button><label>Rejection reason<textarea aria-label="Rejection reason" maxLength={1000} value={reason} aria-invalid={reason&&reasonError(reason)?true:undefined} aria-describedby={reason&&reasonError(reason)?'rejection-reason-error':undefined} onChange={e=>setReason(e.target.value)}/>{reason&&reasonError(reason)&&<span id="rejection-reason-error" className="field-error">{reasonError(reason)}</span>}</label><button className="secondary danger" disabled={!!reasonError(reason)} onClick={()=>reviewDecision('reject')}>Reject version</button></>}
         </>}
       </fieldset>
-      {state.status==='rejected' && <p>Create and submit a new quotation version to request another review.</p>}
+      {!terminal&&state.status==='rejected' && <p>Create and submit a new quotation version to request another review.</p>}
       <ol className="event-ledger" aria-label="Lifecycle event history">{state.events.map(e=><li key={e.position}><strong>{e.eventType.replaceAll('_',' ')}</strong><time dateTime={e.occurredAt}>{timestamp(e.occurredAt)}</time><span>Actor <Identifier value={e.actorId}/></span>{e.reason && <p>{e.reason}</p>}</li>)}</ol>
     </>}
     {decision&&<DecisionConfirmation review={decision} onCancel={()=>setDecision(null)} onConfirm={()=>{if(decisionInFlight.current)return;decisionInFlight.current=true;const action=decision.action;setDecision(null);act(action).finally(()=>{decisionInFlight.current=false;});}}/>}

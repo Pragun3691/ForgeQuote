@@ -22,12 +22,14 @@ test('already-sent responses delegate the original error exactly once without wr
 test('readiness reports schema/database availability; quotation routes require authentication', async () => {
   let unavailable = false;
   let migrated = true;
-  const app = createApp({ query: async () => { if (unavailable) throw Error('offline'); return { rowCount: migrated ? 1 : 0 }; } }, { nodeEnv: 'test', gstPercent: '18', appOrigin: 'http://localhost:3000', sessionSecret: randomBytes(32).toString('hex'), trustProxyHops: 0 });
+  let readinessSql;
+  const app = createApp({ query: async sql => { readinessSql=sql;if (unavailable) throw Error('offline'); return { rowCount: migrated ? 1 : 0 }; } }, { nodeEnv: 'test', gstPercent: '18', appOrigin: 'http://localhost:3000', sessionSecret: randomBytes(32).toString('hex'), trustProxyHops: 0 });
   const server = app.listen(0, '127.0.0.1');
   await once(server, 'listening');
   try {
     const base = `http://127.0.0.1:${server.address().port}`;
     assert.equal((await fetch(`${base}/api/health/ready`)).status, 200);
+    assert.match(readinessSql,/008_terminal_rfq_quotation_guards\.sql/);
     migrated = false;
     assert.equal((await fetch(`${base}/api/health/ready`)).status, 503);
     migrated = true;

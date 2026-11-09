@@ -1,5 +1,7 @@
 # ADR-0017 - Authored rate versions, RFQ outcomes and internal costing PDF
 
+Subsequent decision: [ADR 0028](0028-terminal-rfq-closure.md) prospectively freezes quotation writes after Won/Lost and replaces the outcome-only entity lock. The text below records original 007 behavior; its readiness/inventory and lock details are historical.
+
 Accepted under the owner's already-approved final-requirements continuation, 2026-11-05. Supersedes ADR-0016's prohibition on all application rate writes. ADR-0002 formulas and all nine financial goldens remain unchanged. No C1 audit context exists in this checkout; no broader audit completion is claimed.
 
 ## Rate authoring

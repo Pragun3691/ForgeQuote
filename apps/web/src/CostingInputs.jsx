@@ -2,17 +2,18 @@ import React from 'react';
 import Identifier from './Identifier.jsx';
 
 // A controlled view of the existing owner. Never rebuild a recorded request here.
-export default function CostingInputs({form,rfq,pending,frozen,saving,storageError,onSubmit,onChangePart,onPricingDateChange,onStartNew}) {
+export default function CostingInputs({form,rfq,pending,frozen,saving,storageError,onSubmit,onChangePart,onPricingDateChange,onStartNew,terminal=false}) {
   const inputs=Object.hasOwn(form,'parts')?form.parts:[form];
   const uncertain=pending&&['saving','uncertain'].includes(pending.phase);
   const submitted=pending?.versionId&&rfq.versions.find(v=>v.id.toLowerCase()===pending.versionId.toLowerCase());
   function jump(partId){const el=document.getElementById(`costing-part-${partId}`);el?.focus({preventScroll:true});el?.scrollIntoView({block:'start'});}
   return <form className="panel costing-form" onSubmit={onSubmit}>
-    <div className="section-heading"><div><p className="eyebrow">{uncertain?'Recorded submission · outcome unconfirmed':pending?.phase==='saved'?'Server-confirmed submitted inputs':'Working estimate · editable inputs'}</p><h2 id="working-heading" tabIndex={-1}>Costing inputs</h2><p className="muted">Choose annual production quantities. The 100% scenario is the headline price.</p></div></div>
-    <p className={uncertain?'notice':'working-explanation'}>{uncertain?'The outcome has not been recovered in this tab. These inputs are locked for the same-request retry.':pending?.phase==='saved'?'The server confirmed this submission. Its locked inputs remain separate from the saved version currently selected for review.':'These working inputs are held in this tab. A new saved quotation exists only after the server confirms Calculate & save draft.'}</p>
+    <div className="section-heading"><div><p className="eyebrow">{terminal?'Closed RFQ · retained inputs':uncertain?'Recorded submission · outcome unconfirmed':pending?.phase==='saved'?'Server-confirmed submitted inputs':'Working estimate · editable inputs'}</p><h2 id="working-heading" tabIndex={-1}>Costing inputs</h2><p className="muted">{terminal?'The 100% scenario is the headline price.':'Choose annual production quantities. The 100% scenario is the headline price.'}</p></div></div>
+    <p className={uncertain?'notice':'working-explanation'}>{uncertain?'The outcome has not been recovered in this tab. These inputs are locked for the same-request retry.':pending?.phase==='saved'?'The server confirmed this submission. Its locked inputs remain separate from the saved version currently selected for review.':terminal?'Retained inputs are not a saved quotation. This RFQ cannot receive new quotation versions.':'These working inputs are held in this tab. A new saved quotation exists only after the server confirms Calculate & save draft.'}</p>
     {pending?.phase==='saved'&&pending.versionId&&<p className="muted">Confirmed submission: <a href={`#${new URLSearchParams({rfq:rfq.id,version:pending.versionId})}`}>{submitted?`Version ${submitted.versionNumber}`:'Review submitted version'}</a></p>}
     {inputs.length>1&&<nav className="part-jumps" aria-label="Costing part navigation">{inputs.map(input=>{const part=rfq.parts.find(p=>p.id.toLowerCase()===input.partId.toLowerCase());return <button key={input.partId} type="button" className="secondary" onClick={()=>jump(input.partId)} aria-label={`Go to costing ${part?.partNumber||input.partId}`}>{part?.partNumber||input.partId}</button>;})}</nav>}
-    <fieldset disabled={!!frozen||!!storageError}><label>Pricing date<input required type="date" value={form.pricingDate} onChange={e=>onPricingDateChange(e.target.value)}/></label>
+    {terminal&&<p className="notice">Retained costing inputs are read-only because this RFQ is closed. They do not create a new quotation.</p>}
+    <fieldset disabled={terminal||!!frozen||!!storageError}><label>Pricing date<input required type="date" value={form.pricingDate} onChange={e=>onPricingDateChange(e.target.value)}/></label>
       {inputs.map(input=>{
         const part=rfq.parts.find(p=>p.id.toLowerCase()===input.partId.toLowerCase());
         return <fieldset className="intake-part" data-part-input id={`costing-part-${input.partId}`} tabIndex={-1} key={input.partId} aria-label={`Costing ${part?.partNumber||input.partId}`}><legend>{part?.partNumber||input.partId}</legend>
@@ -21,7 +22,7 @@ export default function CostingInputs({form,rfq,pending,frozen,saving,storageErr
         </fieldset>;
       })}
     </fieldset>
-    <div className="actions"><button type="submit" className={pending?.phase==='saved'?'secondary':undefined} disabled={saving||!!storageError}>{saving?'Saving draft...':pending?.phase==='saved'?'Retrieve same submission':frozen?'Retry same submission':'Calculate & save draft'}</button>{pending&&<button type="button" className="secondary" disabled={saving||!!storageError} onClick={onStartNew}>Start new calculation</button>}</div>
+    <div className="actions"><button type="submit" className={pending?.phase==='saved'?'secondary':undefined} disabled={saving||!!storageError||(terminal&&(!pending||pending.phase==='rejected'))}>{saving?'Saving draft...':pending?.phase==='saved'?'Retrieve same submission':frozen?'Retry same submission':'Calculate & save draft'}</button>{pending&&<button type="button" className="secondary" disabled={terminal||saving||!!storageError} onClick={onStartNew}>Start new calculation</button>}</div>
     {pending&&<p className="muted submission-note">Submission key: <Identifier value={pending.submissionKey}/>{uncertain&&' · Outcome may be uncertain. Retry this submission before starting a new calculation.'}</p>}
   </form>;
 }

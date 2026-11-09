@@ -1,5 +1,13 @@
 # Current status - 2026-11-09
 
+## Terminal RFQ closure - complete locally, STOP for owner review
+
+- Branch `fix/terminal-rfq-closure` from freshly verified `origin/main` / `bceb4f95f5b538de32e1bc3c91eb137235e9dffb`; 268-file ignored `.tmp/terminal-before` checkpoint preserves exact baseline files/hashes/status/patches. No reset, clean, stash or discarded owner work.
+- New forward-only migration 008 and API guards close new quotation creation/submission/approval/rejection/issuance after Won/Lost. All writers and outcomes share a quotation-header lock. SQL guards also fail closed for stale higher-isolation writes. Receipt replay precedes terminal rejection; historical rows, snapshots and PDF eligibility are unchanged.
+- Both-role closed-state UI, unfinished-version warning, queue exclusion, retained inputs and exact-request recovery preserve accepted M1-M8/F1/F2 behavior. Readiness/inventory require 008, eight functions and 35 triggers. See ADR 0028 and `terminal-rfq-closure-handoff.md` for verification, exact files and rollout/rollback limits.
+- Final verification: all 22 browser suites (21 existing plus terminal regression), 24 frontend helpers, 90 units, 197 guarded disposable API/database tests, 33 financial tests/all nine unchanged goldens, 47 syntax modules, 62-module build and real production startup 1/1. Inspected actual desktop/tablet/mobile/narrow screenshots; keyboard/focus, contrast/reduced motion and existing 200%/400% zoom gates passed. Historical snapshot/PDF bytes remain unchanged across 008 in the legacy fixture. Exactly 31 intended changed files; 243 baseline files, including migrations 001-007, remain byte-identical. Runtime default isolation must be verified separately before deployment; production defaults were not inspected here.
+- Only guarded disposable test databases/schemas were touched. No development/production migration or seed, Neon/Render/configuration change, staging, commit, push, merge or deployment. Stop for owner review; no release operation is implied.
+
 ## ForgeQuote branding cleanup - separate owner-approved branch
 
 - Branch `feature/forgequote-branding` starts at accepted F2 commit `401a63cf93d3e23f5415295846afe86e5a5de08a`; clean baseline verified before the 267-file `.tmp/branding-before` checkpoint. No history rewrite, staging, commit, push, merge or deployment.

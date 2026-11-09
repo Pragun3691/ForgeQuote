@@ -57,7 +57,11 @@ export function RfqOutcome({rfq,session,onExpired,onSaved}) {
   const [review,setReview]=useState(null),inFlight=React.useRef(false),markDirty=useDraftMarker(`outcome:${rfq.id}`);
   const state=useRecordedAction(`forgequote:rfq-outcome:${session.user.id}:${rfq.id}`,session,onExpired,()=>{setReason('');markDirty(false);onSaved();});
   useEffect(()=>{markDirty(session.user.role==='sales_head'&&rfq.status==='sent'&&!state.pending&&!!reason);},[reason,state.pending,rfq.status,session.user.role,markDirty]);
-  function request(outcome){setReview({trigger:document.activeElement,outcome,title:`Mark RFQ ${outcome}?`,description:'This is a terminal outcome. Reopening or correcting an outcome is not supported.',facts:[['RFQ',rfq.reference],['Customer',rfq.customerName],['Outcome',outcome]],reason:outcome==='lost'?reason:undefined,confirmLabel:`Confirm ${outcome}`});}
+  function request(outcome){
+    const lastIssued=rfq.versions.filter(v=>v.lifecycleStatus==='issued').reduce((latest,v)=>BigInt(v.versionNumber)>latest?BigInt(v.versionNumber):latest,0n);
+    const unfinished=rfq.versions.filter(v=>BigInt(v.versionNumber)>lastIssued&&['draft','pending','approved','rejected'].includes(v.lifecycleStatus));
+    setReview({trigger:document.activeElement,outcome,title:`Mark RFQ ${outcome}?`,description:'This permanently closes quotation work: no new versions, submission, approval, rejection or issuance. Historical reads, eligible PDFs and recovery of already committed identical requests remain available. Reopening or correcting an outcome is not supported. Any unfinished versions, including changes made in another tab, will be blocked.',facts:[['RFQ',rfq.reference],['Customer',rfq.customerName],['Outcome',outcome],['Newer unfinished versions',unfinished.length?unfinished.map(v=>`Version ${v.versionNumber} (${v.lifecycleStatus})`).join(', '):'None in the last loaded history. Other tabs may have newer changes.']],reason:outcome==='lost'?reason:undefined,confirmLabel:`Confirm ${outcome}`});
+  }
   const hasAction=session.user.role==='sales_head' && (state.pending || rfq.status==='sent');
   if(!hasAction && !rfq.outcomes.length && !state.error && !state.notice) return null;
   return <section className="outcome-strip" aria-label="RFQ outcome"><h2 id="rfq-outcome-heading" tabIndex={-1}>RFQ outcome</h2><Feedback state={state}/>

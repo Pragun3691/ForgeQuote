@@ -20,7 +20,9 @@ export async function getRfq(pool, value) {
     r.cycle_time_min AS "cycleTimeMin",r.setup_hours_per_batch AS "setupHoursPerBatch",k.code AS "machineCode"
     FROM routing_revisions r JOIN rfq_parts p ON p.id=r.part_id JOIN rate_keys k ON k.id=r.machine_rate_key_id
     WHERE p.rfq_id=$1 ORDER BY r.revision_number DESC`, [id])).rows;
-  const versions = (await pool.query(`SELECT v.id,v.version_number AS "versionNumber",v.pricing_date::text AS "pricingDate",v.created_at AS "createdAt"
+  const versions = (await pool.query(`SELECT v.id,v.version_number AS "versionNumber",v.pricing_date::text AS "pricingDate",v.created_at AS "createdAt",
+    COALESCE((SELECT CASE e.event_type WHEN 'submitted' THEN 'pending' WHEN 'auto_approved' THEN 'approved' ELSE e.event_type END
+      FROM quotation_events e WHERE e.version_id=v.id ORDER BY e.position DESC LIMIT 1),'draft') AS "lifecycleStatus"
     FROM quotation_versions v JOIN quotations q ON q.id=v.quotation_id WHERE q.rfq_id=$1 ORDER BY v.version_number DESC`, [id])).rows;
   const outcomes=(await pool.query(`SELECT o.outcome,o.reason,o.occurred_at AS "occurredAt",o.actor_user_id AS "actorId",u.username AS actor
     FROM rfq_outcomes o JOIN users u ON u.id=o.actor_user_id WHERE o.rfq_id=$1`,[id])).rows;

@@ -71,6 +71,10 @@ export function createQuotationService(pool, { gstPercent }) {
         const rfq = (await client.query('SELECT id,reference,customer_name,due_date::text,owner_label,status FROM rfqs WHERE id=$1', [request.rfqId])).rows[0];
         if (!rfq) fail('RFQ_NOT_FOUND', 'RFQ not found');
         await client.query('INSERT INTO quotations(id,rfq_id) VALUES ($1,$2) ON CONFLICT (rfq_id) DO NOTHING', [randomUUID(), rfq.id]);
+        // Closure, allocation and lifecycle writes share this row lock. Check
+        // after acquiring it so a closure committed while waiting is visible.
+        await client.query('SELECT id FROM quotations WHERE rfq_id=$1 FOR UPDATE', [rfq.id]);
+        if ((await client.query('SELECT 1 FROM rfq_outcomes WHERE rfq_id=$1', [rfq.id])).rowCount) fail('RFQ_TERMINAL', 'This RFQ is Won or Lost. New quotation work is closed; historical versions remain available.');
         // UPDATE locks the RFQ's single header until commit. A second creator waits
         // and increments the committed counter; a rollback restores the counter.
         const header = (await client.query('UPDATE quotations SET next_version=next_version+1 WHERE rfq_id=$1 RETURNING id,next_version-1 AS version_number', [rfq.id])).rows[0];

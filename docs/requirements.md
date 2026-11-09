@@ -1,5 +1,7 @@
 # Brief-to-build traceability
 
+Owner-approved terminal-closure supplement: after Won/Lost, new quotation creation, submission, approval, rejection and issuance are blocked at API and SQL levels. Identical committed requests remain recoverable before terminal rejection; historical reads and existing PDF eligibility remain. Migration 008 applies prospectively without rewriting earlier Won-before-newer-version histories. This explicit owner decision is separate from verification of the original brief. See ADR 0028 and `terminal-rfq-closure-handoff.md`.
+
 **Source provenance:** This document records the earlier interpretation of user-supplied IsoCode Labs client brief screenshots. The original screenshots/brief are not present in the tracked repository, so direct verification of the requirement wording, core/optional classifications and submission instructions below is **UNVERIFIED** pending comparison with the original. Implementation/test evidence is separate from verification of the assignment source. Accepted owner-approved costing and ADR policies remain unchanged; do not describe implementation assumptions as confirmed client rules.
 
 | ID | CORE requirement | How to prove it | Status |

@@ -6,7 +6,7 @@ import { transaction } from './db.js';
 
 const tables=['rate_keys','rate_versions','rfqs','rfq_parts','routing_revisions','schema_migrations','users','sessions',
   'quotations','quotation_versions','quotation_parts','quotation_rates','quotation_part_tiers','quotation_totals','draft_submissions','rfq_submissions','quotation_events','rfq_outcomes'];
-const functions=['reject_history_mutation','guard_quote_assembly','guard_quote_header','guard_draft_submission','guard_quotation_event','guard_rate_authoring','guard_rfq_outcome'];
+const functions=['reject_history_mutation','guard_quote_assembly','guard_quote_header','guard_quotation_version','guard_draft_submission','guard_quotation_event','guard_rate_authoring','guard_rfq_outcome'];
 const columnInserts={rate_versions:['id','rate_key_id','effective_from','raw_value','actor_user_id','reason','submission_key'],rfq_outcomes:['rfq_id','outcome','actor_user_id','reason','submission_key'],quotation_events:['version_id','position','event_type','actor_user_id','reason','submission_key','quotation_number'],quotations:['id','rfq_id'],quotation_versions:['id','quotation_id','version_number','pricing_date','formula_version','currency','gst_percent','created_by','rfq_snapshot','annual_value_ex_gst'],
   draft_submissions:['actor_user_id','submission_key','request_fingerprint','rfq_id','version_id'],
   rfqs:['id','reference','customer_name','due_date','owner_label'],
@@ -16,7 +16,7 @@ const columnInserts={rate_versions:['id','rate_key_id','effective_from','raw_val
 const appendTables=['quotation_parts','quotation_rates','quotation_part_tiers','quotation_totals'];
 const triggers={rfq_outcomes:['rfq_outcome_transition','rfq_outcomes_immutable','rfq_outcomes_no_truncate'],quotation_events:['quotation_events_immutable','quotation_events_no_truncate','quotation_events_transition'],rate_keys:['rate_keys_immutable'],rate_versions:['rate_versions_immutable','rate_versions_no_truncate','rate_authoring'],
   routing_revisions:['routing_revisions_immutable','routing_revisions_no_truncate'],
-  quotations:['quotations_allocate','quotations_no_delete','quotations_no_truncate'],quotation_versions:['immutable','no_truncate'],
+  quotations:['quotations_allocate','quotations_no_delete','quotations_no_truncate'],quotation_versions:['immutable','no_truncate','quotation_version_terminal'],
   ...Object.fromEntries(appendTables.map(table=>[table,['immutable','no_truncate','assembly_only']])),
   draft_submissions:['draft_submission_assembly','draft_submissions_immutable','draft_submissions_no_truncate'],
   rfq_submissions:['rfq_submissions_immutable','rfq_submissions_no_truncate']};
@@ -132,7 +132,7 @@ export async function checkCloudPermissions(pool,databaseName) {
     const actualTriggers=(await client.query(`SELECT c.relname,t.tgname,t.tgenabled FROM pg_trigger t
       JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
       WHERE n.nspname='public' AND NOT t.tgisinternal`)).rows;
-    assert.deepEqual(actualTriggers.map(row=>`${row.relname}.${row.tgname}`).sort(),Object.entries(triggers).flatMap(([table,names])=>names.map(name=>`${table}.${name}`)).sort(),'Application trigger inventory must match migrations 001-007');
+    assert.deepEqual(actualTriggers.map(row=>`${row.relname}.${row.tgname}`).sort(),Object.entries(triggers).flatMap(([table,names])=>names.map(name=>`${table}.${name}`)).sort(),'Application trigger inventory must match migrations 001-008');
     assert.ok(actualTriggers.every(row=>row.tgenabled==='O'),'Application triggers must remain enabled');
     return {status:'restricted',tables:tables.length,functions:functions.length};
   } finally {client.release();}

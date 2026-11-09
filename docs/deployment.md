@@ -1,5 +1,13 @@
 # Render + Neon deployment
 
+## Pending terminal-closure release — separately authorized operation only
+
+The locally verified closure change adds forward-only `008_terminal_rfq_quotation_guards.sql`; application readiness now requires 008. Do not edit/reapply 001–007 or seed/reset an existing database. Quiesce quotation/outcome writes and older instances; privately verify the intended maintenance/runtime target and take a verified backup before an approved release. Apply only pending migrations through the checksum runner, run existing narrow maintenance permission preparation/checks, then start the reviewed application and verify readiness, both roles, terminal HTTP 409, exact receipt recovery and historical downloads. Startup itself performs no migration.
+
+Strict inventory after 008: 18 tables, 8 guard functions, 35 enabled triggers. `guard_quotation_version()` needs the same explicit function ACL handling as the other guards. Existing table/column grants remain unchanged. All quotation/outcome writers share the quotation-header row lock; supported write isolation is READ COMMITTED (READ UNCOMMITTED is equivalent in PostgreSQL). Check `SHOW default_transaction_isolation` and `SHOW transaction_isolation` on the actual runtime connection before enabling writes: plain BEGIN inherits this default. Direct repeatable-read/serializable writes fail closed with SQLSTATE 25000; stronger-isolation historical reads remain supported. This task did not independently inspect production defaults.
+
+008 changes no historical rows. Do not delete migration receipts or disable terminal guards during rollback. Prefer a compatible forward correction; older API versions may expose generic errors for closed writes even though SQL still protects data. Relaxing closure requires a separately approved forward migration. See ADR 0028 and `terminal-rfq-closure-handoff.md`. No production migration, configuration change or deployment was performed for this task. The earlier 007 instructions below are historical context.
+
 T07 uses one Render Node web service to serve Express and the built React frontend on the same HTTPS origin. Neon provisioning is complete for project forgequote-demo, branch production, database neondb, Singapore. No public Render deployment is claimed. The latest owner instruction permits local configuration/docs/tests/commit only: do not reconnect to either cloud dashboard/database, push, merge or deploy in this checkpoint.
 
 ## Render settings

@@ -55,8 +55,10 @@ export async function recordOutcome(pool,actorId,rfqId,key,body) {
       if(prior.rfq_id!==rfqId || prior.outcome!==body.outcome || prior.reason!==note) fail('This request key was used for a different outcome.','SUBMISSION_CONFLICT');
       return {rfqId,outcome:prior.outcome,replayed:true};
     }
-    await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',[`rfq-outcome:${rfqId}`]);
     if(!(await client.query('SELECT id FROM rfqs WHERE id=$1',[rfqId])).rowCount) fail('RFQ not found.','RFQ_NOT_FOUND');
+    // Same entity lock as version allocation and lifecycle transitions. Request
+    // receipts above remain recoverable even after terminal closure.
+    await client.query('SELECT id FROM quotations WHERE rfq_id=$1 FOR UPDATE',[rfqId]);
     if((await client.query('SELECT 1 FROM rfq_outcomes WHERE rfq_id=$1',[rfqId])).rowCount) fail('This RFQ already has a terminal outcome.','RFQ_OUTCOME_CONFLICT');
     if(!(await client.query(`SELECT 1 FROM quotations q JOIN quotation_versions v ON v.quotation_id=q.id
       JOIN quotation_events e ON e.version_id=v.id WHERE q.rfq_id=$1 AND e.event_type='issued'`,[rfqId])).rowCount) fail('Only a sent RFQ can be marked won or lost.','RFQ_OUTCOME_CONFLICT');

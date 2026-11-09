@@ -1,5 +1,14 @@
 # Learning log — fill during the build
 
+## 2026-11-09 - Terminal closure is a shared write invariant
+
+- An append-only terminal outcome does not automatically freeze related append-only quotation tables. Put the invariant at both API and SQL boundaries, while preserving receipt lookup before new-write eligibility.
+- Opposing operations must share the same entity lock and lock order. Reusing the quotation header avoids a new lock namespace and avoids inversion between API allocation, SQL triggers and closure. Test both commit orders, not only simultaneous Promise.all success counts.
+- Row locking alone does not refresh a repeatable-read snapshot when the row was not updated. A permanent regression reproduced a direct SQL bypass; fail closed for those stronger-isolation writes rather than silently accept stale outcomes. Existing READ COMMITTED application transactions remain unchanged.
+- Historical compatibility is a testable property: build a synthetic 001-007 history with Won before a newer issued Version 3, apply 008, and compare snapshots, history and actual PDF bytes. Prospective enforcement does not require rewriting old records.
+- Closed UI must preserve recovery controls and retained values while removing instructions to create or issue new versions. A stale tab still needs a backend conflict; visual hiding is never the enforcement boundary. See ADR 0028 and the terminal-closure handoff.
+- Final local gates passed: 22 browser suites, 197 API/database tests, 90 units, 24 frontend helpers, 33 financial tests/nine unchanged goldens, syntax/build/startup. Desktop/tablet/mobile screenshots were inspected. No development/production database, cloud, Git publication or deployment operation was performed.
+
 ## 2026-11-09 - Branding without concealing demonstration boundaries
 
 - Product naming and data policy are separate. Present ForgeQuote consistently while explaining the two shared accounts and their common synthetic-record access once on login; keep a short data reminder and all context-specific provider warnings. Do not imply tenant isolation or real customer accounts.

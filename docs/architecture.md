@@ -24,6 +24,8 @@ Customer PDF GET requires a current issued version and an allowlisted customer p
 
 RFQ status is estimating until actual issuance, then sent; an append-only terminal outcome takes precedence. Sent is not evidence of an email delivery. Sales Head may record won, or lost with a required reason; reopening/correction is unsupported. There is no email/ERP integration. See ADR-0017.
 
+Subsequent rule (ADR 0028): allocation, version insertion, lifecycle transitions and outcome recording share a quotation-header row lock. API guards and migration 008 SQL triggers reject future quotation writes after Won/Lost. Successful same-key receipts precede terminal checks; snapshots, history and PDF eligibility remain unchanged. Writes require READ COMMITTED semantics; stronger-isolation direct writes fail closed against stale-snapshot bypasses. Additive live metadata exposes version `lifecycleStatus` and lifecycle `rfqOutcome`. Closed approvals are excluded; both-role UI preserves retained inputs and exact-request recovery while explaining read-only closure.
+
 ## Frontend ownership and navigation
 
 App owns authentication. AppShell owns branding/navigation presentation and deliberate task focus; WorkspaceDrafts supplies an authenticated-lifetime memory store and unload markers. One hash parser/navigation helper preserves existing URLs and browser history. Register/approval and rate filters use returned data with URL state; they are not server pagination.
