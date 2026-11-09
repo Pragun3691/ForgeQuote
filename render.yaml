@@ -9,12 +9,17 @@ services:
     autoDeployTrigger: "off"
     buildCommand: npm ci --include=dev && npm run build
     startCommand: npm start
-    healthCheckPath: /api/health/live
+    # Bootstrap an existing 007 service in maintenance before switching its
+    # dashboard health path. See docs/maintenance-release-runbook.md.
+    healthCheckPath: /api/health/deploy
     envVars:
       - key: NODE_VERSION
         value: 24.20.0
       - key: NODE_ENV
         value: production
+      # Operator-controlled; never let a Blueprint reset an active barrier.
+      - key: MAINTENANCE_MODE
+        sync: false
       - key: DATABASE_TLS_MODE
         value: verify-full
       - key: TRUST_PROXY_HOPS

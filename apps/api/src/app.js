@@ -10,20 +10,33 @@ import { installRfqIntakeRoutes } from './rfq-routes.js';
 import { installAiRoutes } from './ai/routes.js';
 import { installImportRoutes } from './imports/routes.js';
 import { installRateRoutes } from './rate-catalogue.js';
+import { maintenanceHeaders, maintenanceResponse } from './maintenance-mode.js';
 
 export function createApp(pool, config = readAuthConfig(), authOptions = {}) {
+  if(config.maintenanceMode !== undefined && typeof config.maintenanceMode !== 'boolean')throw Error('Invalid maintenance mode');
+  const maintenance=config.maintenanceMode===true;
   const app = express();
   app.disable('x-powered-by');
   app.use(requestLogging({enabled: config.nodeEnv === 'production',write:authOptions.logWriter}));
-  // Must precede sessions/auth: platform probes do not wake Neon or create rows.
-  app.get('/api/health/live', (_req,res) => res.json({status:'alive'}));
-  app.get('/api/health/ready', async (_req, res) => {
+  // Health routes precede sessions/auth. Liveness is DB-free; normal readiness
+  // and deployment health deliberately query the required schema.
+  app.get('/api/health/live', (_req,res) => res.set('Cache-Control','no-store').json({status:'alive'}));
+  const readiness=async (_req, res) => {
+    res.set('Cache-Control','no-store');
     try {
       const schema = await pool.query("SELECT name FROM schema_migrations WHERE name='008_terminal_rfq_quotation_guards.sql'");
       if (schema.rowCount !== 1) throw Error('Schema migration missing');
       res.json({ status: 'ready', database: 'reachable', schema: 'current' });
     } catch { res.status(503).json({ status: 'not_ready' }); }
-  });
+  };
+  // Maintenance is deployable on 007 without claiming application readiness.
+  // Normal candidates must pass the SAME 008 check as normal readiness.
+  app.get('/api/health/deploy', maintenance ? (_req,res)=>res.set('Cache-Control','no-store').json({status:'maintenance',applicationReady:false}) : readiness);
+  app.get('/api/health/ready', maintenance ? (_req,res)=>maintenanceHeaders(res).status(503).json({status:'not_ready',reason:'maintenance'}) : readiness);
+  if(maintenance){
+    app.use(maintenanceResponse);
+    return app; // No session store, prune timer, provider or application routes.
+  }
   installAuth(app, pool, config, authOptions);
   installRateRoutes(app,pool,config);
   installAiRoutes(app, config, authOptions);

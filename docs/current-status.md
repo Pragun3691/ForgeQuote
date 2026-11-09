@@ -1,5 +1,13 @@
 # Current status - 2026-11-09
 
+## Free maintenance safety - complete locally, STOP for owner review
+
+- Owner approved `feature/free-maintenance-safety` from accepted main `eec0e833fdc0c795475547a3b8473bbcbfe75167`. A 274-file `.tmp/maintenance-before` checkpoint preserves exact tracked/nonignored work, hashes, status and patches; no reset, clean, stash or discarded owner work.
+- Strict explicit/default-off mode serves 503/Retry-After/no-store before all application routes; maintenance constructs no DB pool/session store/pruner/providers. Liveness, strict normal 008 readiness and deployment health are separate. Normal auth/CSRF/recovery/PDF/financial behavior remains intact. No new schema/dependency; 001-008 and financial goldens unchanged.
+- Final local gates: 23 browser suites; 96 units (90 existing plus six maintenance tests); 204 guarded disposable API/database tests (197 existing plus seven release-procedure tests); 24 frontend helpers; 33 financial tests/nine goldens; 48 syntax modules; 62-module build; normal production startup 1/1. Maintenance startup/shutdown and simulated prune intervals also pass. Actual native pg_dump/isolated pg_restore and exact runbook manifest passed on disposable local data; PowerShell blocks and embedded JavaScript parsed. Four maintenance viewport screenshots inspected.
+- ADR 0029, `maintenance-release-handoff.md` and `maintenance-release-runbook.md` distinguish local platform models from actual Render verification. Migration must wait for positive old-process termination and client drain; neither Save nor new health proves that. Automatic fallback/restart and routing uncertainty, external writers, actual Neon settings/quotas, backup restore and credentials are operator gates under separate authorization. Render Rollback is explicitly unsafe for pre-maintenance snapshots.
+- No development data, production connection, Render/Neon setting, production environment, commit, push, merge or deployment was changed. This is code-review ready, not authorization or certification of production execution.
+
 ## Terminal RFQ closure - complete locally, STOP for owner review
 
 - Branch `fix/terminal-rfq-closure` from freshly verified `origin/main` / `bceb4f95f5b538de32e1bc3c91eb137235e9dffb`; 268-file ignored `.tmp/terminal-before` checkpoint preserves exact baseline files/hashes/status/patches. No reset, clean, stash or discarded owner work.

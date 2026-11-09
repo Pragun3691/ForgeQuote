@@ -1,5 +1,7 @@
 # ForgeQuote architecture - current implemented product
 
+Maintenance addition (ADR 0029): explicit process-start `MAINTENANCE_MODE=true` selects a DB/session/provider-free 503 application before route installation. Default false preserves normal workflows. Liveness is separate from strict 008 readiness and a new deployment-health gate, which accepts healthy maintenance on 007 while requiring normal 008 readiness for reopening. The release protocol requires positive old-process termination and database drain; changing an environment variable is not a global fence. See `maintenance-release-runbook.md` for bootstrap order, provider uncertainties and rollback restrictions.
+
 This describes the local implementation through accepted M1-M6 and the owner-approved M7/M8 frontend assignment. Earlier numbered backend milestones and frontend M1-M8 are different sequences. This document does not claim a cloud deployment or multi-tenant isolation.
 
 ## Runtime and trust boundaries

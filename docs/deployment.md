@@ -1,5 +1,11 @@
 # Render + Neon deployment
 
+## Maintenance-capable release protocol - pending owner review
+
+Use [maintenance-release-runbook.md](maintenance-release-runbook.md) and ADR 0029 for the exact Render Free bootstrap, writer-drain verification, backup/restore, 007-to-008 migration, grants, health checks and reopening sequence. Production changes still need separate authorization. `MAINTENANCE_MODE` is explicit/default false; an environment Save is not immediate termination. Activate the reviewed capability build in true mode using the existing liveness health path BEFORE switching the actual health path to `/api/health/deploy`. Require positive old-instance termination and drained writers before migration. The repository's new health path must not be synced to an old build out of order.
+
+Maintenance has no DB pool/session store/pruner or application routes. Its deployment health is 200 while normal readiness remains 503; normal deployment health reuses strict migration-008 readiness. Preserve APP_ORIGIN and SESSION_SECRET. Do not use Render Rollback to a pre-maintenance snapshot: it restores old environment AND health settings. Failure must retain a verified maintenance deployment; unknown provider routing/restart behavior is a blocker. Normal health polling can affect Free compute budgets and must be monitored. The earlier instructions below record the pre-capability deployment configuration and are superseded where the new runbook differs.
+
 ## Pending terminal-closure release — separately authorized operation only
 
 The locally verified closure change adds forward-only `008_terminal_rfq_quotation_guards.sql`; application readiness now requires 008. Do not edit/reapply 001–007 or seed/reset an existing database. Quiesce quotation/outcome writes and older instances; privately verify the intended maintenance/runtime target and take a verified backup before an approved release. Apply only pending migrations through the checksum runner, run existing narrow maintenance permission preparation/checks, then start the reviewed application and verify readiness, both roles, terminal HTTP 409, exact receipt recovery and historical downloads. Startup itself performs no migration.

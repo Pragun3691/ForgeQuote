@@ -16,12 +16,14 @@ export function readConfig(env = process.env) {
   if (!/^\d+$/.test(portText) || Number(portText) < 1 || Number(portText) > 65535) throw new Error('PORT must be 1..65535');
   const nodeEnv = env.NODE_ENV ?? 'development';
   if (!['development', 'test', 'production'].includes(nodeEnv)) throw new Error('Unsupported NODE_ENV');
+  if (env.MAINTENANCE_MODE !== undefined && !['true','false'].includes(env.MAINTENANCE_MODE)) throw new Error('MAINTENANCE_MODE must be exactly true or false');
+  const maintenanceMode = env.MAINTENANCE_MODE === 'true';
   const gst = env.DEMO_GST_PERCENT ?? '18';
   if (gst !== '18') throw new Error('T01 uses explicitly illustrative DEMO_GST_PERCENT=18');
   const databaseTlsMode = env.DATABASE_TLS_MODE;
   const databaseCaCert = env.DATABASE_CA_CERT;
   databasePoolConfig(databaseUrl, {nodeEnv, databaseTlsMode, databaseCaCert, globalTlsVerification:env.NODE_TLS_REJECT_UNAUTHORIZED});
-  return { databaseUrl, port: Number(portText), nodeEnv, gstPercent: gst, databaseTlsMode, databaseCaCert };
+  return { databaseUrl, port: Number(portText), nodeEnv, gstPercent: gst, databaseTlsMode, databaseCaCert, maintenanceMode };
 }
 
 export function readAuthConfig(env = process.env) {

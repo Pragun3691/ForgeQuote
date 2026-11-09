@@ -49,7 +49,8 @@ test('Render preparation is free, single-service, manually deployed and pinned t
   assert.match(yaml,/plan: free/);assert.match(yaml,/autoDeployTrigger: "off"/);
   assert.match(yaml,/branch: main/);assert.doesNotMatch(yaml,/branch: feature\//);
   assert.match(yaml,/key: AI_MODEL/);assert.match(yaml,/value: gemini-3.5-flash-lite/);
-  assert.match(yaml,/healthCheckPath: \/api\/health\/live/);
+  assert.match(yaml,/healthCheckPath: \/api\/health\/deploy/);
+  assert.match(yaml,/key: MAINTENANCE_MODE\s+sync: false/);
   assert.match(yaml,/buildCommand: npm ci --include=dev && npm run build/);
   assert.match(yaml,/startCommand: npm start/);
   assert.doesNotMatch(yaml,/fromDatabase|MIGRATION_DATABASE_URL|databases:/);

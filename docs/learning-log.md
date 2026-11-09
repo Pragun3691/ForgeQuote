@@ -1,5 +1,14 @@
 # Learning log — fill during the build
 
+## 2026-11-09 - A maintenance response is not a distributed write fence
+
+- Install the maintenance responder instead of writers, not after session middleware: even GET session recovery and timer-based session pruning can write. Avoid constructing the pool/store at all in maintenance, and test absent writers across timer intervals.
+- Distinguish process liveness, application/schema readiness and a deployable maintenance instance. Never claim 007 is current normal schema just to make a maintenance deploy pass. Reuse one strict 008 readiness function for normal readiness/deployment health.
+- Zero-downtime overlap means a healthy replacement can coexist with a real old transaction. The regression holds COMMIT until after maintenance health succeeds, proves writes are not drained, then verifies old-process/pool closure before applying 008.
+- A failed normal candidate must retain the live maintenance deployment. Generic Render Rollback can restore older health/environment settings; prohibit it in the controlled sequence rather than claiming a new health endpoint protects every privileged action.
+- A local routing model cannot certify Render control-plane behavior. Make actual termination, restart/fallback configuration and traffic-isolation uncertainty explicit stop conditions. Session/receipt keys survive the window; never convert uncertainty into a new request automatically.
+- Windows kill semantics differ from Linux SIGTERM; test-only IPC emits the signal in the child to exercise the actual shutdown handler. Backup integrity requires an actual isolated restore and data manifest comparison, not only listing an archive. All current evidence and limits are in the maintenance handoff/runbook.
+
 ## 2026-11-09 - Terminal closure is a shared write invariant
 
 - An append-only terminal outcome does not automatically freeze related append-only quotation tables. Put the invariant at both API and SQL boundaries, while preserving receipt lookup before new-write eligibility.
