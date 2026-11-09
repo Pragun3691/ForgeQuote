@@ -1,5 +1,13 @@
 # Current status - 2026-11-09
 
+## ForgeQuote branding cleanup - separate owner-approved branch
+
+- Branch `feature/forgequote-branding` starts at accepted F2 commit `401a63cf93d3e23f5415295846afe86e5a5de08a`; clean baseline verified before the 267-file `.tmp/branding-before` checkpoint. No history rewrite, staging, commit, push, merge or deployment.
+- Login uses Account, selected-account password guidance, the corrected `Sign in | ForgeQuote` title and one truthful explanation of shared Estimator/Sales Head access and synthetic/nonconfidential data. Repeated Synthetic demo badges are removed; sidebar retains a short synthetic-data reminder. Original logo/palette/layout/state owners are unchanged. Three obsolete badge/hiding CSS rules are removed rather than overridden.
+- README says Open ForgeQuote and explains shared-account access while preserving the existing production URL and all deployment/limitation evidence. Seeded names, PDF renderers, immutable snapshots, Gemini disclosures/consents, environment names and Render settings are unchanged. Browser selectors follow the approved Account label; additional checks cover disclosure, title, both roles and actual PDF branding.
+- Final local gates passed: all 21 browser suites (including F1/F2 and actual customer/INTERNAL PDF branding), focused M2, 24 frontend helpers, 90 existing units, 137 guarded disposable API/database tests, 33 financial tests/nine unchanged goldens, 47 syntax modules, 62-module build and production startup 1/1. Captured 12 before and 12 after login/both-role sidebar images at four widths; desktop/mobile comparisons personally inspected. Keyboard/focus, contrast/reduced motion and actual Chrome 200%/400% zoom passed. Exactly 24 files changed/added; all other 244 baseline files remain byte-identical. No test failures/skips in this assignment's final gates.
+- Exact files, before/after screenshots, verification results, preservation checks and rollback: `docs/branding-handoff.md`. Stop for owner review after verification; no main integration or hostname change is implied.
+
 ## Subsequent F2 correction - owner-approved separate fix branch
 
 - Accepted M1-M8/F1 commit `69c3e5c28657a169c9c665af4f30439f5e8ad13d` remains the baseline on `fix/f2-stale-refresh-error`. The historical F2 deferral below records the earlier owner decision; a separate owner approval now authorizes its correction.

@@ -26,6 +26,8 @@ Desktop has a fixed, independently scrollable sidebar. At 1050px and below, navi
 
 ## Verification and limits
 
+Subsequent owner-approved branding cleanup on `feature/forgequote-branding`: keep ForgeQuote as the product name; replace the visible Demo identity label with Account while preserving its control ID/name and both existing role values. One login paragraph explains shared accounts, common synthetic-record access and nonconfidential-only use. Retain the brief authenticated data reminder and every Gemini-specific warning/consent. Remove the duplicate badge and genuinely obsolete CSS; do not rename records, PDFs, environment variables or service URLs as part of presentation cleanup. Browser tests update the intentional accessible-name change and strengthen branding/disclosure checks without removing existing assertions. See `../branding-handoff.md`.
+
 Browser checks include native Chrome host page zoom at 200% and 400% in fresh task-owned profiles, not CSS zoom or pinch emulation. CDP captures the native zoom viewport directly, avoiding Playwright's CSS-pixel clipping at browser zoom. Standard requested-size screenshots remain exact Playwright viewport captures. Reflow, keyboard/focus, computed text colors and existing contrast/reduced-motion/modal/evidence tests are required alongside full M1 and financial regressions.
 
 Chrome checks are evidence for the tested states, not a complete accessibility certification or Safari/Firefox/physical-device claim. Ordinary draft lifetime remains M1's memory-only authenticated-tab contract. Business workflow restructuring belongs to later milestones. No endpoint, migration, tenant model, financial formula, API contract, authentication policy or deployment changes.

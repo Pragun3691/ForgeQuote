@@ -26,7 +26,7 @@ try {
   const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[],writes=[];
   page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));
   page.on('request',r=>{if(r.method()==='POST' && /\/api\/(rfqs|quote-versions)\//.test(r.url()))writes.push(r.url());});
-  async function login(role,password){await page.goto(origin);await page.getByLabel('Demo identity').selectOption(role);await page.getByLabel('Password',{exact:true}).fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('heading',{name:`Signed in as ${role}`,exact:true}).waitFor();}
+  async function login(role,password){await page.goto(origin);await page.getByLabel('Account').selectOption(role);await page.getByLabel('Password',{exact:true}).fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('heading',{name:`Signed in as ${role}`,exact:true}).waitFor();}
   const url=id=>`${origin}/#rfq=${rfqId}&version=${id}`;
   const nav=()=>page.getByRole('navigation',{name:'Saved versions',exact:true});
   const lifecycle=()=>page.getByRole('region',{name:'Quotation lifecycle',exact:true});

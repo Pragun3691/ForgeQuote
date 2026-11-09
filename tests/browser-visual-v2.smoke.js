@@ -40,13 +40,13 @@ try {
   await page.route('**/api/auth/session',async route=>{await heldSession;await route.continue();});
   await page.goto(origin);await page.getByRole('status').filter({hasText:'Loading your session...'}).waitFor();
   await capture('login-loading');releaseSession();
-  await page.getByLabel('Demo identity').waitFor();await page.unroute('**/api/auth/session');
+  await page.getByLabel('Account').waitFor();await page.unroute('**/api/auth/session');
   await capture('login');
   // Native validation blocks an empty password before any login POST.
   let loginPosts=0;page.on('request',r=>{if(r.url().endsWith('/api/auth/login')&&r.method()==='POST')loginPosts++;});
   await page.getByRole('button',{name:'Sign in',exact:true}).click();
   assert.equal(await page.locator('#password').evaluate(el=>el.validity.valueMissing),true);assert.equal(loginPosts,0);
-  await page.getByLabel('Demo identity').focus();await page.keyboard.press('Tab');
+  await page.getByLabel('Account').focus();await page.keyboard.press('Tab');
   assert.equal(await page.locator('#password').evaluate(el=>el===document.activeElement),true);
   assert.equal(await page.locator('#password').evaluate(el=>getComputedStyle(el).outlineStyle),'solid');
   await page.keyboard.press('Tab');assert.equal(await page.getByRole('button',{name:'Sign in',exact:true}).evaluate(el=>el===document.activeElement),true);
@@ -55,7 +55,7 @@ try {
   await page.route('**/api/auth/login',async route=>{await heldLogin;await route.continue();});
   await page.getByRole('button',{name:'Sign in',exact:true}).click();
   await page.getByRole('button',{name:'Signing in...',exact:true}).waitFor();
-  assert.equal(await page.getByLabel('Demo identity').isDisabled(),true);
+  assert.equal(await page.getByLabel('Account').isDisabled(),true);
   assert.equal(await page.getByLabel('Password',{exact:true}).inputValue(),'');
   await capture('login-submitting');releaseLogin();
   await page.getByRole('alert').filter({hasText:'Username or password is incorrect.'}).waitFor();await page.unroute('**/api/auth/login');
@@ -115,7 +115,7 @@ try {
   for(const [fg,bg] of [['#FAF8F3','#24372A'],['#FFB4A9','#302120'],['#E7DAB5','#29271F'],['#D46B61','#06110C'],['#DE6961','#06110C']]){checks[`${fg}/${bg}`]=ratio(fg,bg);assert.ok(checks[`${fg}/${bg}`]>=4.5);}
   await writeFile(`${directory}/contrast.json`,JSON.stringify(checks,null,2));
   await page.getByRole('button',{name:'Sign out',exact:true}).click();
-  await page.getByLabel('Demo identity').selectOption('sales_head');await page.getByLabel('Password',{exact:true}).fill(db.passwords.DEMO_SALES_HEAD_PASSWORD);
+  await page.getByLabel('Account').selectOption('sales_head');await page.getByLabel('Password',{exact:true}).fill(db.passwords.DEMO_SALES_HEAD_PASSWORD);
   await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('heading',{name:'Signed in as sales_head',exact:true}).waitFor();
   await page.getByRole('heading',{name:'Pending approvals',exact:true}).waitFor();await capture('sales-register-empty-approvals');
   await page.getByRole('link',{name:'Rate catalogue',exact:true}).click();
@@ -128,7 +128,7 @@ try {
   await page.getByRole('button',{name:'Sign out',exact:true}).click();
   await page.route('**/api/auth/session',route=>route.abort());await page.reload();
   await page.getByRole('button',{name:'Reload session',exact:true}).waitFor();await capture('session-error');
-  await page.unroute('**/api/auth/session');await page.getByRole('button',{name:'Reload session',exact:true}).click();await page.getByLabel('Demo identity').waitFor();
+  await page.unroute('**/api/auth/session');await page.getByRole('button',{name:'Reload session',exact:true}).click();await page.getByLabel('Account').waitFor();
   assert.deepEqual(errors,[]);await writeFile(`${directory}/captures.json`,JSON.stringify(captures,null,2));
   console.log('PASS: visual-v2 real auth, empty-password validation, loading/submitting/error/reload, keyboard/focus/reduced motion, both roles, Excel and mocked-provider Gemini review, exact source return focus, matrix, rates/authoring; viewport/full-page 1440x1000 and 390x844 captures; 35 contrast pairs.');
 } finally {

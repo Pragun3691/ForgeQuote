@@ -27,7 +27,7 @@ try {
   await page.getByRole('alert').filter({ hasText: 'Username or password is incorrect.' }).waitFor();
   for (const [username, password] of [['estimator', db.passwords.DEMO_ESTIMATOR_PASSWORD], ['sales_head', db.passwords.DEMO_SALES_HEAD_PASSWORD]]) {
     if (username === 'sales_head') await page.setViewportSize({ width: 390, height: 844 });
-    await page.getByLabel('Demo identity').selectOption(username);
+    await page.getByLabel('Account').selectOption(username);
     await page.getByLabel('Password', { exact: true }).fill(password);
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
     await page.getByRole('heading', { name: `Signed in as ${username}`, exact: true }).waitFor();

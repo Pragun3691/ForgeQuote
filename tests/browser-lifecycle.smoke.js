@@ -22,7 +22,7 @@ try {
   const e=await browser.newPage({viewport:{width:1280,height:1000}}),s=await browser.newPage({viewport:{width:390,height:844}});
   const errors=[];for(const page of [e,s]){page.setDefaultTimeout(12000);page.on('pageerror',err=>errors.push(err.name));}
   async function login(page,name,password){
-    await page.goto(origin);await page.getByLabel('Demo identity').selectOption(name);await page.getByLabel('Password',{exact:true}).fill(password);
+    await page.goto(origin);await page.getByLabel('Account').selectOption(name);await page.getByLabel('Password',{exact:true}).fill(password);
     await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('heading',{name:`Signed in as ${name}`,exact:true}).waitFor();
   }
   const lifecycle=page=>page.getByRole('region',{name:'Quotation lifecycle'});

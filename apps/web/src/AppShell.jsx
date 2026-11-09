@@ -40,7 +40,7 @@ export default function AppShell({route,destinations={rfqs:"#",approvals:"#appro
         {user.role==='sales_head' && <a href={destinations.approvals} aria-current={route.section==='approvals'?'page':undefined} onClick={()=>{if(route.view==='approvals')document.getElementById('approvals')?.scrollIntoView();}}><NavIcon type="approval"/>Approvals</a>}
         <a href="#view=rates" aria-current={route.section==='rates'?'page':undefined} target={route.view==='intake' && user.role==='estimator'?'_blank':undefined} rel="noreferrer"><NavIcon type="rates"/>Rate catalogue</a>
       </nav>
-      <div className="sidebar-footer"><p className="demo-note">Synthetic demo<span>Nonconfidential data only</span></p>
+      <div className="sidebar-footer"><p className="demo-note">Synthetic data<span>Nonconfidential data only</span></p>
         <div className="identity"><h2><span className="sr-only">Signed in as </span>{user.username}</h2><span className="role-label">{user.role==='sales_head'?'Sales Head':'Estimator'}</span>
           <ActionButton variant="secondary" onClick={logout} disabled={busy}>{busy?'Signing out...':'Sign out'}</ActionButton>
         </div>

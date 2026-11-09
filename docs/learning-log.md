@@ -1,5 +1,11 @@
 # Learning log — fill during the build
 
+## 2026-11-09 - Branding without concealing demonstration boundaries
+
+- Product naming and data policy are separate. Present ForgeQuote consistently while explaining the two shared accounts and their common synthetic-record access once on login; keep a short data reminder and all context-specific provider warnings. Do not imply tenant isolation or real customer accounts.
+- Remove the obsolete login badge rule and the two selectors that hid its old companion text; leaving those selectors would hide the sole remaining metadata label on mobile/tablet. Keep tokens, layout and original assets intact.
+- Changing the visible accessible label to Account requires matching browser selectors, not changes to username IDs, role values, authentication or provisioning. Keep historical seeded names/PDF data and deployment URLs unchanged. Exact evidence and remaining limits: `branding-handoff.md`.
+
 ## 2026-11-09 - Subsequent F2 correction: one owner for metadata read errors
 
 - A reader's sequence guard does not protect an unconditional catch in its caller. The reader rethrew an obsolete failure after correctly ignoring it; the save callback then published that failure into the unrelated action error state.

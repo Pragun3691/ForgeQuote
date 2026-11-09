@@ -2,11 +2,11 @@
 
 Manufacturing RFQ-to-quotation software with evidence-backed intake, deterministic costing and an auditable approval trail.
 
-**[Open the live demo](https://forgequote-demo.onrender.com)** · **[GitHub repository](https://github.com/Pragun3691/ForgeQuote)**
+**[Open ForgeQuote](https://forgequote-demo.onrender.com)** · **[GitHub repository](https://github.com/Pragun3691/ForgeQuote)**
 
 ForgeQuote takes a reviewed request for quotation (RFQ) through multi-component pricing, Sales Head clearance and estimator issuance. Every saved version preserves its inputs, historical rates and calculated results, so a later rate change cannot silently rewrite an earlier quotation.
 
-The hosted application uses synthetic data. Demo passwords are supplied privately to evaluators; they are not published here. No personal Gemini API key is required to use the hosted demo.
+The hosted application uses synthetic data and two shared accounts. Account passwords are supplied privately to evaluators; they are not published here. No personal Gemini API key is required to use the hosted application.
 
 <!-- Insert final synthetic-data screenshots here after the owner-approved UI/UX redesign. -->
 

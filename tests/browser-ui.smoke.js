@@ -30,7 +30,7 @@ try {
     await page.setViewportSize({width:1440,height:1000});
   }
   async function login(role,password) {
-    await page.getByLabel('Demo identity').selectOption(role);
+    await page.getByLabel('Account').selectOption(role);
     await page.getByLabel('Password',{exact:true}).fill(password);
     await page.getByRole('button',{name:'Sign in',exact:true}).click();
     await page.getByRole('heading',{name:`Signed in as ${role}`,exact:true}).waitFor();

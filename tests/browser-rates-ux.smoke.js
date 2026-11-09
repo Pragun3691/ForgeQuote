@@ -17,7 +17,7 @@ try {
  await db.owner.query("INSERT INTO rate_versions(id,rate_key_id,effective_from,value) VALUES ($1,$2,'2026-11-02','110.123456'),($3,$4,'2026-11-04','200.000001')",[randomUUID(),alternate,randomUUID(),fixtureId(1)]);
  app=createApp(db.runtime,{nodeEnv:'test',gstPercent:'18',sessionSecret:randomBytes(32).toString('hex'),appOrigin:origin,trustProxyHops:0},{sessionSchema:db.schema,aiConfig:{apiKey:'',model:'gemini-3.5-flash-lite',timeoutMs:1000,unavailableCode:'AI_NOT_CONFIGURED'}});
  browser=await chromium.launch({channel:process.env.BROWSER_CHANNEL||'chrome',headless:true});const page=await browser.newPage({viewport:{width:1280,height:1000}});page.setDefaultTimeout(12000);const errors=[];page.on('pageerror',e=>errors.push(e.name));
- async function login(role,password){await page.goto(origin);await page.getByLabel('Demo identity').selectOption(role);await page.getByLabel('Password',{exact:true}).fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('heading',{name:`Signed in as ${role}`,exact:true}).waitFor();}
+ async function login(role,password){await page.goto(origin);await page.getByLabel('Account').selectOption(role);await page.getByLabel('Password',{exact:true}).fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('heading',{name:`Signed in as ${role}`,exact:true}).waitFor();}
  await login('estimator',db.passwords.DEMO_ESTIMATOR_PASSWORD);
  await page.getByRole('link',{name:'Rate catalogue',exact:true}).click();await page.getByRole('heading',{name:'Rate catalogue',exact:true}).waitFor();
  await page.getByLabel('Rate category',{exact:true}).selectOption('material');await page.getByLabel('Rates as of',{exact:true}).fill('2026-11-03');

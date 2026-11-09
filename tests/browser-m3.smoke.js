@@ -23,7 +23,7 @@ try {
  browser=await chromium.launch({channel:process.env.BROWSER_CHANNEL||'chrome',headless:true});
  const errors=[];const page=await browser.newPage({viewport:{width:1440,height:1000}});page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(12000);
  async function capture(name){for(const width of [1440,768,390,320]){await page.setViewportSize({width,height:width===768?1024:width<400?844:1000});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),name+' overflow '+width);if(name.includes('approvals'))await page.locator('#approvals').scrollIntoViewIfNeeded();else await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:`${directory}/${name}-${width}.png`});}await page.setViewportSize({width:1440,height:1000});}
- async function login(role){await page.goto(origin);await page.getByLabel('Demo identity').selectOption(role);await page.getByLabel('Password',{exact:true}).fill(db.passwords[role==='estimator'?'DEMO_ESTIMATOR_PASSWORD':'DEMO_SALES_HEAD_PASSWORD']);await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('table',{name:'RFQ register',exact:true}).waitFor();}
+ async function login(role){await page.goto(origin);await page.getByLabel('Account').selectOption(role);await page.getByLabel('Password',{exact:true}).fill(db.passwords[role==='estimator'?'DEMO_ESTIMATOR_PASSWORD':'DEMO_SALES_HEAD_PASSWORD']);await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('table',{name:'RFQ register',exact:true}).waitFor();}
  const nav=()=>page.getByRole('navigation',{name:'Workspace navigation'});
  await login('estimator');await capture('register');
  if(!baseline){

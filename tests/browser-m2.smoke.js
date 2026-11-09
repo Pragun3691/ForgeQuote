@@ -32,7 +32,7 @@ try {
   async function checkRendered(name){
     const samples=await page.evaluate(()=>{
       const hex=value=>{const parts=value.match(/[\d.]+/g).map(Number);return '#'+parts.slice(0,3).map(n=>Math.round(n).toString(16).padStart(2,'0')).join('');};
-      return [...document.querySelectorAll('.app-nav a,.identity h2,label,thead th,.field-hint,.notice,.error,.success,button')].filter(el=>el.getClientRects().length && !el.disabled).map(el=>{
+      return [...document.querySelectorAll('.app-nav a,.identity h2,label,thead th,.field-hint,.login-disclosure,.demo-note,.notice,.error,.success,button')].filter(el=>el.getClientRects().length && !el.disabled).map(el=>{
         const css=getComputedStyle(el);let parent=el,bg;
         while(parent){bg=getComputedStyle(parent).backgroundColor;if(!bg.includes('rgba')&&bg!=='transparent')break;parent=parent.parentElement;}
         return {kind:el.tagName,foreground:hex(css.color),background:hex(bg||'rgb(23,23,23)'),font:parseFloat(css.fontSize)};
@@ -58,13 +58,21 @@ try {
   await page.route('**/api/auth/session',async route=>{await heldSession;await route.continue();});
   await page.goto(origin);await page.getByRole('status').filter({hasText:'Loading your session...'}).waitFor();
   await capture('login-loading');releaseSession();
-  await page.getByLabel('Demo identity').waitFor();await page.unroute('**/api/auth/session');
+  await page.getByLabel('Account').waitFor();await page.unroute('**/api/auth/session');
+  assert.equal(await page.title(),'Sign in | ForgeQuote');
+  assert.deepEqual(await page.getByLabel('Account',{exact:true}).locator('option').evaluateAll(options=>options.map(option=>option.value)),['estimator','sales_head']);
+  assert.equal(await page.getByLabel('Demo identity',{exact:true}).count(),0);
+  assert.equal(await page.locator('.demo-pill').count(),0);
+  assert.equal(await page.locator('#login-password-help').innerText(),'Use the password supplied for the selected account.');
+  assert.equal(await page.locator('#password').getAttribute('aria-describedby'),'login-password-help');
+  assert.equal(await page.locator('.login-disclosure').innerText(),'This demonstration uses shared Estimator and Sales Head accounts. Both can access all synthetic records. Use synthetic, nonconfidential data only.');
+  assert.equal((await page.locator('.login-panel').innerText()).match(/demonstration/gi)?.length,1,'One clear demonstration disclosure on login');
   await capture('login');
   // Native validation blocks an empty password before any login POST.
   let loginPosts=0;page.on('request',r=>{if(r.url().endsWith('/api/auth/login')&&r.method()==='POST')loginPosts++;});
   await page.getByRole('button',{name:'Sign in',exact:true}).click();
   assert.equal(await page.locator('#password').evaluate(el=>el.validity.valueMissing),true);assert.equal(loginPosts,0);
-  await page.getByLabel('Demo identity').focus();await page.keyboard.press('Tab');
+  await page.getByLabel('Account').focus();await page.keyboard.press('Tab');
   assert.equal(await page.locator('#password').evaluate(el=>el===document.activeElement),true);
   assert.equal(await page.locator('#password').evaluate(el=>getComputedStyle(el).outlineStyle),'solid');
   await page.keyboard.press('Tab');assert.equal(await page.getByRole('button',{name:'Sign in',exact:true}).evaluate(el=>el===document.activeElement),true);
@@ -77,7 +85,7 @@ try {
   await page.route('**/api/auth/login',async route=>{await heldLogin;await route.continue();});
   await page.getByRole('button',{name:'Sign in',exact:true}).click();
   await page.getByRole('button',{name:'Signing in...',exact:true}).waitFor();
-  assert.equal(await page.getByLabel('Demo identity').isDisabled(),true);
+  assert.equal(await page.getByLabel('Account').isDisabled(),true);
   assert.equal(await page.getByLabel('Password',{exact:true}).inputValue(),'');
   await capture('login-submitting');releaseLogin();
   await page.getByRole('alert').filter({hasText:'Username or password is incorrect.'}).waitFor();await page.unroute('**/api/auth/login');
@@ -92,6 +100,8 @@ try {
   await page.emulateMedia({reducedMotion:'no-preference'});
   await page.getByLabel('Password',{exact:true}).fill(db.passwords.DEMO_ESTIMATOR_PASSWORD);
   await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('button',{name:'New RFQ',exact:true}).waitFor();
+  assert.equal((await page.locator('.sidebar').innerText()).match(/\bdemo\b/gi),null);
+  assert.equal(await page.locator('.demo-note').innerText(),'Synthetic data\nNonconfidential data only');
   await capture('estimator-register');
   if(!baseline){
     await page.keyboard.press('Tab');assert.equal(await page.getByRole('link',{name:'Skip to main content',exact:true}).evaluate(el=>el===document.activeElement),true);
@@ -117,7 +127,7 @@ try {
     await writeFile(profile+'/Default/Preferences',JSON.stringify({partition:{per_host_zoom_levels:{x:{'127.0.0.1':Math.log(zoom)/Math.log(1.2)}}}}));
     const context=await chromium.launchPersistentContext(profile,{channel:process.env.BROWSER_CHANNEL||'chrome',headless:true,viewport:null,args:['--window-size=1440,1000']});
     try {
-    const zoomPage=await context.newPage();zoomPage.on('pageerror',error=>errors.push(error.message));await zoomPage.goto(origin);await zoomPage.getByLabel('Demo identity').waitFor();assert.equal(await zoomPage.evaluate(()=>devicePixelRatio),zoom);await nativeCapture(context,zoomPage,'login-zoom-'+zoom*100);
+    const zoomPage=await context.newPage();zoomPage.on('pageerror',error=>errors.push(error.message));await zoomPage.goto(origin);await zoomPage.getByLabel('Account').waitFor();assert.equal(await zoomPage.evaluate(()=>devicePixelRatio),zoom);await nativeCapture(context,zoomPage,'login-zoom-'+zoom*100);
     assert.ok(await zoomPage.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
     await zoomPage.getByLabel('Password',{exact:true}).fill(db.passwords.DEMO_ESTIMATOR_PASSWORD);
     await nativeCapture(context,zoomPage,'login-form-zoom-'+zoom*100);await zoomPage.getByRole('button',{name:'Sign in',exact:true}).click();await zoomPage.getByRole('button',{name:'New RFQ',exact:true}).waitFor();
@@ -132,7 +142,7 @@ try {
     await zoomPage.getByRole('button',{name:'Issue quotation',exact:true}).click();const dialog=zoomPage.getByRole('dialog');await dialog.waitFor();
     await zoomPage.keyboard.press('Tab');assert.equal(await zoomPage.getByRole('button',{name:'Confirm issuance',exact:true}).evaluate(el=>el===document.activeElement),true);assert.ok(await zoomPage.evaluate(()=>{const r=document.activeElement.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight;}));
     await nativeCapture(context,zoomPage,'issuance-zoom-'+zoom*100);await zoomPage.getByRole('button',{name:'Cancel',exact:true}).click();
-    await zoomPage.getByRole('button',{name:'Sign out',exact:true}).click();await zoomPage.getByLabel('Demo identity').selectOption('sales_head');await zoomPage.getByLabel('Password',{exact:true}).fill(db.passwords.DEMO_SALES_HEAD_PASSWORD);
+    await zoomPage.getByRole('button',{name:'Sign out',exact:true}).click();await zoomPage.getByLabel('Account').selectOption('sales_head');await zoomPage.getByLabel('Password',{exact:true}).fill(db.passwords.DEMO_SALES_HEAD_PASSWORD);
     await zoomPage.getByRole('button',{name:'Sign in',exact:true}).click();await zoomPage.getByRole('navigation',{name:'Workspace navigation'}).getByRole('link',{name:'Rate catalogue',exact:true}).click();
     const reason=zoomPage.getByLabel('Rate change reason',{exact:true});await reason.fill('Synthetic M2 zoom review');await reason.press('Tab');await zoomPage.keyboard.press('Shift+Tab');assert.ok(await reason.evaluate(el=>{const r=el.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight;}));
     assert.ok(await zoomPage.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await nativeCapture(context,zoomPage,'authoring-zoom-'+zoom*100);
@@ -151,6 +161,9 @@ try {
   await page.getByText('Import Excel part list (optional)',{exact:true}).click();
   await page.getByText('Extract from text with AI (optional)',{exact:true}).click();
   await page.getByLabel('Synthetic RFQ email or plain text',{exact:true}).fill(numberedBrowserSource);
+  assert.equal(await page.getByRole('checkbox',{name:/I confirm this text/}).count(),1);assert.equal(await page.getByRole('checkbox',{name:/I consent to sending/}).count(),1);
+  const providerNotice=await page.getByText(/Google Gemini unpaid API:/).innerText();
+  for(const disclosure of ['synthetic, nonconfidential demonstration documents only','Do not paste personal, customer-confidential or NDA-covered information','Google may use inputs/outputs to improve products','human reviewers may process them','AI never calculates prices'])assert.ok(providerNotice.includes(disclosure),disclosure);
   await page.getByRole('checkbox',{name:/I confirm this text/}).check();await page.getByRole('checkbox',{name:/I consent to sending/}).check();
   await page.getByRole('button',{name:'Extract with AI',exact:true}).click();
   await page.getByRole('region',{name:'Extraction review',exact:true}).waitFor();
@@ -192,7 +205,7 @@ try {
   // Resize queued during auth unmount must not read cleared React refs.
   await page.evaluate(()=>{const observer=new MutationObserver(()=>{if(!document.querySelector('.sidebar')){window.dispatchEvent(new Event('resize'));observer.disconnect();}});observer.observe(document.body,{childList:true,subtree:true});});
   await page.getByRole('button',{name:'Sign out',exact:true}).click();
-  await page.getByLabel('Demo identity').selectOption('sales_head');await page.getByLabel('Password',{exact:true}).fill(db.passwords.DEMO_SALES_HEAD_PASSWORD);
+  await page.getByLabel('Account').selectOption('sales_head');await page.getByLabel('Password',{exact:true}).fill(db.passwords.DEMO_SALES_HEAD_PASSWORD);
   await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('heading',{name:'Signed in as sales_head',exact:true}).waitFor();
   await page.getByRole('heading',{name:'Pending approvals',exact:true}).waitFor();await capture('sales-register-empty-approvals');
   await page.getByRole('link',{name:'Rate catalogue',exact:true}).click();
@@ -211,7 +224,7 @@ try {
   await page.getByRole('button',{name:'Sign out',exact:true}).click();
   await page.route('**/api/auth/session',route=>route.abort());await page.reload();
   await page.getByRole('button',{name:'Reload session',exact:true}).waitFor();await capture('session-error');
-  await page.unroute('**/api/auth/session');await page.getByRole('button',{name:'Reload session',exact:true}).click();await page.getByLabel('Demo identity').waitFor();
+  await page.unroute('**/api/auth/session');await page.getByRole('button',{name:'Reload session',exact:true}).click();await page.getByLabel('Account').waitFor();
   await writeFile(directory+'/rendered-contrast.json',JSON.stringify(renderedChecks,null,2));assert.deepEqual(errors,[]);await writeFile(`${directory}/captures.json`,JSON.stringify(captures,null,2));
   console.log('PASS: M2 real auth, empty-password validation, loading/submitting/error/reload, keyboard/focus/reduced motion, both roles, Excel and mocked-provider Gemini review, exact source return focus, matrix, rates/authoring; 1440/768/390/320 viewport/full-page captures; real Chrome 200%/400% zoom; skip/route/background focus; 35 contrast pairs.');
 } finally {

@@ -45,7 +45,7 @@ try {
   const origin=`http://127.0.0.1:${port}`;
   async function login(username,password) {
     await page.getByRole('heading',{name:'Sign in',exact:true}).waitFor();
-    await page.getByLabel('Demo identity').selectOption(username);
+    await page.getByLabel('Account').selectOption(username);
     await page.getByLabel('Password',{exact:true}).fill(password);
     await page.getByRole('button',{name:'Sign in',exact:true}).click();
     await page.getByRole('heading',{name:`Signed in as ${username}`,exact:true}).waitFor();

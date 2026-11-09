@@ -92,7 +92,7 @@ try {
   assert.equal(await page.getByTestId('baseline-price').innerText(),'₹149.70');
   assert.equal(await page.getByTestId('baseline-cost').innerText(),'₹119.76');
   await page.getByRole('link',{name:/RFQ register/}).click();await page.getByRole('button',{name:'Sign out',exact:true}).click();
-  await page.getByLabel('Demo identity').selectOption('sales_head');await page.getByLabel('Password',{exact:true}).fill(db.passwords.DEMO_SALES_HEAD_PASSWORD);
+  await page.getByLabel('Account').selectOption('sales_head');await page.getByLabel('Password',{exact:true}).fill(db.passwords.DEMO_SALES_HEAD_PASSWORD);
   await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('heading',{name:'RFQ register',exact:true}).waitFor();
   assert.equal(await page.getByRole('button',{name:'New RFQ',exact:true}).count(),0);assert.deepEqual(errors,[]);
   console.log('PASS: real Chrome manual multi-part validation/correction, atomic save, lost-response refresh/same-key recovery, single-part golden costing, mobile layout and sales-head read-only UI.');

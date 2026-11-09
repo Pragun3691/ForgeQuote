@@ -22,7 +22,7 @@ try {
  const {versionId}=await quotes.createDraftVersion(estimator,request);
  browser=await chromium.launch({channel:process.env.BROWSER_CHANNEL||'chrome',headless:true});
  const page=await browser.newPage({acceptDownloads:true});page.setDefaultTimeout(12000);const errors=[];page.on('pageerror',e=>errors.push(e.name));
- async function login(role,password){await page.goto(origin);await page.getByLabel('Demo identity').selectOption(role);await page.getByLabel('Password',{exact:true}).fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('heading',{name:`Signed in as ${role}`,exact:true}).waitFor();}
+ async function login(role,password){await page.goto(origin);await page.getByLabel('Account').selectOption(role);await page.getByLabel('Password',{exact:true}).fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('heading',{name:`Signed in as ${role}`,exact:true}).waitFor();}
  const status=value=>page.getByRole('status').filter({hasText:`Quotation status: ${value}`}).waitFor();
  await login('estimator',db.passwords.DEMO_ESTIMATOR_PASSWORD);
  await page.goto(`${origin}/#rfq=${fixture.rfqId}&version=${versionId}`);await status('draft');
@@ -45,6 +45,7 @@ try {
   await download.saveAs(`.tmp/t05-pdf/browser-${role}.pdf`);
   const result=await inspectPdf(await readFile(`.tmp/t05-pdf/browser-${role}.pdf`));
   for(const text of [versionId,'₹8,26,50,240.00','₹1,48,77,043.20','₹9,75,27,283.20','T03-3-gear blank'])assert.ok(result.text.includes(text),text);
+  assert.ok(result.text.includes('ForgeQuote'));assert.ok(!/ForgeQuote\s+Demo/i.test(result.text));
   assert.ok(!result.text.includes('marginPercent'));assert.ok(!result.text.includes('Manufacturing'));
  }
  await page.screenshot({path:'.tmp/t05-pdf/download-mobile.png',fullPage:true});

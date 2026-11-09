@@ -20,7 +20,7 @@ try {
  const old=await quotes.createDraftVersion(e,input),latest=await quotes.createDraftVersion(e,input);
  await life.act(e,latest.versionId,'submit',crypto.randomUUID(),{});await life.act(e,latest.versionId,'issue',crypto.randomUUID(),{});
  browser=await chromium.launch({channel:process.env.BROWSER_CHANNEL||'chrome',headless:true});const page=await browser.newPage({viewport:{width:390,height:844}});page.setDefaultTimeout(15000);const errors=[];page.on('pageerror',err=>errors.push(err.message));
- async function login(role,password){await page.goto(origin);await page.getByLabel('Demo identity').selectOption(role);await page.getByLabel('Password',{exact:true}).fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('heading',{name:`Signed in as ${role}`,exact:true}).waitFor();}
+ async function login(role,password){await page.goto(origin);await page.getByLabel('Account').selectOption(role);await page.getByLabel('Password',{exact:true}).fill(password);await page.getByRole('button',{name:'Sign in',exact:true}).click();await page.getByRole('heading',{name:`Signed in as ${role}`,exact:true}).waitFor();}
  await login('sales_head',db.passwords.DEMO_SALES_HEAD_PASSWORD);
  await page.getByRole('link',{name:'Rate catalogue',exact:true}).click();await page.getByRole('heading',{name:'Add effective-dated rate version',exact:true}).waitFor();
  await page.getByLabel('Rate key',{exact:true}).selectOption(fixtureId(1));await page.getByLabel('New decimal value',{exact:true}).fill('123.123456');await page.getByLabel('Effective-from date',{exact:true}).fill(businessDate());await page.getByLabel('Rate change reason',{exact:true}).fill('Synthetic browser rate revision');
